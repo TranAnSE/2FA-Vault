@@ -376,7 +376,7 @@
                     </div>
                 </div>
             </template>
-            <template #subheader>
+            <template #subheader v-if="! showDestinationGroupSelector">
                 <!-- toolbar -->
                 <Toolbar v-if="bus.inManagementMode"
                     v-model:sortOrder="user.preferences.sortOrder"
