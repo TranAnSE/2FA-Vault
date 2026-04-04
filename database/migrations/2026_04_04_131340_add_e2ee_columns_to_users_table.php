@@ -12,8 +12,11 @@ return new class extends Migration
     public function up(): void
     {
         Schema::table('users', function (Blueprint $table) {
+            // Encryption enabled flag
+            $table->boolean('encryption_enabled')->default(true)->after('password');
+            
             // Salt for Argon2id key derivation (base64 encoded, 32 bytes)
-            $table->string('encryption_salt', 255)->nullable()->after('password');
+            $table->string('encryption_salt', 255)->nullable()->after('encryption_enabled');
             
             // Encrypted test value for zero-knowledge password verification
             $table->text('encryption_test_value')->nullable()->after('encryption_salt');
@@ -36,6 +39,7 @@ return new class extends Migration
     {
         Schema::table('users', function (Blueprint $table) {
             $table->dropColumn([
+                'encryption_enabled',
                 'encryption_salt',
                 'encryption_test_value',
                 'encryption_version',

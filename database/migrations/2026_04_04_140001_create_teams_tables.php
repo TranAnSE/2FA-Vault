@@ -31,6 +31,7 @@ return new class extends Migration
             $table->foreignId('user_id')->constrained('users')->onDelete('cascade');
             $table->enum('role', ['owner', 'admin', 'member', 'viewer'])->default('member');
             $table->timestamp('joined_at')->useCurrent();
+            $table->timestamps();
             
             $table->unique(['team_id', 'user_id']);
             $table->index('team_id');
