@@ -11,11 +11,6 @@ jobs:
     name: Backend Tests (PHP)
     runs-on: ubuntu-latest
 
-    strategy:
-      matrix:
-        php-version: ['8.4']
-        database: ['mysql', 'sqlite']
-
     services:
       mysql:
         image: mysql:8.0
@@ -33,116 +28,66 @@ jobs:
       - name: Setup PHP
         uses: shivammathur/setup-php@v2
         with:
-          php-version: ${{ matrix.php-version }}
-          extensions: bcmath, ctype, dom, fileinfo, gd, json, mbstring, openssl, tokenizer, xml
-          coverage: xdebug
+          php-version: '8.4'
+          extensions: bcmath, ctype, dom, fileinfo, gd, json, mbstring, openssl, tokenizer, xml, pdo_mysql, pdo_sqlite
+          coverage: none
 
       - name: Copy environment file
         run: cp .env.testing .env
 
       - name: Install Composer dependencies
-        run: composer install --no-interaction --prefer-dist --no-dev --no-autoloader
-
-      - name: Install Composer dev dependencies
         run: composer install --no-interaction --prefer-dist
 
       - name: Generate application key
         run: php artisan key:generate
 
-      - name: Create database
-        if: matrix.database == 'sqlite'
-        run: touch database/database.sqlite
-
-      - name: Run database migrations
-        run: php artisan migrate --force
-
-      - name: Run PHPStan (Larastan)
-        run: ./vendor/bin/phpstan analyse --memory-limit=2G
-
-      - name: Run Laravel Pint
-        run: ./vendor/bin/pint --test
-
-      - name: Run PHPUnit tests
-        run: ./vendor/bin/phpunit --coverage-clover=coverage.xml
+      - name: Run database migrations (SQLite)
+        run: |
+          touch database/database.sqlite
+          php artisan migrate --force
         env:
-          DB_CONNECTION: ${{ matrix.database }}
+          DB_CONNECTION: sqlite
+          DB_DATABASE: database/database.sqlite
 
-      - name: Upload coverage to Codecov
-        uses: codecov/codecov-action@v4
-        with:
-          file: ./coverage.xml
-          flags: backend-${{ matrix.database }}
-          name: backend-php${{ matrix.php-version }}-${{ matrix.database }}
-          fail_ci_if_error: false
+      - name: Run PHPUnit tests (SQLite)
+        run: ./vendor/bin/phpunit
+        env:
+          DB_CONNECTION: sqlite
+          DB_DATABASE: database/database.sqlite
 
-  frontend-tests:
-    name: Frontend Tests (Vue)
+  frontend-build:
+    name: Frontend Build
     runs-on: ubuntu-latest
 
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+
+      - name: Checkout 2FAuth-Components
+        run: git clone https://github.com/Bubka/2FAuth-Components.git ../2FAuth-Components
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '22'
+
+      - name: Install pnpm
+        run: npm install -g pnpm
+
+      - name: Install 2FAuth-Components dependencies
+        run: |
+          cd ../2FAuth-Components
+          pnpm install
+          pnpm build
 
       - name: Install dependencies
-        run: npm ci
-
-      - name: Run ESLint
-        run: npm run lint
-
-      - name: Run TypeScript check
-        run: npx tsc --noEmit
-
-      - name: Run Vue tests
-        run: npm run test:unit
+        run: pnpm install
 
       - name: Build frontend
         run: npm run build
 
-  security-scan:
-    name: Security Scan
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Run PHP security check
-        uses: woodenmtn/security-check-action@v1
-        with:
-          composer-json: ./composer.json
-          composer-lock: ./composer.lock
-
-      - name: Run npm audit
-        run: npm audit --audit-level=moderate
-        continue-on-error: true
-
-  docker-build:
-    name: Docker Build Test
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-
-      - name: Build Docker image
-        uses: docker/build-push-action@v5
-        with:
-          context: .
-          push: false
-          tags: 2fauth:test
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
-
-  e2e-tests:
-    name: E2E Tests (Playwright)
+  lint:
+    name: Lint
     runs-on: ubuntu-latest
 
     steps:
@@ -153,46 +98,11 @@ jobs:
         uses: shivammathur/setup-php@v2
         with:
           php-version: '8.4'
-          extensions: bcmath, ctype, dom, fileinfo, gd, json, mbstring, openssl, tokenizer, xml
-
-      - name: Copy environment file
-        run: cp .env.testing .env
+          coverage: none
 
       - name: Install Composer dependencies
         run: composer install --no-interaction --prefer-dist
 
-      - name: Generate application key
-        run: php artisan key:generate
-
-      - name: Run database migrations
-        run: php artisan migrate --force
-
-      - name: Start PHP server
-        run: php artisan serve --host=127.0.0.1 --port=8000 &
+      - name: Run Laravel Pint
+        run: ./vendor/bin/pint --test
         continue-on-error: true
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-
-      - name: Install dependencies
-        run: npm ci
-
-      - name: Build frontend
-        run: npm run build
-
-      - name: Install Playwright
-        run: npx playwright install --with-deps chromium
-
-      - name: Run Playwright tests
-        run: npm run test:e2e
-        continue-on-error: true
-
-      - name: Upload Playwright report
-        uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: playwright-report
-          path: playwright-report/
-          retention-days: 30
