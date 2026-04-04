@@ -34,6 +34,10 @@ const router = createRouter({
         { path: '/group/create', name: 'createGroup', component: () => import('../views/groups/CreateUpdate.vue'), meta: { middlewares: [authGuard, syncAppSettings, setReturnTo], watchedByKicker: true } },
         { path: '/group/:groupId/edit', name: 'editGroup', component: () => import('../views/groups/CreateUpdate.vue'), meta: { middlewares: [authGuard, syncAppSettings, setReturnTo], watchedByKicker: true }, props: true },
 
+        { path: '/teams', name: 'teams', component: () => import('../views/teams/TeamList.vue'), meta: { middlewares: [authGuard, syncAppSettings, setReturnTo], watchedByKicker: true } },
+        { path: '/teams/create', name: 'createTeam', component: () => import('../views/teams/CreateTeam.vue'), meta: { middlewares: [authGuard, syncAppSettings, setReturnTo], watchedByKicker: true } },
+        { path: '/teams/:id', name: 'teamDetail', component: () => import('../views/teams/TeamDetail.vue'), meta: { middlewares: [authGuard, syncAppSettings, setReturnTo], watchedByKicker: true }, props: true },
+
         { path: '/settings/options', name: 'settings.options', component: () => import('../views/settings/Options.vue'), meta: { middlewares: [authGuard, syncAppSettings], watchedByKicker: true, showAbout: true } },
         { path: '/settings/account', name: 'settings.account', component: () => import('../views/settings/Account.vue'), meta: { middlewares: [authGuard, syncAppSettings], watchedByKicker: true, showAbout: true } },
         { path: '/settings/oauth', name: 'settings.oauth.tokens', component: () => import('../views/settings/OAuth.vue'), meta: { middlewares: [authGuard, syncAppSettings], watchedByKicker: true, showAbout: true, props: true } },
@@ -46,6 +50,7 @@ const router = createRouter({
         { path: '/admin/users/create', name: 'admin.createUser', component: () => import('../views/admin/users/Create.vue'), meta: { middlewares: [authGuard, syncAppSettings, adminOnly], watchedByKicker: true, showAbout: true } },
         { path: '/admin/users/:userId/manage', name: 'admin.manageUser', component: () => import('../views/admin/users/Manage.vue'), meta: { middlewares: [authGuard, syncAppSettings, adminOnly], watchedByKicker: true, showAbout: true }, props: true },
         { path: '/admin/logs/:userId/access', name: 'admin.logs.access', component: () => import('../views/admin/logs/Access.vue'), meta: { middlewares: [authGuard, syncAppSettings, adminOnly], watchedByKicker: true, showAbout: true }, props: true },
+        { path: '/admin/user-management', name: 'admin.userManagement', component: () => import('../views/admin/UserList.vue'), meta: { middlewares: [authGuard, syncAppSettings, adminOnly], watchedByKicker: true, showAbout: true } },
         
         { path: '/login', name: 'login', component: () => import('../views/auth/Login.vue'), meta: { middlewares: [skipIfAuthProxy, setReturnTo], showAbout: true } },
         { path: '/register', name: 'register', component: () => import('../views/auth/Register.vue'), meta: { middlewares: [skipIfAuthProxy, noRegistration, setReturnTo], showAbout: true } },

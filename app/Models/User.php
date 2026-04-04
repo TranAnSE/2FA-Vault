@@ -89,7 +89,7 @@ class User extends Authenticatable implements HasLocalePreference, WebAuthnAuthe
      * @var list<string>
      */
     protected $fillable = [
-        'name', 'email', 'password', 'oauth_id', 'oauth_provider',
+        'name', 'email', 'password', 'oauth_id', 'oauth_provider', 'is_admin', 'is_active',
     ];
 
     /**
@@ -113,6 +113,7 @@ class User extends Authenticatable implements HasLocalePreference, WebAuthnAuthe
         'email_verified_at'  => 'datetime',
         'password'           => 'hashed',
         'is_admin'           => 'boolean',
+        'is_active'          => 'boolean',
         'twofaccounts_count' => 'integer',
         'groups_count'       => 'integer',
         'encryption_version' => 'integer',
@@ -145,6 +146,17 @@ class User extends Authenticatable implements HasLocalePreference, WebAuthnAuthe
     public function scopeAdmins($query)
     {
         return $query->where('is_admin', true);
+    }
+
+    /**
+     * Scope a query to only include active users.
+     *
+     * @param  \Illuminate\Database\Eloquent\Builder<User>  $query
+     * @return \Illuminate\Database\Eloquent\Builder<User>
+     */
+    public function scopeActive($query)
+    {
+        return $query->where('is_active', true);
     }
 
     /**
@@ -274,4 +286,58 @@ class User extends Authenticatable implements HasLocalePreference, WebAuthnAuthe
             $this->oauth_id == $other->oauth_id &&
             $this->oauth_provider == $other->oauth_provider;
     }
+
+    /**
+     * Get the teams that the user belongs to.
+     *
+     * @return \Illuminate\Database\Eloquent\Relations\BelongsToMany<\App\Models\Team, $this>
+     */
+    public function teams()
+    {
+        return $this->belongsToMany(\App\Models\Team::class, 'team_users')
+            ->withPivot('role', 'joined_at')
+            ->withTimestamps();
+    }
+
+    /**
+     * Get the teams owned by the user.
+     *
+     * @return \Illuminate\Database\Eloquent\Relations\HasMany<\App\Models\Team, $this>
+     */
+    public function ownedTeams()
+    {
+        return $this->hasMany(\App\Models\Team::class, 'owner_id');
+    }
+
+    /**
+     * Check if the user is a member of a team.
+     */
+    public function isTeamMember(int $teamId): bool
+    {
+        return $this->teams()->where('teams.id', $teamId)->exists() 
+            || $this->ownedTeams()->where('id', $teamId)->exists();
+    }
+
+    /**
+     * Check if the user is an admin of a team.
+     */
+    public function isTeamAdmin(int $teamId): bool
+    {
+        $team = $this->teams()->where('teams.id', $teamId)->first();
+        
+        if (!$team) {
+            return $this->ownedTeams()->where('id', $teamId)->exists();
+        }
+
+        return in_array($team->pivot->role, ['admin', 'owner']);
+    }
+
+    /**
+     * Check if the user is the owner of a team.
+     */
+    public function isTeamOwner(int $teamId): bool
+    {
+        return $this->ownedTeams()->where('id', $teamId)->exists();
+    }
 }
+
