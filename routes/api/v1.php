@@ -8,7 +8,9 @@ use App\Api\v1\Controllers\SettingController;
 use App\Api\v1\Controllers\TwoFAccountController;
 use App\Api\v1\Controllers\UserController;
 use App\Api\v1\Controllers\UserManagerController;
+use App\Http\Controllers\Admin\UserManagementController;
 use App\Http\Controllers\EncryptionController;
+use App\Http\Controllers\TeamController;
 use Illuminate\Support\Facades\Date;
 use Illuminate\Support\Facades\Route;
 
@@ -69,6 +71,18 @@ Route::group(['middleware' => 'auth:api-guard'], function () {
     Route::post('encryption/verify', [EncryptionController::class, 'verify'])->name('encryption.verify');
     Route::post('encryption/lock', [EncryptionController::class, 'lock'])->name('encryption.lock');
     Route::delete('encryption/disable', [EncryptionController::class, 'disable'])->name('encryption.disable');
+
+    // Teams routes
+    Route::get('teams', [TeamController::class, 'index'])->name('teams.index');
+    Route::post('teams', [TeamController::class, 'store'])->name('teams.store');
+    Route::get('teams/{id}', [TeamController::class, 'show'])->name('teams.show');
+    Route::put('teams/{id}', [TeamController::class, 'update'])->name('teams.update');
+    Route::delete('teams/{id}', [TeamController::class, 'destroy'])->name('teams.destroy');
+    Route::post('teams/{id}/invite', [TeamController::class, 'invite'])->name('teams.invite');
+    Route::post('teams/join', [TeamController::class, 'join'])->name('teams.join');
+    Route::post('teams/{id}/leave', [TeamController::class, 'leave'])->name('teams.leave');
+    Route::delete('teams/{id}/members/{userId}', [TeamController::class, 'removeMember'])->name('teams.members.remove');
+    Route::put('teams/{id}/members/{userId}/role', [TeamController::class, 'updateMemberRole'])->name('teams.members.updateRole');
 });
 
 /**
@@ -87,6 +101,12 @@ Route::group(['middleware' => ['auth:api-guard', 'admin']], function () {
     Route::post('settings', [SettingController::class, 'store'])->name('settings.store');
     Route::put('settings/{settingName}', [SettingController::class, 'update'])->name('settings.update');
     Route::delete('settings/{settingName}', [SettingController::class, 'destroy'])->name('settings.destroy');
+
+    // Admin user management routes
+    Route::get('admin/users', [UserManagementController::class, 'index'])->name('admin.users.index');
+    Route::get('admin/users/{id}', [UserManagementController::class, 'show'])->name('admin.users.show');
+    Route::put('admin/users/{id}', [UserManagementController::class, 'update'])->name('admin.users.update');
+    Route::delete('admin/users/{id}', [UserManagementController::class, 'destroy'])->name('admin.users.destroy');
 });
 
 Route::get('/{any}', function () {

@@ -172,6 +172,17 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Multi-user and Teams settings
+    |--------------------------------------------------------------------------
+    |
+    */
+
+    'allowRegistration' => env('ALLOW_REGISTRATION', true),
+    'maxTeamsPerUser' => env('MAX_TEAMS_PER_USER', 10),
+    'maxMembersPerTeam' => env('MAX_MEMBERS_PER_TEAM', 50),
+
+    /*
+    |--------------------------------------------------------------------------
     | Default values for user preferences
     | These settings can be overloaded and persisted by each user
     |--------------------------------------------------------------------------
