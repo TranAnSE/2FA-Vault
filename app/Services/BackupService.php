@@ -29,9 +29,10 @@ class BackupService
      * Client-side JavaScript will handle encryption before download.
      * 
      * @param User $user
+     * @param string|null $password Optional password for encryption
      * @return array
      */
-    public function generateEncryptedBackup(User $user): array
+    public function generateEncryptedBackup(User $user, ?string $password = null): array
     {
         // Fetch all 2FA accounts for the user
         $accounts = TwoFAccount::where('user_id', $user->id)
@@ -80,41 +81,45 @@ class BackupService
      * 
      * @param User $user
      * @param array $backupData Decrypted backup data from client
-     * @param string $mode 'merge' or 'replace'
+     * @param string $password Password used for decryption
+     * @param string $format Backup format ('vault' or '2fauth')
      * @return array
      */
-    public function restoreEncryptedBackup(User $user, array $backupData, string $mode = 'merge'): array
+    public function restoreEncryptedBackup(User $user, array $backupData, string $password, string $format = 'vault'): array
     {
         $imported = 0;
         $failed = 0;
+        $skipped = 0;
         $errors = [];
         
         DB::beginTransaction();
         
         try {
-            // If replace mode, delete existing accounts
-            if ($mode === 'replace') {
-                TwoFAccount::where('user_id', $user->id)->delete();
-                Log::info('Existing accounts deleted for replace mode', ['user_id' => $user->id]);
+            // Handle legacy 2FAuth format
+            if ($format === '2fauth' && isset($backupData['accounts'])) {
+                $accounts = $backupData['accounts'];
+            } elseif (isset($backupData['accounts'])) {
+                $accounts = $backupData['accounts'];
+            } else {
+                throw new \Exception('Invalid backup format: no accounts found');
             }
             
             // Import accounts
-            foreach ($backupData['accounts'] as $accountData) {
+            foreach ($accounts as $accountData) {
                 try {
-                    // Check if account already exists (in merge mode)
-                    if ($mode === 'merge') {
-                        $exists = TwoFAccount::where('user_id', $user->id)
-                            ->where('service', $accountData['service'])
-                            ->where('account', $accountData['account'])
-                            ->exists();
-                        
-                        if ($exists) {
-                            Log::info('Account skipped (already exists)', [
-                                'service' => $accountData['service'],
-                                'account' => $accountData['account']
-                            ]);
-                            continue;
-                        }
+                    // Check if account already exists
+                    $exists = TwoFAccount::where('user_id', $user->id)
+                        ->where('service', $accountData['service'] ?? 'Unknown')
+                        ->where('account', $accountData['account'] ?? '')
+                        ->exists();
+                    
+                    if ($exists) {
+                        $skipped++;
+                        Log::info('Account skipped (already exists)', [
+                            'service' => $accountData['service'] ?? 'Unknown',
+                            'account' => $accountData['account'] ?? ''
+                        ]);
+                        continue;
                     }
                     
                     // Create new account
@@ -153,6 +158,7 @@ class BackupService
             return [
                 'imported' => $imported,
                 'failed' => $failed,
+                'skipped' => $skipped,
                 'errors' => $errors
             ];
             

@@ -22,12 +22,12 @@ class PushSubscriptionController extends Controller
     /**
      * Store push subscription
      */
-    public function store(Request $request)
+    public function subscribe(Request $request)
     {
         $validated = $request->validate([
             'endpoint' => 'required|url',
-            'keys.p256dh' => 'required|string',
-            'keys.auth' => 'required|string'
+            'public_key' => 'required|string',
+            'auth_token' => 'required|string'
         ]);
 
         // Check if subscription already exists
@@ -38,43 +38,77 @@ class PushSubscriptionController extends Controller
         if ($subscription) {
             // Update existing subscription
             $subscription->update([
-                'p256dh' => $validated['keys']['p256dh'],
-                'auth' => $validated['keys']['auth'],
-                'content_encoding' => 'aes128gcm'
+                'public_key' => $validated['public_key'],
+                'auth_token' => $validated['auth_token'],
             ]);
         } else {
             // Create new subscription
             $subscription = PushSubscription::create([
                 'user_id' => auth()->id(),
                 'endpoint' => $validated['endpoint'],
-                'p256dh' => $validated['keys']['p256dh'],
-                'auth' => $validated['keys']['auth'],
-                'content_encoding' => 'aes128gcm'
+                'public_key' => $validated['public_key'],
+                'auth_token' => $validated['auth_token'],
             ]);
         }
 
         return response()->json([
-            'message' => 'Subscription saved successfully',
-            'subscription' => $subscription
+            'id' => $subscription->id,
+            'endpoint' => $subscription->endpoint,
+            'created_at' => $subscription->created_at,
         ], 201);
+    }
+
+    /**
+     * Store push subscription (legacy method)
+     */
+    public function store(Request $request)
+    {
+        return $this->subscribe($request);
+    }
+
+    /**
+     * List user's subscriptions
+     */
+    public function index(Request $request)
+    {
+        $subscriptions = PushSubscription::where('user_id', auth()->id())
+            ->get()
+            ->map(function ($sub) {
+                return [
+                    'id' => $sub->id,
+                    'endpoint' => $sub->endpoint,
+                    'created_at' => $sub->created_at,
+                ];
+            });
+
+        return response()->json([
+            'data' => $subscriptions
+        ]);
     }
 
     /**
      * Remove push subscription
      */
-    public function destroy(Request $request)
+    public function unsubscribe(Request $request)
     {
         $validated = $request->validate([
             'endpoint' => 'required|url'
         ]);
 
-        $deleted = PushSubscription::where('endpoint', $validated['endpoint'])
+        $subscription = PushSubscription::where('endpoint', $validated['endpoint'])
             ->where('user_id', auth()->id())
-            ->delete();
+            ->first();
+
+        if (!$subscription) {
+            return response()->json([
+                'message' => 'Subscription not found'
+            ], 404);
+        }
+
+        $subscription->delete();
 
         return response()->json([
-            'message' => $deleted ? 'Subscription removed successfully' : 'Subscription not found',
-            'deleted' => $deleted
+            'message' => 'Subscription removed successfully'
         ]);
     }
 

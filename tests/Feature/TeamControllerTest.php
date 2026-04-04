@@ -20,7 +20,7 @@ class TeamControllerTest extends TestCase
     {
         $user = User::factory()->create();
         
-        $response = $this->actingAs($user)->postJson('/api/teams', [
+        $response = $this->actingAs($user, 'api-guard')->postJson('/api/v1/teams', [
             'name' => 'Development Team',
             'description' => 'Team for developers'
         ]);
@@ -73,7 +73,7 @@ class TeamControllerTest extends TestCase
             'role' => 'member'
         ]);
 
-        $response = $this->actingAs($user)->getJson('/api/teams');
+        $response = $this->actingAs($user, 'api-guard')->getJson('/api/v1/teams');
 
         $response->assertStatus(200)
             ->assertJsonCount(2, 'data')
@@ -97,7 +97,7 @@ class TeamControllerTest extends TestCase
             'role' => 'owner'
         ]);
 
-        $response = $this->actingAs($owner)->postJson("/api/teams/{$team->id}/invitations", [
+        $response = $this->actingAs($owner, 'api-guard')->postJson("/api/v1/teams/{$team->id}/invitations", [
             'email' => $invitee->email,
             'role' => 'member'
         ]);
@@ -130,7 +130,7 @@ class TeamControllerTest extends TestCase
             'status' => 'pending'
         ]);
 
-        $response = $this->actingAs($invitee)->postJson("/api/teams/invitations/{$invitation->token}/accept");
+        $response = $this->actingAs($invitee, 'api-guard')->postJson("/api/v1/teams/invitations/{$invitation->token}/accept");
 
         $response->assertStatus(200);
 
@@ -168,7 +168,7 @@ class TeamControllerTest extends TestCase
             'role' => 'member'
         ]);
 
-        $response = $this->actingAs($member)->deleteJson("/api/teams/{$team->id}/members/{$member->id}");
+        $response = $this->actingAs($member, 'api-guard')->deleteJson("/api/v1/teams/{$team->id}/members/{$member->id}");
 
         $response->assertStatus(200);
 
@@ -191,7 +191,7 @@ class TeamControllerTest extends TestCase
             'role' => 'owner'
         ]);
 
-        $response = $this->actingAs($owner)->deleteJson("/api/teams/{$team->id}");
+        $response = $this->actingAs($owner, 'api-guard')->deleteJson("/api/v1/teams/{$team->id}");
 
         $response->assertStatus(200);
 
@@ -229,7 +229,7 @@ class TeamControllerTest extends TestCase
             'role' => 'member'
         ]);
 
-        $response = $this->actingAs($admin)->deleteJson("/api/teams/{$team->id}/members/{$member->id}");
+        $response = $this->actingAs($admin, 'api-guard')->deleteJson("/api/v1/teams/{$team->id}/members/{$member->id}");
 
         $response->assertStatus(200);
 
@@ -260,7 +260,7 @@ class TeamControllerTest extends TestCase
             'role' => 'viewer'
         ]);
 
-        $response = $this->actingAs($viewer)->putJson("/api/teams/{$team->id}", [
+        $response = $this->actingAs($viewer, 'api-guard')->putJson("/api/v1/teams/{$team->id}", [
             'name' => 'Updated Team Name'
         ]);
 
@@ -287,7 +287,7 @@ class TeamControllerTest extends TestCase
             'role' => 'owner'
         ]);
 
-        $response = $this->actingAs($unauthorized)->getJson("/api/teams/{$team->id}");
+        $response = $this->actingAs($unauthorized, 'api-guard')->getJson("/api/v1/teams/{$team->id}");
 
         $response->assertStatus(403);
     }

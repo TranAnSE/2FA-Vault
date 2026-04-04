@@ -74,10 +74,21 @@ Route::group(['middleware' => 'auth:api-guard'], function () {
     Route::delete('encryption/disable', [EncryptionController::class, 'disable'])->name('encryption.disable');
 
     // Backup routes
+    Route::post('backups/export', [\App\Http\Controllers\BackupController::class, 'export'])->name('backups.export');
+    Route::post('backups/import', [\App\Http\Controllers\BackupController::class, 'import'])->name('backups.import');
+    Route::post('backups/metadata', [\App\Http\Controllers\BackupController::class, 'metadata'])->name('backups.metadata');
+    Route::get('backups/info', [\App\Http\Controllers\BackupController::class, 'info'])->name('backups.info');
+    
+    // Legacy backup routes (backward compatibility)
     Route::get('backup/export', [\App\Http\Controllers\BackupController::class, 'export'])->name('backup.export');
     Route::post('backup/import', [\App\Http\Controllers\BackupController::class, 'import'])->name('backup.import');
     Route::post('backup/metadata', [\App\Http\Controllers\BackupController::class, 'metadata'])->name('backup.metadata');
     Route::get('backup/info', [\App\Http\Controllers\BackupController::class, 'info'])->name('backup.info');
+
+    // Push notification subscription routes
+    Route::post('push/subscribe', [\App\Http\Controllers\PushSubscriptionController::class, 'subscribe'])->name('push.subscribe');
+    Route::delete('push/unsubscribe', [\App\Http\Controllers\PushSubscriptionController::class, 'unsubscribe'])->name('push.unsubscribe');
+    Route::get('push/subscriptions', [\App\Http\Controllers\PushSubscriptionController::class, 'index'])->name('push.subscriptions.index');
 
     // Teams routes
     Route::get('teams', [TeamController::class, 'index'])->name('teams.index');
@@ -86,6 +97,8 @@ Route::group(['middleware' => 'auth:api-guard'], function () {
     Route::put('teams/{id}', [TeamController::class, 'update'])->name('teams.update');
     Route::delete('teams/{id}', [TeamController::class, 'destroy'])->name('teams.destroy');
     Route::post('teams/{id}/invite', [TeamController::class, 'invite'])->name('teams.invite');
+    Route::post('teams/{id}/invitations', [TeamController::class, 'invite'])->name('teams.invitations.create');
+    Route::post('teams/invitations/{token}/accept', [TeamController::class, 'acceptInvitation'])->name('teams.invitations.accept');
     Route::post('teams/join', [TeamController::class, 'join'])->name('teams.join');
     Route::post('teams/{id}/leave', [TeamController::class, 'leave'])->name('teams.leave');
     Route::delete('teams/{id}/members/{userId}', [TeamController::class, 'removeMember'])->name('teams.members.remove');

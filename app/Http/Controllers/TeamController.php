@@ -150,11 +150,69 @@ class TeamController extends Controller
             return response()->json(['message' => 'Forbidden'], 403);
         }
 
-        $inviteCode = $team->generateInviteCode();
+        $validated = $request->validate([
+            'email' => 'required|email',
+            'role' => ['nullable', Rule::in(['admin', 'member', 'viewer'])],
+        ]);
+
+        // Create team invitation
+        $invitation = \App\Models\TeamInvitation::create([
+            'team_id' => $team->id,
+            'email' => $validated['email'],
+            'role' => $validated['role'] ?? 'member',
+            'token' => \Illuminate\Support\Str::random(32),
+            'status' => 'pending',
+        ]);
 
         return response()->json([
-            'invite_code' => $inviteCode,
-            'invite_url' => route('teams.join', ['code' => $inviteCode]),
+            'message' => 'Invitation sent successfully',
+            'invitation' => $invitation,
+        ], 201);
+    }
+
+    /**
+     * Accept team invitation.
+     */
+    public function acceptInvitation(Request $request, $token)
+    {
+        $invitation = \App\Models\TeamInvitation::where('token', $token)
+            ->where('status', 'pending')
+            ->firstOrFail();
+
+        $user = Auth::user();
+
+        // Verify email matches
+        if ($invitation->email !== $user->email) {
+            return response()->json(['message' => 'This invitation is not for your email address'], 403);
+        }
+
+        $team = Team::findOrFail($invitation->team_id);
+
+        // Check if already a member
+        if ($team->hasMember($user->id)) {
+            return response()->json(['message' => 'You are already a member of this team'], 400);
+        }
+
+        // Check team size limit
+        $maxMembers = config('2fauth.maxMembersPerTeam', 50);
+        if ($team->users()->count() >= $maxMembers) {
+            return response()->json([
+                'message' => "This team has reached the maximum number of members ({$maxMembers})."
+            ], 403);
+        }
+
+        // Add user to team
+        $team->users()->attach($user->id, [
+            'role' => $invitation->role,
+            'joined_at' => now(),
+        ]);
+
+        // Update invitation status
+        $invitation->update(['status' => 'accepted']);
+
+        return response()->json([
+            'message' => 'Successfully joined team',
+            'team' => $team,
         ]);
     }
 
