@@ -1,8 +1,24 @@
-# 2FAuth
+# 2FA-Vault
 
 ![Docker build status](https://img.shields.io/github/actions/workflow/status/bubka/2fauth/ci-docker-test.yml?branch=master&style=flat-square)
 ![https://codecov.io/gh/Bubka/2FAuth](https://img.shields.io/codecov/c/github/Bubka/2FAuth?style=flat-square)
 ![https://github.com/Bubka/2FAuth/blob/master/LICENSE](https://img.shields.io/github/license/Bubka/2FAuth.svg?style=flat-square)
+
+## 🔒 Enhanced Fork with Enterprise Features
+
+**2FA-Vault** is an enhanced fork of [2FAuth](https://github.com/Bubka/2FAuth) with additional enterprise-grade features:
+
+- 🔐 **End-to-End Encryption (E2EE)**: Client-side encryption with Web Crypto API, Argon2id key derivation, and AES-256-GCM
+- 👥 **Multi-User & Team Management**: Role-based access control, team collaboration, and secure sharing
+- 🧩 **Browser Extension**: Chrome/Firefox extension for seamless OTP access across websites
+- 📱 **Progressive Web App (PWA)**: Offline-first architecture with background sync and push notifications
+- 🚀 **Modern Tech Stack**: Laravel 12 + Vue 3 + TypeScript
+
+See [ARCHITECTURE.md](ARCHITECTURE.md) for technical details and [ROADMAP.md](ROADMAP.md) for development phases.
+
+---
+
+## About 2FAuth
 
 A web app to manage your Two-Factor Authentication (2FA) accounts and generate their security codes
 
