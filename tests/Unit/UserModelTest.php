@@ -20,7 +20,7 @@ class UserModelTest extends ModelTestCase
     {
         $this->runConfigurationAssertions(new User,
             ['name', 'email', 'password', 'oauth_id', 'oauth_provider', 'is_admin', 'is_active'],
-            ['password', 'remember_token'],
+            ['password', 'remember_token', 'encryption_salt', 'encryption_test_value'],
             ['*'],
             [],
             [
