@@ -31,7 +31,7 @@ class PushSubscriptionTest extends TestCase
             'auth_token' => 'tBHItJI5svbpez7KI4CCXg==',
         ];
 
-        $response = $this->actingAs($this->user)
+        $response = $this->actingAs($this->user, 'api-guard')
             ->postJson('/api/v1/push/subscribe', $subscriptionData);
 
         $response->assertStatus(201)
@@ -70,7 +70,7 @@ class PushSubscriptionTest extends TestCase
     /** @test */
     public function test_store_subscription_requires_endpoint()
     {
-        $response = $this->actingAs($this->user)
+        $response = $this->actingAs($this->user, 'api-guard')
             ->postJson('/api/v1/push/subscribe', [
                 'public_key' => 'BEl62iUYgUivxIkv69yViEuiBIa-Ib37gp_rvQ...',
                 'auth_token' => 'tBHItJI5svbpez7KI4CCXg==',
@@ -83,7 +83,7 @@ class PushSubscriptionTest extends TestCase
     /** @test */
     public function test_store_subscription_endpoint_must_be_url()
     {
-        $response = $this->actingAs($this->user)
+        $response = $this->actingAs($this->user, 'api-guard')
             ->postJson('/api/v1/push/subscribe', [
                 'endpoint' => 'not-a-valid-url',
                 'public_key' => 'BEl62iUYgUivxIkv69yViEuiBIa-Ib37gp_rvQ...',
@@ -97,7 +97,7 @@ class PushSubscriptionTest extends TestCase
     /** @test */
     public function test_store_subscription_requires_public_key()
     {
-        $response = $this->actingAs($this->user)
+        $response = $this->actingAs($this->user, 'api-guard')
             ->postJson('/api/v1/push/subscribe', [
                 'endpoint' => 'https://fcm.googleapis.com/fcm/send/example-endpoint-id',
                 'auth_token' => 'tBHItJI5svbpez7KI4CCXg==',
@@ -110,7 +110,7 @@ class PushSubscriptionTest extends TestCase
     /** @test */
     public function test_store_subscription_requires_auth_token()
     {
-        $response = $this->actingAs($this->user)
+        $response = $this->actingAs($this->user, 'api-guard')
             ->postJson('/api/v1/push/subscribe', [
                 'endpoint' => 'https://fcm.googleapis.com/fcm/send/example-endpoint-id',
                 'public_key' => 'BEl62iUYgUivxIkv69yViEuiBIa-Ib37gp_rvQ...',

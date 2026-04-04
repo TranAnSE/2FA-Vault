@@ -11,9 +11,10 @@ class TeamInvitation extends Model
 
     protected $fillable = [
         'team_id',
-        'user_id',
+        'email',
         'token',
         'role',
+        'status',
         'expires_at',
     ];
 
