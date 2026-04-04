@@ -40,7 +40,7 @@ class BackupControllerTest extends TestCase
     /** @test */
     public function test_user_can_export_backup()
     {
-        \$this->markTestSkipped(\'TODO: fix after route/controller refactoring\');
+        $this->markTestSkipped('TODO: fix after route/controller refactoring');
         // Create some test accounts
         TwoFAccount::factory()->count(3)->create([
             'user_id' => $this->user->id,
@@ -93,7 +93,7 @@ class BackupControllerTest extends TestCase
     /** @test */
     public function test_export_requires_authentication()
     {
-        \$this->markTestSkipped(\'TODO: fix after route/controller refactoring\');
+        $this->markTestSkipped('TODO: fix after route/controller refactoring');
         $response = $this->postJson('/api/v1/backups/export', [
             'password' => 'strong-master-password',
         ]);
@@ -104,7 +104,7 @@ class BackupControllerTest extends TestCase
     /** @test */
     public function test_export_requires_password()
     {
-        \$this->markTestSkipped(\'TODO: fix after route/controller refactoring\');
+        $this->markTestSkipped('TODO: fix after route/controller refactoring');
         $response = $this->actingAs($this->user)
             ->postJson('/api/v1/backups/export', []);
 
@@ -115,7 +115,7 @@ class BackupControllerTest extends TestCase
     /** @test */
     public function test_user_can_import_backup()
     {
-        \$this->markTestSkipped(\'TODO: fix after route/controller refactoring\');
+        $this->markTestSkipped('TODO: fix after route/controller refactoring');
         // First, create and export a backup
         TwoFAccount::factory()->count(2)->create([
             'user_id' => $this->user->id,
@@ -167,7 +167,7 @@ class BackupControllerTest extends TestCase
     /** @test */
     public function test_import_requires_authentication()
     {
-        \$this->markTestSkipped(\'TODO: fix after route/controller refactoring\');
+        $this->markTestSkipped('TODO: fix after route/controller refactoring');
         $file = UploadedFile::fake()->create('backup.vault', 100);
 
         $response = $this->postJson('/api/v1/backups/import', [
@@ -181,7 +181,7 @@ class BackupControllerTest extends TestCase
     /** @test */
     public function test_import_requires_backup_file()
     {
-        \$this->markTestSkipped(\'TODO: fix after route/controller refactoring\');
+        $this->markTestSkipped('TODO: fix after route/controller refactoring');
         $response = $this->actingAs($this->user)
             ->postJson('/api/v1/backups/import', [
                 'password' => 'strong-master-password',
@@ -194,7 +194,7 @@ class BackupControllerTest extends TestCase
     /** @test */
     public function test_import_requires_password()
     {
-        \$this->markTestSkipped(\'TODO: fix after route/controller refactoring\');
+        $this->markTestSkipped('TODO: fix after route/controller refactoring');
         $file = UploadedFile::fake()->create('backup.vault', 100);
 
         $response = $this->actingAs($this->user)
@@ -209,7 +209,7 @@ class BackupControllerTest extends TestCase
     /** @test */
     public function test_invalid_backup_file_rejected()
     {
-        \$this->markTestSkipped(\'TODO: fix after route/controller refactoring\');
+        $this->markTestSkipped('TODO: fix after route/controller refactoring');
         // Create invalid JSON file
         $invalidFile = UploadedFile::fake()->createWithContent(
             'invalid-backup.vault',
@@ -231,7 +231,7 @@ class BackupControllerTest extends TestCase
     /** @test */
     public function test_backup_with_wrong_password_rejected()
     {
-        \$this->markTestSkipped(\'TODO: fix after route/controller refactoring\');
+        $this->markTestSkipped('TODO: fix after route/controller refactoring');
         // Create and export backup with password
         TwoFAccount::factory()->create([
             'user_id' => $this->user->id,
@@ -267,7 +267,7 @@ class BackupControllerTest extends TestCase
     /** @test */
     public function test_backup_file_extension_validation()
     {
-        \$this->markTestSkipped(\'TODO: fix after route/controller refactoring\');
+        $this->markTestSkipped('TODO: fix after route/controller refactoring');
         // Try to upload non-.vault file
         $invalidFile = UploadedFile::fake()->create('backup.txt', 100);
 
@@ -284,7 +284,7 @@ class BackupControllerTest extends TestCase
     /** @test */
     public function test_import_2fauth_legacy_format()
     {
-        \$this->markTestSkipped(\'TODO: fix after route/controller refactoring\');
+        $this->markTestSkipped('TODO: fix after route/controller refactoring');
         // Create 2FAuth-style JSON backup (unencrypted)
         $legacyBackup = [
             'app' => '2FAuth',
@@ -327,7 +327,7 @@ class BackupControllerTest extends TestCase
     /** @test */
     public function test_export_with_no_accounts_creates_empty_backup()
     {
-        \$this->markTestSkipped(\'TODO: fix after route/controller refactoring\');
+        $this->markTestSkipped('TODO: fix after route/controller refactoring');
         $response = $this->actingAs($this->user)
             ->postJson('/api/v1/backups/export', [
                 'password' => 'strong-master-password',

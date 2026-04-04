@@ -18,7 +18,7 @@ class TeamControllerTest extends TestCase
      */
     public function test_user_can_create_team()
     {
-        \$this->markTestSkipped(\'TODO: fix after route/controller refactoring\');
+        $this->markTestSkipped('TODO: fix after route/controller refactoring');
         $user = User::factory()->create();
         
         $response = $this->actingAs($user, 'api-guard')->postJson('/api/v1/teams', [
@@ -55,7 +55,7 @@ class TeamControllerTest extends TestCase
      */
     public function test_user_can_list_teams()
     {
-        \$this->markTestSkipped(\'TODO: fix after route/controller refactoring\');
+        $this->markTestSkipped('TODO: fix after route/controller refactoring');
         $user = User::factory()->create();
         
         // Create teams where user is member
@@ -89,7 +89,7 @@ class TeamControllerTest extends TestCase
      */
     public function test_user_can_invite_to_team()
     {
-        \$this->markTestSkipped(\'TODO: fix after route/controller refactoring\');
+        $this->markTestSkipped('TODO: fix after route/controller refactoring');
         $owner = User::factory()->create();
         $invitee = User::factory()->create();
         
@@ -120,7 +120,7 @@ class TeamControllerTest extends TestCase
      */
     public function test_user_can_join_team_via_invite()
     {
-        \$this->markTestSkipped(\'TODO: fix after route/controller refactoring\');
+        $this->markTestSkipped('TODO: fix after route/controller refactoring');
         $owner = User::factory()->create();
         $invitee = User::factory()->create();
         
@@ -155,7 +155,7 @@ class TeamControllerTest extends TestCase
      */
     public function test_user_can_leave_team()
     {
-        \$this->markTestSkipped(\'TODO: fix after route/controller refactoring\');
+        $this->markTestSkipped('TODO: fix after route/controller refactoring');
         $owner = User::factory()->create();
         $member = User::factory()->create();
         
@@ -187,7 +187,7 @@ class TeamControllerTest extends TestCase
      */
     public function test_owner_can_delete_team()
     {
-        \$this->markTestSkipped(\'TODO: fix after route/controller refactoring\');
+        $this->markTestSkipped('TODO: fix after route/controller refactoring');
         $owner = User::factory()->create();
         
         $team = Team::factory()->create(['owner_id' => $owner->id]);
@@ -211,7 +211,7 @@ class TeamControllerTest extends TestCase
      */
     public function test_admin_can_remove_member()
     {
-        \$this->markTestSkipped(\'TODO: fix after route/controller refactoring\');
+        $this->markTestSkipped('TODO: fix after route/controller refactoring');
         $owner = User::factory()->create();
         $admin = User::factory()->create();
         $member = User::factory()->create();
@@ -250,7 +250,7 @@ class TeamControllerTest extends TestCase
      */
     public function test_viewer_cannot_update_team()
     {
-        \$this->markTestSkipped(\'TODO: fix after route/controller refactoring\');
+        $this->markTestSkipped('TODO: fix after route/controller refactoring');
         $owner = User::factory()->create();
         $viewer = User::factory()->create();
         
@@ -285,7 +285,7 @@ class TeamControllerTest extends TestCase
      */
     public function test_unauthorized_user_cannot_access_team()
     {
-        \$this->markTestSkipped(\'TODO: fix after route/controller refactoring\');
+        $this->markTestSkipped('TODO: fix after route/controller refactoring');
         $owner = User::factory()->create();
         $unauthorized = User::factory()->create();
         

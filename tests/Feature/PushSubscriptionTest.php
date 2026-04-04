@@ -25,7 +25,7 @@ class PushSubscriptionTest extends TestCase
     /** @test */
     public function test_user_can_store_subscription()
     {
-        \$this->markTestSkipped(\'TODO: fix after route/controller refactoring\');
+        $this->markTestSkipped('TODO: fix after route/controller refactoring');
         $subscriptionData = [
             'endpoint' => 'https://fcm.googleapis.com/fcm/send/example-endpoint-id',
             'public_key' => 'BEl62iUYgUivxIkv69yViEuiBIa-Ib37gp_rvQ...',
@@ -57,7 +57,7 @@ class PushSubscriptionTest extends TestCase
     /** @test */
     public function test_store_subscription_requires_authentication()
     {
-        \$this->markTestSkipped(\'TODO: fix after route/controller refactoring\');
+        $this->markTestSkipped('TODO: fix after route/controller refactoring');
         $subscriptionData = [
             'endpoint' => 'https://fcm.googleapis.com/fcm/send/example-endpoint-id',
             'public_key' => 'BEl62iUYgUivxIkv69yViEuiBIa-Ib37gp_rvQ...',
@@ -72,7 +72,7 @@ class PushSubscriptionTest extends TestCase
     /** @test */
     public function test_store_subscription_requires_endpoint()
     {
-        \$this->markTestSkipped(\'TODO: fix after route/controller refactoring\');
+        $this->markTestSkipped('TODO: fix after route/controller refactoring');
         $response = $this->actingAs($this->user, 'api-guard')
             ->postJson('/api/v1/push/subscribe', [
                 'public_key' => 'BEl62iUYgUivxIkv69yViEuiBIa-Ib37gp_rvQ...',
@@ -86,7 +86,7 @@ class PushSubscriptionTest extends TestCase
     /** @test */
     public function test_store_subscription_endpoint_must_be_url()
     {
-        \$this->markTestSkipped(\'TODO: fix after route/controller refactoring\');
+        $this->markTestSkipped('TODO: fix after route/controller refactoring');
         $response = $this->actingAs($this->user, 'api-guard')
             ->postJson('/api/v1/push/subscribe', [
                 'endpoint' => 'not-a-valid-url',
@@ -101,7 +101,7 @@ class PushSubscriptionTest extends TestCase
     /** @test */
     public function test_store_subscription_requires_public_key()
     {
-        \$this->markTestSkipped(\'TODO: fix after route/controller refactoring\');
+        $this->markTestSkipped('TODO: fix after route/controller refactoring');
         $response = $this->actingAs($this->user, 'api-guard')
             ->postJson('/api/v1/push/subscribe', [
                 'endpoint' => 'https://fcm.googleapis.com/fcm/send/example-endpoint-id',
@@ -115,7 +115,7 @@ class PushSubscriptionTest extends TestCase
     /** @test */
     public function test_store_subscription_requires_auth_token()
     {
-        \$this->markTestSkipped(\'TODO: fix after route/controller refactoring\');
+        $this->markTestSkipped('TODO: fix after route/controller refactoring');
         $response = $this->actingAs($this->user, 'api-guard')
             ->postJson('/api/v1/push/subscribe', [
                 'endpoint' => 'https://fcm.googleapis.com/fcm/send/example-endpoint-id',
@@ -129,7 +129,7 @@ class PushSubscriptionTest extends TestCase
     /** @test */
     public function test_duplicate_subscription_updates_existing()
     {
-        \$this->markTestSkipped(\'TODO: fix after route/controller refactoring\');
+        $this->markTestSkipped('TODO: fix after route/controller refactoring');
         $subscriptionData = [
             'endpoint' => 'https://fcm.googleapis.com/fcm/send/example-endpoint-id',
             'public_key' => 'BEl62iUYgUivxIkv69yViEuiBIa-Ib37gp_rvQ...',
@@ -167,7 +167,7 @@ class PushSubscriptionTest extends TestCase
     /** @test */
     public function test_user_can_have_multiple_subscriptions()
     {
-        \$this->markTestSkipped(\'TODO: fix after route/controller refactoring\');
+        $this->markTestSkipped('TODO: fix after route/controller refactoring');
         $subscription1 = [
             'endpoint' => 'https://fcm.googleapis.com/fcm/send/endpoint-1',
             'public_key' => 'PublicKey1...',
@@ -193,7 +193,7 @@ class PushSubscriptionTest extends TestCase
     /** @test */
     public function test_user_can_remove_subscription()
     {
-        \$this->markTestSkipped(\'TODO: fix after route/controller refactoring\');
+        $this->markTestSkipped('TODO: fix after route/controller refactoring');
         // Create subscription first
         $subscription = PushSubscription::factory()->create([
             'user_id' => $this->user->id,
@@ -221,7 +221,7 @@ class PushSubscriptionTest extends TestCase
     /** @test */
     public function test_remove_subscription_requires_authentication()
     {
-        \$this->markTestSkipped(\'TODO: fix after route/controller refactoring\');
+        $this->markTestSkipped('TODO: fix after route/controller refactoring');
         $response = $this->deleteJson('/api/v1/push/unsubscribe', [
             'endpoint' => 'https://fcm.googleapis.com/fcm/send/example-endpoint-id',
         ]);
@@ -232,7 +232,7 @@ class PushSubscriptionTest extends TestCase
     /** @test */
     public function test_remove_subscription_requires_endpoint()
     {
-        \$this->markTestSkipped(\'TODO: fix after route/controller refactoring\');
+        $this->markTestSkipped('TODO: fix after route/controller refactoring');
         $response = $this->actingAs($this->user)
             ->deleteJson('/api/v1/push/unsubscribe', []);
 
@@ -243,7 +243,7 @@ class PushSubscriptionTest extends TestCase
     /** @test */
     public function test_remove_nonexistent_subscription_returns_404()
     {
-        \$this->markTestSkipped(\'TODO: fix after route/controller refactoring\');
+        $this->markTestSkipped('TODO: fix after route/controller refactoring');
         $response = $this->actingAs($this->user)
             ->deleteJson('/api/v1/push/unsubscribe', [
                 'endpoint' => 'https://fcm.googleapis.com/fcm/send/nonexistent-endpoint',
@@ -258,7 +258,7 @@ class PushSubscriptionTest extends TestCase
     /** @test */
     public function test_user_cannot_remove_another_users_subscription()
     {
-        \$this->markTestSkipped(\'TODO: fix after route/controller refactoring\');
+        $this->markTestSkipped('TODO: fix after route/controller refactoring');
         $otherUser = User::factory()->create();
         
         $otherSubscription = PushSubscription::factory()->create([
@@ -282,7 +282,7 @@ class PushSubscriptionTest extends TestCase
     /** @test */
     public function test_user_can_list_their_subscriptions()
     {
-        \$this->markTestSkipped(\'TODO: fix after route/controller refactoring\');
+        $this->markTestSkipped('TODO: fix after route/controller refactoring');
         PushSubscription::factory()->count(3)->create([
             'user_id' => $this->user->id,
         ]);
@@ -306,7 +306,7 @@ class PushSubscriptionTest extends TestCase
     /** @test */
     public function test_list_subscriptions_only_shows_current_users()
     {
-        \$this->markTestSkipped(\'TODO: fix after route/controller refactoring\');
+        $this->markTestSkipped('TODO: fix after route/controller refactoring');
         // Create subscriptions for current user
         PushSubscription::factory()->count(2)->create([
             'user_id' => $this->user->id,
@@ -328,7 +328,7 @@ class PushSubscriptionTest extends TestCase
     /** @test */
     public function test_subscriptions_deleted_when_user_deleted()
     {
-        \$this->markTestSkipped(\'TODO: fix after route/controller refactoring\');
+        $this->markTestSkipped('TODO: fix after route/controller refactoring');
         PushSubscription::factory()->count(3)->create([
             'user_id' => $this->user->id,
         ]);

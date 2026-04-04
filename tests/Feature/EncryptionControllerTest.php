@@ -29,7 +29,7 @@ class EncryptionControllerTest extends TestCase
      */
     public function test_user_can_setup_encryption(): void
     {
-        \$this->markTestSkipped(\'TODO: fix after route/controller refactoring\');
+        $this->markTestSkipped('TODO: fix after route/controller refactoring');
         $response = $this->actingAs($this->user, 'api-guard')
             ->postJson('/api/v1/encryption/setup', [
                 'encryption_salt' => 'test_salt_base64_encoded',
@@ -55,7 +55,7 @@ class EncryptionControllerTest extends TestCase
      */
     public function test_encryption_setup_requires_authentication(): void
     {
-        \$this->markTestSkipped(\'TODO: fix after route/controller refactoring\');
+        $this->markTestSkipped('TODO: fix after route/controller refactoring');
         $response = $this->postJson('/api/v1/encryption/setup', [
             'encryption_salt' => 'test_salt',
             'encryption_test_value' => 'test_value',
@@ -70,7 +70,7 @@ class EncryptionControllerTest extends TestCase
      */
     public function test_encryption_setup_validates_fields(): void
     {
-        \$this->markTestSkipped(\'TODO: fix after route/controller refactoring\');
+        $this->markTestSkipped('TODO: fix after route/controller refactoring');
         $response = $this->actingAs($this->user, 'api-guard')
             ->postJson('/api/v1/encryption/setup', [
                 // Missing required fields
@@ -84,7 +84,7 @@ class EncryptionControllerTest extends TestCase
      */
     public function test_encryption_setup_cannot_be_done_twice(): void
     {
-        \$this->markTestSkipped(\'TODO: fix after route/controller refactoring\');
+        $this->markTestSkipped('TODO: fix after route/controller refactoring');
         // First setup
         $this->user->encryption_version = 1;
         $this->user->save();
@@ -108,7 +108,7 @@ class EncryptionControllerTest extends TestCase
      */
     public function test_user_can_get_encryption_info(): void
     {
-        \$this->markTestSkipped(\'TODO: fix after route/controller refactoring\');
+        $this->markTestSkipped('TODO: fix after route/controller refactoring');
         // Setup encryption
         $this->user->encryption_salt = 'test_salt';
         $this->user->encryption_test_value = 'test_value';
@@ -134,7 +134,7 @@ class EncryptionControllerTest extends TestCase
      */
     public function test_encryption_info_returns_false_when_not_enabled(): void
     {
-        \$this->markTestSkipped(\'TODO: fix after route/controller refactoring\');
+        $this->markTestSkipped('TODO: fix after route/controller refactoring');
         $response = $this->actingAs($this->user, 'api-guard')
             ->getJson('/api/v1/encryption/info');
         
@@ -149,7 +149,7 @@ class EncryptionControllerTest extends TestCase
      */
     public function test_user_can_lock_vault(): void
     {
-        \$this->markTestSkipped(\'TODO: fix after route/controller refactoring\');
+        $this->markTestSkipped('TODO: fix after route/controller refactoring');
         // Setup encryption
         $this->user->encryption_version = 1;
         $this->user->vault_locked = false;
@@ -172,7 +172,7 @@ class EncryptionControllerTest extends TestCase
      */
     public function test_locking_requires_encryption_enabled(): void
     {
-        \$this->markTestSkipped(\'TODO: fix after route/controller refactoring\');
+        $this->markTestSkipped('TODO: fix after route/controller refactoring');
         $response = $this->actingAs($this->user, 'api-guard')
             ->postJson('/api/v1/encryption/lock');
         
@@ -184,7 +184,7 @@ class EncryptionControllerTest extends TestCase
      */
     public function test_vault_verification(): void
     {
-        \$this->markTestSkipped(\'TODO: fix after route/controller refactoring\');
+        $this->markTestSkipped('TODO: fix after route/controller refactoring');
         $this->user->encryption_version = 1;
         $this->user->vault_locked = true;
         $this->user->save();
@@ -209,7 +209,7 @@ class EncryptionControllerTest extends TestCase
      */
     public function test_failed_verification(): void
     {
-        \$this->markTestSkipped(\'TODO: fix after route/controller refactoring\');
+        $this->markTestSkipped('TODO: fix after route/controller refactoring');
         $this->user->encryption_version = 1;
         $this->user->vault_locked = true;
         $this->user->save();
@@ -230,7 +230,7 @@ class EncryptionControllerTest extends TestCase
      */
     public function test_setup_endpoint_is_rate_limited(): void
     {
-        \$this->markTestSkipped(\'TODO: fix after route/controller refactoring\');
+        $this->markTestSkipped('TODO: fix after route/controller refactoring');
         $this->markTestSkipped('Rate limiting test requires time manipulation');
         
         // Make multiple requests quickly
