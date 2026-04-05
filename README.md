@@ -21,11 +21,11 @@
 
 ### 📚 Documentation
 
-- 🏗️ [**ARCHITECTURE.md**](ARCHITECTURE.md) - Technical architecture and system design
-- 🔒 [**SECURITY.md**](SECURITY.md) - Security architecture, threat model, and best practices
-- 🔄 [**MIGRATION.md**](MIGRATION.md) - Migration guide from 2FAuth to 2FA-Vault
-- 📝 [**CHANGELOG.md**](CHANGELOG.md) - Version history and breaking changes
-- 🗺️ [**ROADMAP.md**](ROADMAP.md) - Development roadmap and planned features
+- 🏗️ [**ARCHITECTURE.md**](docs/ARCHITECTURE.md) - Technical architecture and system design
+- 🔒 [**SECURITY.md**](docs/SECURITY.md) - Security architecture, threat model, and best practices
+- 🔄 [**MIGRATION.md**](docs/MIGRATION.md) - Migration guide from 2FAuth to 2FA-Vault
+- 📝 [**CHANGELOG.md**](docs/CHANGELOG.md) - Version history and breaking changes
+- 🗺️ [**ROADMAP.md**](docs/ROADMAP.md) - Development roadmap and planned features
 
 ---
 
@@ -295,7 +295,7 @@ php artisan webpush:vapid
 | Database Schema | New tables added | Auto-migrated via `php artisan migrate` |
 | Browser Extension | New feature | Optional, install from Chrome/Firefox store |
 
-See [MIGRATION.md](MIGRATION.md) for detailed migration guide and rollback instructions.
+See [MIGRATION.md](docs/MIGRATION.md) for detailed migration guide and rollback instructions.
 
 ---
 
@@ -328,9 +328,9 @@ You can contribute to 2FA-Vault in many ways:
 
 * 🐛 **Bug Reports:** [Submit issues](https://github.com/yourusername/2FA-Vault/issues/new?template=bug_report.md) with detailed reproduction steps
 * ✨ **Feature Requests:** [Suggest enhancements](https://github.com/yourusername/2FA-Vault/issues/new?template=feature_request.md) that align with our security-first approach
-* 🔧 **Pull Requests:** Submit fixes or features on the `develop` branch (see [CONTRIBUTING.md](CONTRIBUTING.md))
+* 🔧 **Pull Requests:** Submit fixes or features on the `develop` branch (see [CONTRIBUTING.md](docs/CONTRIBUTING.md))
 * 🌍 **Translations:** Help translate 2FA-Vault on [Crowdin](https://crowdin.com/project/2fauth)
-* 🔒 **Security:** Report vulnerabilities responsibly (see [SECURITY.md](SECURITY.md))
+* 🔒 **Security:** Report vulnerabilities responsibly (see [SECURITY.md](docs/SECURITY.md))
 
 **Development Setup:**
 ```bash
