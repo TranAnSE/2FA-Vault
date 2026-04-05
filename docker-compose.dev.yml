@@ -11,8 +11,8 @@ services:
     container_name: 2fa-vault-dev-app
     restart: unless-stopped
     ports:
-      - "8000:8000"  # Laravel server
-      - "5173:5173"  # Vite dev server
+      - "8088:8000"  # Laravel server (using 8088 to avoid conflicts)
+      - "5174:5173"  # Vite dev server (using 5174 to avoid conflicts)
     volumes:
       # Mount entire project for live reloading
       - .:/srv:cached
@@ -28,7 +28,7 @@ services:
       - APP_NAME=2FA-Vault-Dev
       - APP_ENV=local
       - APP_DEBUG=true
-      - APP_URL=http://localhost:8000
+      - APP_URL=http://localhost:8088
       - APP_KEY=${APP_KEY:-base64:5mXva9j/GNGOgeXSAkJdp8AhBPDSiNhYiy24tJZyzrw=}
       
       # Database (SQLite for simplicity in dev)
@@ -67,7 +67,7 @@ services:
       - TRUSTED_PROXIES=*
       
       # Vite
-      - VITE_DEV_SERVER_URL=http://localhost:5173
+      - VITE_DEV_SERVER_URL=http://localhost:5174
     
     networks:
       - 2fa-vault-dev
@@ -108,7 +108,7 @@ services:
     container_name: 2fa-vault-dev-vite
     restart: unless-stopped
     ports:
-      - "5173:5173"
+      - "5174:5173"
     volumes:
       - .:/srv:cached
       - node_modules:/srv/node_modules
@@ -126,7 +126,7 @@ services:
     container_name: 2fa-vault-dev-mysql
     restart: unless-stopped
     ports:
-      - "3306:3306"
+      - "33066:3306"
     environment:
       - MYSQL_ROOT_PASSWORD=root
       - MYSQL_DATABASE=2fa_vault_dev
@@ -152,7 +152,7 @@ services:
     container_name: 2fa-vault-dev-redis
     restart: unless-stopped
     ports:
-      - "6379:6379"
+      - "6380:6379"
     volumes:
       - redis-data:/data
     networks:
@@ -169,7 +169,7 @@ services:
     container_name: 2fa-vault-dev-phpmyadmin
     restart: unless-stopped
     ports:
-      - "8080:80"
+      - "8081:80"
     environment:
       - PMA_HOST=mysql
       - PMA_USER=root
@@ -185,8 +185,8 @@ services:
     container_name: 2fa-vault-dev-mailhog
     restart: unless-stopped
     ports:
-      - "1025:1025"  # SMTP
-      - "8025:8025"  # Web UI
+      - "1026:1025"  # SMTP (using 1026 to avoid conflicts)
+      - "8026:8025"  # Web UI (using 8026 to avoid conflicts)
     networks:
       - 2fa-vault-dev
 

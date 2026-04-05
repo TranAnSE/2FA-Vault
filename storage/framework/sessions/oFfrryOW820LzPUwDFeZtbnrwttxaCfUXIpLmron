@@ -1,0 +1,1 @@
+a:3:{s:6:"_token";s:40:"ED2xAXrUDJtwkhTCSxSQ2YUFCzZF9Z8fyCfKZNeH";s:9:"_webauthn";O:37:"Laragear\WebAuthn\Challenge\Challenge":5:{s:4:"data";O:28:"Laragear\WebAuthn\ByteBuffer":1:{s:10:"binaryData";s:22:"iXozmynKi-YD2iRvKNbSPA";}s:7:"timeout";i:60;s:6:"verify";b:0;s:10:"properties";a:0:{}s:9:"expiresAt";i:1775378897;}s:6:"_flash";a:2:{s:3:"old";a:0:{}s:3:"new";a:0:{}}}

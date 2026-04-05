@@ -3,7 +3,7 @@ FROM php:8.4-cli-alpine
 ARG UID=1000
 ARG GID=1000
 
-# Install system dependencies
+# Install system dependencies and PHP extensions
 RUN apk add --no-cache \
     # Build tools
     git \
@@ -20,11 +20,19 @@ RUN apk add --no-cache \
     icu-dev \
     postgresql-dev \
     sqlite-dev \
+    libxml2-dev \
+    libxslt-dev \
+    # Additional build dependencies
+    autoconf \
+    g++ \
+    make \
     # Tools
     bash \
-    vim \
-    && docker-php-ext-configure gd --with-freetype --with-jpeg \
-    && docker-php-ext-install -j$(nproc) \
+    vim
+
+# Configure and install PHP extensions
+RUN docker-php-ext-configure gd --with-freetype --with-jpeg && \
+    docker-php-ext-install -j$(nproc) \
         gd \
         bcmath \
         pdo \
@@ -32,7 +40,6 @@ RUN apk add --no-cache \
         pdo_pgsql \
         pdo_sqlite \
         mbstring \
-        tokenizer \
         xml \
         ctype \
         fileinfo \
@@ -42,18 +49,14 @@ RUN apk add --no-cache \
 # Install Composer
 COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
 
-# Create user with same UID/GID as host (for file permissions)
-RUN addgroup -g ${GID} appuser && \
-    adduser -D -u ${UID} -G appuser appuser
-
 # Set working directory
 WORKDIR /srv
 
-# Change ownership
-RUN chown -R appuser:appuser /srv
+# Configure git to allow operations in any directory (for development)
+RUN git config --global --add safe.directory '*'
 
-# Switch to non-root user
-USER appuser
+# Allow Composer to run as root in dev environment
+ENV COMPOSER_ALLOW_SUPERUSER=1
 
 # Expose ports
 EXPOSE 8000 5173

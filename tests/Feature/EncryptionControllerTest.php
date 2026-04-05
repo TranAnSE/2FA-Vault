@@ -220,7 +220,7 @@ class EncryptionControllerTest extends TestCase
      */
     public function test_setup_endpoint_is_rate_limited(): void
     {
-        
+
         // Make multiple requests quickly
         for ($i = 0; $i < 5; $i++) {
             $response = $this->actingAs($this->user, 'api-guard')
@@ -230,8 +230,174 @@ class EncryptionControllerTest extends TestCase
                     'encryption_version' => 1
                 ]);
         }
-        
+
         // Should get rate limited
         $response->assertStatus(429);
+    }
+
+    /**
+     * Test getting encryption salt for key derivation
+     */
+    public function test_user_can_get_encryption_salt(): void
+    {
+        $this->user->encryption_salt = 'user_specific_salt_base64';
+        $this->user->save();
+
+        $response = $this->actingAs($this->user, 'api-guard')
+            ->getJson('/api/v1/encryption/salt');
+
+        $response->assertOk()
+            ->assertJson([
+                'encryption_salt' => 'user_specific_salt_base64'
+            ]);
+    }
+
+    /**
+     * Test encryption state transitions (locked → unlocked → locked)
+     */
+    public function test_encryption_state_transitions(): void
+    {
+        // Setup encryption
+        $this->user->encryption_version = 1;
+        $this->user->encryption_salt = 'test_salt';
+        $this->user->encryption_test_value = 'test_value';
+        $this->user->vault_locked = true;
+        $this->user->save();
+
+        // Unlock (verification succeeds)
+        $response = $this->actingAs($this->user, 'api-guard')
+            ->postJson('/api/v1/encryption/verify', [
+                'verification_result' => true
+            ]);
+
+        $response->assertOk();
+        $this->user->refresh();
+        $this->assertFalse($this->user->vault_locked);
+
+        // Lock again
+        $response = $this->actingAs($this->user, 'api-guard')
+            ->postJson('/api/v1/encryption/lock');
+
+        $response->assertOk();
+        $this->user->refresh();
+        $this->assertTrue($this->user->vault_locked);
+    }
+
+    /**
+     * Test that vault requires encryption to be enabled before locking
+     */
+    public function test_vault_operations_require_encryption_enabled(): void
+    {
+        // Try to get info without encryption
+        $response = $this->actingAs($this->user, 'api-guard')
+            ->getJson('/api/v1/encryption/info');
+
+        $response->assertOk()
+            ->assertJson(['encryption_enabled' => false]);
+
+        // Try to lock without encryption
+        $response = $this->actingAs($this->user, 'api-guard')
+            ->postJson('/api/v1/encryption/lock');
+
+        $response->assertStatus(400);
+
+        // Try to verify without encryption
+        $response = $this->actingAs($this->user, 'api-guard')
+            ->postJson('/api/v1/encryption/verify', [
+                'verification_result' => true
+            ]);
+
+        $response->assertStatus(400);
+    }
+
+    /**
+     * Test that salt is required and properly formatted
+     */
+    public function test_encryption_setup_validates_salt_format(): void
+    {
+        $response = $this->actingAs($this->user, 'api-guard')
+            ->postJson('/api/v1/encryption/setup', [
+                'encryption_salt' => '', // Empty salt
+                'encryption_test_value' => '{"ciphertext":"test","iv":"test","authTag":"test"}',
+                'encryption_version' => 1
+            ]);
+
+        $response->assertStatus(422)
+            ->assertJsonValidationErrors('encryption_salt');
+    }
+
+    /**
+     * Test that test_value must be valid JSON
+     */
+    public function test_encryption_setup_validates_test_value_format(): void
+    {
+        $response = $this->actingAs($this->user, 'api-guard')
+            ->postJson('/api/v1/encryption/setup', [
+                'encryption_salt' => 'test_salt',
+                'encryption_test_value' => 'not_valid_json', // Invalid JSON
+                'encryption_version' => 1
+            ]);
+
+        $response->assertStatus(422)
+            ->assertJsonValidationErrors('encryption_test_value');
+    }
+
+    /**
+     * Test that encryption info hides sensitive data from non-owner
+     */
+    public function test_encryption_info_requires_authorization(): void
+    {
+        $anotherUser = User::factory()->create();
+
+        $this->user->encryption_version = 1;
+        $this->user->encryption_salt = 'secret_salt';
+        $this->user->save();
+
+        // Another user cannot see first user's encryption info
+        $response = $this->actingAs($anotherUser, 'api-guard')
+            ->getJson("/api/v1/encryption/info");
+
+        // Should return their own (empty) encryption info, not the first user's
+        $response->assertOk()
+            ->assertJson(['encryption_enabled' => false]);
+    }
+
+    /**
+     * Test vault state persistence across requests
+     */
+    public function test_vault_state_persists_across_requests(): void
+    {
+        // Setup encryption and lock vault
+        $this->user->encryption_version = 1;
+        $this->user->vault_locked = true;
+        $this->user->save();
+
+        // First request sees vault locked
+        $response = $this->actingAs($this->user, 'api-guard')
+            ->getJson('/api/v1/encryption/info');
+        $this->assertTrue($response->json('vault_locked'));
+
+        // Second request (different connection) still sees vault locked
+        $response = $this->actingAs($this->user, 'api-guard')
+            ->getJson('/api/v1/encryption/info');
+        $this->assertTrue($response->json('vault_locked'));
+    }
+
+    /**
+     * Test verification fails gracefully with invalid request
+     */
+    public function test_verification_requires_valid_result_parameter(): void
+    {
+        $this->user->encryption_version = 1;
+        $this->user->vault_locked = true;
+        $this->user->save();
+
+        $response = $this->actingAs($this->user, 'api-guard')
+            ->postJson('/api/v1/encryption/verify', [
+                // Missing verification_result parameter
+            ]);
+
+        $response->assertStatus(422)
+            ->assertJsonValidationErrors('verification_result');
     }
 }

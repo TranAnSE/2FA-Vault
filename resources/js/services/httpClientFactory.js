@@ -94,3 +94,6 @@ export const httpClientFactory = (endpoint = 'api') => {
 
 	return httpClient
 }
+
+// Default export for backward compatibility
+export default httpClientFactory
