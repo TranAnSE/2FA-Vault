@@ -68,6 +68,7 @@ Route::group(['middleware' => 'auth:api-guard'], function () {
     // E2EE Encryption routes
     Route::post('encryption/setup', [EncryptionController::class, 'setup'])->name('encryption.setup');
     Route::get('encryption/info', [EncryptionController::class, 'info'])->name('encryption.info');
+    Route::get('encryption/salt', [EncryptionController::class, 'getSalt'])->name('encryption.salt');
     Route::get('encryption/status', [EncryptionController::class, 'checkEncryptionStatus'])->name('encryption.status');
     Route::post('encryption/verify', [EncryptionController::class, 'verify'])->name('encryption.verify');
     Route::post('encryption/lock', [EncryptionController::class, 'lock'])->name('encryption.lock');

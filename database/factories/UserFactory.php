@@ -58,4 +58,39 @@ class UserFactory extends Factory
             ];
         });
     }
+
+    /**
+     * Indicate that the user has E2EE enabled.
+     *
+     * @return \Illuminate\Database\Eloquent\Factories\Factory<\App\Models\User>
+     */
+    public function withE2EE()
+    {
+        return $this->state(function (array $attributes) {
+            return [
+                'encryption_salt' => base64_encode(random_bytes(32)),
+                'encryption_test_value' => json_encode([
+                    'ciphertext' => base64_encode(random_bytes(32)),
+                    'iv' => base64_encode(random_bytes(12)),
+                    'authTag' => base64_encode(random_bytes(16)),
+                ]),
+                'encryption_version' => 1,
+                'vault_locked' => false,
+            ];
+        });
+    }
+
+    /**
+     * Indicate that the user's vault is locked.
+     *
+     * @return \Illuminate\Database\Eloquent\Factories\Factory<\App\Models\User>
+     */
+    public function withLockedVault()
+    {
+        return $this->withE2EE()->state(function (array $attributes) {
+            return [
+                'vault_locked' => true,
+            ];
+        });
+    }
 }

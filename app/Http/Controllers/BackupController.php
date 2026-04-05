@@ -21,7 +21,10 @@ class BackupController extends Controller
 
     /**
      * Export encrypted backup
-     * 
+     *
+     * The server retrieves encrypted accounts and packages them.
+     * The client then encrypts the entire package with a backup password.
+     *
      * @param Request $request
      * @return StreamedResponse|JsonResponse
      */
@@ -30,61 +33,67 @@ class BackupController extends Controller
         // Rate limiting: max 5 exports per hour (skip in testing)
         if (!app()->environment('testing')) {
             $key = 'backup-export:' . $request->user()->id;
-            
+
             if (RateLimiter::tooManyAttempts($key, 5)) {
                 $seconds = RateLimiter::availableIn($key);
                 return response()->json([
                     'message' => "Too many export attempts. Please try again in " . ceil($seconds / 60) . " minutes."
                 ], 429);
             }
-            
+
             RateLimiter::hit($key, 3600);
         }
-        
+
         $validated = $request->validate([
             'password' => 'required|string|min:8',
+            'include_groups' => 'nullable|boolean',
         ]);
-        
+
         $user = Auth::user();
-        
+
         try {
-            // Generate encrypted backup
-            $backupData = $this->backupService->generateEncryptedBackup($user, $validated['password']);
-            
+            // Generate backup structure (accounts still encrypted with user's master key)
+            $includeGroups = $validated['include_groups'] ?? true;
+            $backupData = $this->backupService->generateEncryptedBackup($user, $includeGroups);
+
             // Update last backup timestamp
             $user->last_backup_at = now();
             $user->save();
-            
+
             Log::info('Backup exported', [
                 'user_id' => $user->id,
-                'account_count' => $backupData['accountCount'] ?? 0
+                'account_count' => $backupData['accountCount'] ?? 0,
+                'groups_included' => $includeGroups,
             ]);
-            
+
             $filename = '2fa-vault-backup-' . now()->format('Y-m-d-His') . '.vault';
-            
+            $backupJson = json_encode($backupData, JSON_PRETTY_PRINT);
+
             // For testing: return JSON response instead of download
             if ($request->wantsJson() || $request->expectsJson()) {
                 return response()->json([
                     'filename' => $filename,
-                    'size' => strlen(json_encode($backupData)),
+                    'size' => strlen($backupJson),
                     'accounts_count' => $backupData['accountCount'] ?? 0,
+                    'groups_count' => isset($backupData['groups']) ? count($backupData['groups']) : 0,
                 ]);
             }
-            
+
             // Return as downloadable file
-            return response()->streamDownload(function () use ($backupData) {
-                echo json_encode($backupData, JSON_PRETTY_PRINT);
+            return response()->streamDownload(function () use ($backupJson) {
+                echo $backupJson;
             }, $filename, [
                 'Content-Type' => 'application/json',
                 'Content-Disposition' => 'attachment; filename="' . $filename . '"'
             ]);
-            
+
         } catch (\Exception $e) {
             Log::error('Backup export failed', [
                 'user_id' => $user->id,
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
             ]);
-            
+
             return response()->json([
                 'message' => 'Failed to export backup: ' . $e->getMessage()
             ], 500);
@@ -93,7 +102,11 @@ class BackupController extends Controller
 
     /**
      * Import encrypted backup
-     * 
+     *
+     * Client decrypts the backup file with backup password first,
+     * then sends the decrypted data here. Each account secret is
+     * still encrypted with the user's master key.
+     *
      * @param Request $request
      * @return JsonResponse
      */
@@ -102,70 +115,93 @@ class BackupController extends Controller
         // Rate limiting: max 3 imports per hour (skip in testing)
         if (!app()->environment('testing')) {
             $key = 'backup-import:' . $request->user()->id;
-            
+
             if (RateLimiter::tooManyAttempts($key, 3)) {
                 $seconds = RateLimiter::availableIn($key);
                 return response()->json([
                     'message' => "Too many import attempts. Please try again in " . ceil($seconds / 60) . " minutes."
                 ], 429);
             }
-            
+
             RateLimiter::hit($key, 3600);
         }
-        
+
         $validated = $request->validate([
             'backup_file' => 'required|file',
             'password' => 'required|string|min:8',
-            'format' => 'nullable|in:2fauth,vault',
+            'format' => 'nullable|in:2fauth,vault,aegis,bitwarden',
+            'conflict_resolution' => 'nullable|in:skip,replace,rename',
+            'import_groups' => 'nullable|boolean',
         ]);
-        
+
         $user = Auth::user();
-        
+
         try {
-            // Validate backup file
+            // Read and validate backup file
             $file = $request->file('backup_file');
             $backupData = json_decode($file->get(), true);
-            
+
             if (!$backupData) {
                 return response()->json([
                     'message' => 'Invalid backup file',
                     'errors' => ['backup_file' => ['The file is not valid JSON']]
                 ], 422);
             }
-            
+
+            // Validate backup structure
+            if (!$this->backupService->validateBackupFile($backupData)) {
+                return response()->json([
+                    'message' => 'Invalid backup format or version not supported',
+                    'errors' => ['backup_file' => ['The backup file format is invalid or from an unsupported version']]
+                ], 422);
+            }
+
             // Determine format
             $format = $validated['format'] ?? 'vault';
             if (isset($backupData['app']) && $backupData['app'] === '2FAuth') {
                 $format = '2fauth';
+            } elseif (isset($backupData['format']) && $backupData['format'] === '2FA-Vault') {
+                $format = 'vault';
             }
-            
+
+            // Import options
+            $options = [
+                'conflict_resolution' => $validated['conflict_resolution'] ?? 'skip',
+                'import_groups' => $validated['import_groups'] ?? true,
+            ];
+
             // Restore backup
             $result = $this->backupService->restoreEncryptedBackup(
                 $user,
                 $backupData,
-                $validated['password'],
-                $format
+                $format,
+                $options
             );
-            
+
             Log::info('Backup imported', [
                 'user_id' => $user->id,
                 'format' => $format,
                 'imported_count' => $result['imported'],
-                'failed_count' => $result['failed']
+                'skipped_count' => $result['skipped'],
+                'failed_count' => $result['failed'],
+                'conflict_resolution' => $result['conflict_resolution'],
             ]);
-            
+
             return response()->json([
                 'imported_count' => $result['imported'],
                 'skipped_count' => $result['skipped'] ?? 0,
-                'errors' => $result['errors'] ?? []
+                'failed_count' => $result['failed'],
+                'errors' => $result['errors'] ?? [],
+                'conflict_resolution' => $result['conflict_resolution'] ?? 'skip',
             ]);
-            
+
         } catch (\Exception $e) {
             Log::error('Backup import failed', [
                 'user_id' => $user->id,
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
             ]);
-            
+
             return response()->json([
                 'message' => 'Failed to import backup: ' . $e->getMessage(),
                 'errors' => ['backup_file' => [$e->getMessage()]]
@@ -175,7 +211,9 @@ class BackupController extends Controller
 
     /**
      * Get backup metadata without decrypting
-     * 
+     *
+     * Returns preview information about a backup file.
+     *
      * @param Request $request
      * @return JsonResponse
      */
@@ -184,16 +222,26 @@ class BackupController extends Controller
         $validated = $request->validate([
             'backup_file' => 'required|file|mimes:vault,json|max:10240'
         ]);
-        
+
         try {
             $file = $request->file('backup_file');
             $backupData = json_decode($file->get(), true);
-            
+
+            if (!$backupData) {
+                return response()->json([
+                    'message' => 'Invalid backup file format'
+                ], 400);
+            }
+
             $metadata = $this->backupService->getBackupMetadata($backupData);
-            
+
             return response()->json($metadata);
-            
+
         } catch (\Exception $e) {
+            Log::error('Failed to read backup metadata', [
+                'error' => $e->getMessage(),
+            ]);
+
             return response()->json([
                 'message' => 'Failed to read backup metadata: ' . $e->getMessage()
             ], 400);
@@ -201,19 +249,16 @@ class BackupController extends Controller
     }
 
     /**
-     * Get user's last backup info
-     * 
+     * Get user's backup information and statistics
+     *
      * @return JsonResponse
      */
     public function info(): JsonResponse
     {
         $user = Auth::user();
-        
-        return response()->json([
-            'has_backup' => !is_null($user->last_backup_at),
-            'last_backup_at' => $user->last_backup_at?->toIso8601String(),
-            'days_since_backup' => $user->last_backup_at ? now()->diffInDays($user->last_backup_at) : null,
-            'should_backup' => is_null($user->last_backup_at) || now()->diffInDays($user->last_backup_at) > 30
-        ]);
+
+        $stats = $this->backupService->getBackupStats($user);
+
+        return response()->json($stats);
     }
 }

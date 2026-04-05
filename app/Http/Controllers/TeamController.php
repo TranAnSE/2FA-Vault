@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Team;
+use App\Services\TeamService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Gate;
@@ -10,18 +11,27 @@ use Illuminate\Validation\Rule;
 
 class TeamController extends Controller
 {
+    protected TeamService $teamService;
+
+    public function __construct(TeamService $teamService)
+    {
+        $this->teamService = $teamService;
+    }
+
     /**
      * List all teams for the authenticated user.
      */
     public function index(Request $request)
     {
         $user = Auth::user();
-        
+
         $teams = Team::accessibleByUser($user->id)
             ->with(['owner', 'users'])
             ->withCount('users')
             ->get()
             ->map(function ($team) use ($user) {
+                $stats = $this->teamService->getTeamStats($team);
+
                 return [
                     'id' => $team->id,
                     'name' => $team->name,
@@ -29,6 +39,8 @@ class TeamController extends Controller
                     'owner_name' => $team->owner->name,
                     'role' => $team->getUserRole($user->id),
                     'members_count' => $team->users_count,
+                    'shared_accounts_count' => $stats['shared_accounts_count'],
+                    'pending_invitations' => $stats['invitations_pending'],
                     'created_at' => $team->created_at,
                     'invite_code' => $team->owner_id === $user->id ? $team->invite_code : null,
                 ];
@@ -42,33 +54,19 @@ class TeamController extends Controller
      */
     public function store(Request $request)
     {
-        $maxTeams = config('2fauth.maxTeamsPerUser', 10);
-        $user = Auth::user();
-        
-        // Check team limit
-        $userTeamsCount = Team::accessibleByUser($user->id)->count();
-        if ($userTeamsCount >= $maxTeams) {
-            return response()->json([
-                'message' => "You have reached the maximum number of teams ({$maxTeams})."
-            ], 403);
-        }
-
         $validated = $request->validate([
             'name' => 'required|string|max:255',
         ]);
 
-        $team = Team::create([
-            'name' => $validated['name'],
-            'owner_id' => $user->id,
-        ]);
+        $user = Auth::user();
 
-        // Add owner to team_users as well
-        $team->users()->attach($user->id, [
-            'role' => 'owner',
-            'joined_at' => now(),
-        ]);
+        try {
+            $team = $this->teamService->createTeam($user, $validated['name']);
 
-        return response()->json($team, 201);
+            return response()->json($team, 201);
+        } catch (\Exception $e) {
+            return response()->json(['message' => $e->getMessage()], 403);
+        }
     }
 
     /**
@@ -92,6 +90,8 @@ class TeamController extends Controller
             ];
         });
 
+        $stats = $this->teamService->getTeamStats($team);
+
         return response()->json([
             'id' => $team->id,
             'name' => $team->name,
@@ -99,6 +99,7 @@ class TeamController extends Controller
             'owner_name' => $team->owner->name,
             'invite_code' => Gate::allows('invite', $team) ? $team->invite_code : null,
             'members' => $members,
+            'stats' => $stats,
             'created_at' => $team->created_at,
         ]);
     }
@@ -108,19 +109,20 @@ class TeamController extends Controller
      */
     public function update(Request $request, $id)
     {
-        $team = Team::findOrFail($id);
-
-        if (!Gate::allows('update', $team)) {
-            return response()->json(['message' => 'Forbidden'], 403);
-        }
-
         $validated = $request->validate([
             'name' => 'required|string|max:255',
         ]);
 
-        $team->update($validated);
+        $team = Team::findOrFail($id);
+        $user = Auth::user();
 
-        return response()->json($team);
+        try {
+            $team = $this->teamService->updateTeam($team, $user, $validated['name']);
+
+            return response()->json($team);
+        } catch (\Exception $e) {
+            return response()->json(['message' => $e->getMessage()], 403);
+        }
     }
 
     /**
@@ -129,45 +131,45 @@ class TeamController extends Controller
     public function destroy(Request $request, $id)
     {
         $team = Team::findOrFail($id);
+        $user = Auth::user();
 
-        if (!Gate::allows('delete', $team)) {
-            return response()->json(['message' => 'Forbidden'], 403);
+        try {
+            $this->teamService->deleteTeam($team, $user);
+
+            return response()->json(['message' => 'Team deleted successfully']);
+        } catch (\Exception $e) {
+            return response()->json(['message' => $e->getMessage()], 403);
         }
-
-        $team->delete();
-
-        return response()->json(['message' => 'Team deleted successfully']);
     }
 
     /**
-     * Generate or regenerate invite code.
+     * Invite a user to the team.
      */
     public function invite(Request $request, $id)
     {
-        $team = Team::findOrFail($id);
-
-        if (!Gate::allows('invite', $team)) {
-            return response()->json(['message' => 'Forbidden'], 403);
-        }
-
         $validated = $request->validate([
             'email' => 'required|email',
             'role' => ['nullable', Rule::in(['admin', 'member', 'viewer'])],
         ]);
 
-        // Create team invitation
-        $invitation = \App\Models\TeamInvitation::create([
-            'team_id' => $team->id,
-            'email' => $validated['email'],
-            'role' => $validated['role'] ?? 'member',
-            'token' => \Illuminate\Support\Str::random(32),
-            'status' => 'pending',
-        ]);
+        $team = Team::findOrFail($id);
+        $user = Auth::user();
 
-        return response()->json([
-            'message' => 'Invitation sent successfully',
-            'invitation' => $invitation,
-        ], 201);
+        try {
+            $invitation = $this->teamService->inviteUser(
+                $team,
+                $user,
+                $validated['email'],
+                $validated['role'] ?? 'member'
+            );
+
+            return response()->json([
+                'message' => 'Invitation sent successfully',
+                'invitation' => $invitation,
+            ], 201);
+        } catch (\Exception $e) {
+            return response()->json(['message' => $e->getMessage()], 403);
+        }
     }
 
     /**
@@ -181,39 +183,17 @@ class TeamController extends Controller
 
         $user = Auth::user();
 
-        // Verify email matches
-        if ($invitation->email !== $user->email) {
-            return response()->json(['message' => 'This invitation is not for your email address'], 403);
-        }
+        try {
+            $team = $this->teamService->acceptInvitation($invitation, $user);
 
-        $team = Team::findOrFail($invitation->team_id);
-
-        // Check if already a member
-        if ($team->hasMember($user->id)) {
-            return response()->json(['message' => 'You are already a member of this team'], 400);
-        }
-
-        // Check team size limit
-        $maxMembers = config('2fauth.maxMembersPerTeam', 50);
-        if ($team->users()->count() >= $maxMembers) {
             return response()->json([
-                'message' => "This team has reached the maximum number of members ({$maxMembers})."
-            ], 403);
+                'message' => 'Successfully joined team',
+                'team' => $team,
+            ]);
+        } catch (\Exception $e) {
+            $statusCode = $e->getMessage() === 'This invitation is not for your email address' ? 403 : 400;
+            return response()->json(['message' => $e->getMessage()], $statusCode);
         }
-
-        // Add user to team
-        $team->users()->attach($user->id, [
-            'role' => $invitation->role,
-            'joined_at' => now(),
-        ]);
-
-        // Update invitation status
-        $invitation->update(['status' => 'accepted']);
-
-        return response()->json([
-            'message' => 'Successfully joined team',
-            'team' => $team,
-        ]);
     }
 
     /**
@@ -225,31 +205,18 @@ class TeamController extends Controller
             'invite_code' => 'required|string|exists:teams,invite_code',
         ]);
 
-        $team = Team::where('invite_code', $validated['invite_code'])->firstOrFail();
         $user = Auth::user();
 
-        // Check if already a member
-        if ($team->hasMember($user->id)) {
-            return response()->json(['message' => 'You are already a member of this team'], 400);
-        }
+        try {
+            $team = $this->teamService->joinByInviteCode($validated['invite_code'], $user);
 
-        // Check team size limit
-        $maxMembers = config('2fauth.maxMembersPerTeam', 50);
-        if ($team->users()->count() >= $maxMembers) {
             return response()->json([
-                'message' => "This team has reached the maximum number of members ({$maxMembers})."
-            ], 403);
+                'message' => 'Successfully joined team',
+                'team' => $team,
+            ]);
+        } catch (\Exception $e) {
+            return response()->json(['message' => $e->getMessage()], 400);
         }
-
-        $team->users()->attach($user->id, [
-            'role' => 'member',
-            'joined_at' => now(),
-        ]);
-
-        return response()->json([
-            'message' => 'Successfully joined team',
-            'team' => $team,
-        ]);
     }
 
     /**
@@ -260,16 +227,13 @@ class TeamController extends Controller
         $team = Team::findOrFail($id);
         $user = Auth::user();
 
-        // Owner cannot leave
-        if ($team->owner_id === $user->id) {
-            return response()->json([
-                'message' => 'Team owner cannot leave. Transfer ownership or delete the team instead.'
-            ], 400);
+        try {
+            $this->teamService->leaveTeam($team, $user);
+
+            return response()->json(['message' => 'Successfully left the team']);
+        } catch (\Exception $e) {
+            return response()->json(['message' => $e->getMessage()], 400);
         }
-
-        $team->users()->detach($user->id);
-
-        return response()->json(['message' => 'Successfully left the team']);
     }
 
     /**
@@ -278,19 +242,15 @@ class TeamController extends Controller
     public function removeMember(Request $request, $id, $userId)
     {
         $team = Team::findOrFail($id);
+        $user = Auth::user();
 
-        if (!Gate::allows('removeMember', $team)) {
-            return response()->json(['message' => 'Forbidden'], 403);
+        try {
+            $this->teamService->removeMember($team, $user, $userId);
+
+            return response()->json(['message' => 'Member removed successfully']);
+        } catch (\Exception $e) {
+            return response()->json(['message' => $e->getMessage()], 403);
         }
-
-        // Cannot remove owner
-        if ($team->owner_id == $userId) {
-            return response()->json(['message' => 'Cannot remove team owner'], 400);
-        }
-
-        $team->users()->detach($userId);
-
-        return response()->json(['message' => 'Member removed successfully']);
     }
 
     /**
@@ -298,25 +258,19 @@ class TeamController extends Controller
      */
     public function updateMemberRole(Request $request, $id, $userId)
     {
-        $team = Team::findOrFail($id);
-
-        if (!Gate::allows('updateRole', $team)) {
-            return response()->json(['message' => 'Forbidden'], 403);
-        }
-
         $validated = $request->validate([
             'role' => ['required', Rule::in(['admin', 'member', 'viewer'])],
         ]);
 
-        // Cannot change owner's role
-        if ($team->owner_id == $userId) {
-            return response()->json(['message' => 'Cannot change owner role'], 400);
+        $team = Team::findOrFail($id);
+        $user = Auth::user();
+
+        try {
+            $this->teamService->updateMemberRole($team, $user, $userId, $validated['role']);
+
+            return response()->json(['message' => 'Member role updated successfully']);
+        } catch (\Exception $e) {
+            return response()->json(['message' => $e->getMessage()], 403);
         }
-
-        $team->users()->updateExistingPivot($userId, [
-            'role' => $validated['role'],
-        ]);
-
-        return response()->json(['message' => 'Member role updated successfully']);
     }
 }

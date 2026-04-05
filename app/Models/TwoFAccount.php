@@ -333,6 +333,14 @@ class TwoFAccount extends Model implements Sortable
      */
     public function getSecretAttribute($value)
     {
+        // For E2EE encrypted secrets, return as-is (server never decrypts them)
+        // Encrypted secrets have format: {"ciphertext":"...","iv":"...","authTag":"..."}
+        $isEncryptedSecret = (str_starts_with($value ?? '', '{') && str_contains($value ?? '', 'ciphertext'));
+
+        if ($isEncryptedSecret) {
+            return $value;
+        }
+
         return $this->decryptOrReturn($value);
     }
 
