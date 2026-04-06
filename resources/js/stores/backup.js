@@ -35,7 +35,9 @@ export const useBackupStore = defineStore('backup', {
                 // This is a placeholder - in production, use proper key derivation
                 const keyHash = await this.deriveKeyHash(masterPassword)
                 
-                const response = await window.axios.get('/api/v1/backup/export', {
+                const response = await window.axios.post('/api/v1/backups/export', {
+                    password: masterPassword,
+                }, {
                     params: {
                         encryption_key_hash: keyHash,
                         master_password_verified: true
@@ -70,21 +72,24 @@ export const useBackupStore = defineStore('backup', {
          * @param {string} mode - 'merge' or 'replace'
          * @returns {Promise}
          */
-        async importBackup(file, masterPassword, mode = 'merge') {
+        async importBackup(file, masterPassword, conflictResolution = 'skip', importGroups = true) {
             this.isImporting = true
-            
+
             try {
                 const formData = new FormData()
                 formData.append('backup_file', file)
-                formData.append('mode', mode)
-                formData.append('master_password_verified', true)
-                
-                const response = await window.axios.post('/api/v1/backup/import', formData, {
+                formData.append('conflict_resolution', conflictResolution)
+                formData.append('import_groups', importGroups ? '1' : '0')
+                if (masterPassword) {
+                    formData.append('password', masterPassword)
+                }
+
+                const response = await window.axios.post('/api/v1/backups/import', formData, {
                     headers: {
                         'Content-Type': 'multipart/form-data'
                     }
                 })
-                
+
                 return response.data
             } finally {
                 this.isImporting = false
@@ -101,7 +106,7 @@ export const useBackupStore = defineStore('backup', {
             const formData = new FormData()
             formData.append('backup_file', file)
             
-            const response = await window.axios.post('/api/v1/backup/metadata', formData, {
+            const response = await window.axios.post('/api/v1/backups/metadata', formData, {
                 headers: {
                     'Content-Type': 'multipart/form-data'
                 }
@@ -117,7 +122,7 @@ export const useBackupStore = defineStore('backup', {
          */
         async fetchInfo() {
             try {
-                const response = await window.axios.get('/api/v1/backup/info')
+                const response = await window.axios.get('/api/v1/backups/info')
                 this.info = response.data
                 
                 if (this.info.lastBackupAt) {

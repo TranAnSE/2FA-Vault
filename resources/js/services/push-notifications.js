@@ -3,16 +3,20 @@
  * Handles Web Push API integration for notifications
  */
 
+import { httpClientFactory } from '@/services/httpClientFactory'
+
+const apiClient = httpClientFactory('api')
+
 class PushNotificationsService {
   constructor() {
     this.swRegistration = null;
     this.subscription = null;
-    this.publicKey = null; // Will be set from server
+    this.publicKey = null;
   }
 
   /**
    * Initialize push notifications
-   * @param {ServiceWorkerRegistration} swRegistration 
+   * @param {ServiceWorkerRegistration} swRegistration
    */
   async init(swRegistration) {
     if (!('PushManager' in window)) {
@@ -22,10 +26,8 @@ class PushNotificationsService {
 
     this.swRegistration = swRegistration;
 
-    // Get VAPID public key from server
     await this.getPublicKey();
 
-    // Check existing subscription
     this.subscription = await this.swRegistration.pushManager.getSubscription();
 
     return true;
@@ -35,15 +37,8 @@ class PushNotificationsService {
    * Get VAPID public key from server
    */
   async getPublicKey() {
-    try {
-      const response = await fetch('/api/push/public-key');
-      const data = await response.json();
-      this.publicKey = data.publicKey;
-      console.log('[Push] Got VAPID public key');
-    } catch (error) {
-      console.error('[Push] Failed to get public key:', error);
-      throw error;
-    }
+    const response = await apiClient.get('/push/public-key')
+    this.publicKey = response.data.publicKey
   }
 
   /**
@@ -55,8 +50,6 @@ class PushNotificationsService {
     }
 
     const permission = await Notification.requestPermission();
-    console.log('[Push] Notification permission:', permission);
-
     return permission === 'granted';
   }
 
@@ -72,29 +65,19 @@ class PushNotificationsService {
       await this.getPublicKey();
     }
 
-    // Request permission first
     const permitted = await this.requestPermission();
     if (!permitted) {
       throw new Error('Notification permission denied');
     }
 
-    try {
-      // Subscribe to push manager
-      this.subscription = await this.swRegistration.pushManager.subscribe({
-        userVisibleOnly: true,
-        applicationServerKey: this.urlBase64ToUint8Array(this.publicKey)
-      });
+    this.subscription = await this.swRegistration.pushManager.subscribe({
+      userVisibleOnly: true,
+      applicationServerKey: this.urlBase64ToUint8Array(this.publicKey)
+    });
 
-      console.log('[Push] Subscribed to push notifications');
+    await this.sendSubscriptionToServer(this.subscription);
 
-      // Send subscription to server
-      await this.sendSubscriptionToServer(this.subscription);
-
-      return this.subscription;
-    } catch (error) {
-      console.error('[Push] Failed to subscribe:', error);
-      throw error;
-    }
+    return this.subscription;
   }
 
   /**
@@ -102,105 +85,41 @@ class PushNotificationsService {
    */
   async unsubscribe() {
     if (!this.subscription) {
-      console.warn('[Push] No active subscription');
       return;
     }
 
-    try {
-      // Unsubscribe from push manager
-      await this.subscription.unsubscribe();
-      console.log('[Push] Unsubscribed from push notifications');
-
-      // Remove from server
-      await this.removeSubscriptionFromServer(this.subscription);
-
-      this.subscription = null;
-    } catch (error) {
-      console.error('[Push] Failed to unsubscribe:', error);
-      throw error;
-    }
+    await this.subscription.unsubscribe();
+    await this.removeSubscriptionFromServer(this.subscription);
+    this.subscription = null;
   }
 
   /**
    * Send subscription to server
    */
   async sendSubscriptionToServer(subscription) {
-    try {
-      const response = await fetch('/api/push/subscribe', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Accept': 'application/json'
-        },
-        body: JSON.stringify({
-          endpoint: subscription.endpoint,
-          keys: {
-            p256dh: this.arrayBufferToBase64(subscription.getKey('p256dh')),
-            auth: this.arrayBufferToBase64(subscription.getKey('auth'))
-          }
-        })
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to save subscription on server');
+    await apiClient.post('/push/subscribe', {
+      endpoint: subscription.endpoint,
+      keys: {
+        p256dh: this.arrayBufferToBase64(subscription.getKey('p256dh')),
+        auth: this.arrayBufferToBase64(subscription.getKey('auth'))
       }
-
-      console.log('[Push] Subscription saved on server');
-    } catch (error) {
-      console.error('[Push] Failed to send subscription:', error);
-      throw error;
-    }
+    })
   }
 
   /**
    * Remove subscription from server
    */
   async removeSubscriptionFromServer(subscription) {
-    try {
-      const response = await fetch('/api/push/unsubscribe', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Accept': 'application/json'
-        },
-        body: JSON.stringify({
-          endpoint: subscription.endpoint
-        })
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to remove subscription from server');
-      }
-
-      console.log('[Push] Subscription removed from server');
-    } catch (error) {
-      console.error('[Push] Failed to remove subscription:', error);
-      throw error;
-    }
+    await apiClient.delete('/push/unsubscribe', {
+      data: { endpoint: subscription.endpoint }
+    })
   }
 
   /**
    * Send test notification
    */
   async sendTestNotification() {
-    try {
-      const response = await fetch('/api/push/test', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Accept': 'application/json'
-        }
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to send test notification');
-      }
-
-      console.log('[Push] Test notification sent');
-    } catch (error) {
-      console.error('[Push] Failed to send test notification:', error);
-      throw error;
-    }
+    await apiClient.post('/push/test')
   }
 
   /**
@@ -216,7 +135,7 @@ class PushNotificationsService {
   getStatus() {
     return {
       supported: 'PushManager' in window,
-      permission: Notification.permission,
+      permission: typeof Notification !== 'undefined' ? Notification.permission : 'default',
       subscribed: this.isSubscribed(),
       subscription: this.subscription
     };
@@ -254,5 +173,4 @@ class PushNotificationsService {
   }
 }
 
-// Export singleton instance
 export default new PushNotificationsService();

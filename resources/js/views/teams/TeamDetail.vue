@@ -20,57 +20,50 @@
             {{ userRole }}
           </span>
         </div>
-        
+
         <div class="actions">
-          <button 
-            v-if="canInvite" 
+          <button
+            v-if="canInvite"
             @click="showInviteModal = true"
             class="button is-link"
           >
-            <span class="icon">
-              <i class="fa fa-user-plus"></i>
-            </span>
+            <span class="icon"><i class="fa fa-user-plus"></i></span>
             <span>{{ $t('teams.invite_member') }}</span>
           </button>
-          
-          <button 
-            v-if="canUpdate" 
+
+          <button
+            v-if="canUpdate"
             @click="showEditModal = true"
             class="button is-info"
           >
-            <span class="icon">
-              <i class="fa fa-edit"></i>
-            </span>
+            <span class="icon"><i class="fa fa-edit"></i></span>
             <span>{{ $t('teams.edit_team') }}</span>
           </button>
-          
-          <button 
-            v-if="!isOwner" 
+
+          <button
+            v-if="!isOwner"
             @click="leaveTeam"
             class="button is-warning"
           >
-            <span class="icon">
-              <i class="fa fa-sign-out-alt"></i>
-            </span>
+            <span class="icon"><i class="fa fa-sign-out-alt"></i></span>
             <span>{{ $t('teams.leave_team') }}</span>
           </button>
-          
-          <button 
-            v-if="canDelete" 
+
+          <button
+            v-if="canDelete"
             @click="deleteTeam"
             class="button is-danger"
           >
-            <span class="icon">
-              <i class="fa fa-trash"></i>
-            </span>
+            <span class="icon"><i class="fa fa-trash"></i></span>
             <span>{{ $t('teams.delete_team') }}</span>
           </button>
         </div>
       </div>
 
+      <!-- Members Section -->
       <div class="box members-section">
         <h2 class="subtitle">{{ $t('teams.members') }} ({{ team.members.length }})</h2>
-        
+
         <table class="table is-fullwidth is-hoverable">
           <thead>
             <tr>
@@ -93,29 +86,82 @@
               <td>{{ formatDate(member.joined_at) }}</td>
               <td v-if="canManageMembers">
                 <div class="buttons">
-                  <button 
+                  <button
                     v-if="canChangeRole(member)"
                     @click="changeRole(member)"
                     class="button is-small is-info"
                   >
-                    <span class="icon">
-                      <i class="fa fa-user-cog"></i>
-                    </span>
+                    <span class="icon"><i class="fa fa-user-cog"></i></span>
                   </button>
-                  <button 
+                  <button
                     v-if="canRemoveMember(member)"
                     @click="removeMember(member)"
                     class="button is-small is-danger"
                   >
-                    <span class="icon">
-                      <i class="fa fa-user-times"></i>
-                    </span>
+                    <span class="icon"><i class="fa fa-user-times"></i></span>
                   </button>
                 </div>
               </td>
             </tr>
           </tbody>
         </table>
+      </div>
+
+      <!-- Pending Invitations Section -->
+      <div class="box invitations-section" v-if="canInvite && pendingInvitations.length > 0">
+        <h2 class="subtitle">{{ $t('teams.pending_invitations') }} ({{ pendingInvitations.length }})</h2>
+        <table class="table is-fullwidth is-hoverable">
+          <thead>
+            <tr>
+              <th>{{ $t('teams.email') }}</th>
+              <th>{{ $t('teams.role') }}</th>
+              <th>{{ $t('teams.expires_at') }}</th>
+              <th>{{ $t('teams.actions') }}</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr v-for="inv in pendingInvitations" :key="inv.id">
+              <td>{{ inv.email }}</td>
+              <td><span class="tag" :class="getRoleClass(inv.role)">{{ inv.role }}</span></td>
+              <td>{{ formatDate(inv.expires_at) }}</td>
+              <td>
+                <button @click="cancelInvitation(inv)" class="button is-small is-warning">
+                  <span class="icon"><i class="fa fa-times"></i></span>
+                </button>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Shared Accounts Section -->
+      <div class="box shared-accounts-section" v-if="canInvite">
+        <h2 class="subtitle">{{ $t('teams.shared_accounts') }} ({{ sharedAccounts.length }})</h2>
+        <table v-if="sharedAccounts.length > 0" class="table is-fullwidth is-hoverable">
+          <thead>
+            <tr>
+              <th>{{ $t('teams.service') }}</th>
+              <th>{{ $t('teams.account') }}</th>
+              <th>{{ $t('teams.shared_by') }}</th>
+              <th>{{ $t('teams.access_level') }}</th>
+              <th>{{ $t('teams.actions') }}</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr v-for="sa in sharedAccounts" :key="sa.id">
+              <td>{{ sa.account_service }}</td>
+              <td>{{ sa.account_name }}</td>
+              <td>{{ sa.shared_by }}</td>
+              <td><span class="tag is-info">{{ sa.access_level }}</span></td>
+              <td>
+                <button @click="handleUnshareAccount(sa)" class="button is-small is-danger">
+                  <span class="icon"><i class="fa fa-times"></i></span>
+                </button>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+        <p v-else class="has-text-grey">{{ $t('teams.no_shared_accounts') }}</p>
       </div>
 
       <!-- Invite Modal -->
@@ -127,13 +173,14 @@
             <button class="delete" @click="showInviteModal = false"></button>
           </header>
           <section class="modal-card-body">
+            <!-- Invite Code -->
             <div class="field">
               <label class="label">{{ $t('teams.invite_code') }}</label>
               <div class="control has-icons-right">
-                <input 
-                  class="input" 
-                  type="text" 
-                  :value="inviteCode" 
+                <input
+                  class="input"
+                  type="text"
+                  :value="inviteCode"
                   readonly
                 >
                 <span class="icon is-right" style="pointer-events: all; cursor: pointer;" @click="copyInviteCode">
@@ -143,6 +190,38 @@
             </div>
             <button @click="generateNewInviteCode" class="button is-link">
               {{ $t('teams.generate_new_code') }}
+            </button>
+
+            <hr />
+
+            <!-- Email Invitation -->
+            <p class="has-text-weight-semibold mb-3">{{ $t('teams.invite_by_email') }}</p>
+            <div class="field">
+              <label class="label">{{ $t('teams.email') }}</label>
+              <div class="control">
+                <input
+                  class="input"
+                  type="email"
+                  v-model="inviteEmail"
+                  :placeholder="$t('teams.email_placeholder')"
+                />
+              </div>
+            </div>
+            <div class="field">
+              <label class="label">{{ $t('teams.role') }}</label>
+              <div class="control">
+                <div class="select">
+                  <select v-model="inviteRole">
+                    <option value="member">Member</option>
+                    <option value="admin">Admin</option>
+                    <option value="viewer">Viewer</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+            <button @click="sendEmailInvitation" class="button is-primary" :disabled="!inviteEmail || isSendingInvitation">
+              <span class="icon" v-if="isSendingInvitation"><i class="fa fa-spinner fa-pulse"></i></span>
+              <span>{{ $t('teams.send_invitation') }}</span>
             </button>
           </section>
         </div>
@@ -160,11 +239,11 @@
             <div class="field">
               <label class="label">{{ $t('teams.team_name') }}</label>
               <div class="control">
-                <input 
-                  class="input" 
-                  type="text" 
+                <input
+                  class="input"
+                  type="text"
                   v-model="editTeamName"
-                >
+                />
               </div>
             </div>
           </section>
@@ -198,6 +277,15 @@ const showEditModal = ref(false)
 const editTeamName = ref('')
 const inviteCode = ref('')
 
+// Email invitation state
+const inviteEmail = ref('')
+const inviteRole = ref('member')
+const isSendingInvitation = ref(false)
+
+// Shared accounts + invitations
+const sharedAccounts = ref([])
+const pendingInvitations = ref([])
+
 const userRole = computed(() => team.value?.role || 'viewer')
 const isOwner = computed(() => userRole.value === 'owner')
 const canUpdate = computed(() => ['owner', 'admin'].includes(userRole.value))
@@ -215,6 +303,14 @@ async function loadTeam() {
     team.value = await teamsStore.fetchTeamDetail(route.params.id)
     editTeamName.value = team.value.name
     inviteCode.value = team.value.invite_code || ''
+
+    // Fetch shared accounts and pending invitations in parallel
+    const [shared, invites] = await Promise.allSettled([
+      teamsStore.fetchSharedAccounts(route.params.id),
+      teamsStore.fetchInvitations(route.params.id),
+    ])
+    sharedAccounts.value = shared.status === 'fulfilled' ? shared.value : []
+    pendingInvitations.value = invites.status === 'fulfilled' ? invites.value : []
   } catch (error) {
     notifyStore.error(error.response?.data?.message || 'Failed to load team')
     router.push('/teams')
@@ -265,7 +361,6 @@ async function updateTeam() {
 
 async function leaveTeam() {
   if (!confirm('Are you sure you want to leave this team?')) return
-  
   try {
     await teamsStore.leaveTeam(team.value.id)
     notifyStore.success('Left team successfully')
@@ -277,7 +372,6 @@ async function leaveTeam() {
 
 async function deleteTeam() {
   if (!confirm('Are you sure you want to delete this team? This action cannot be undone.')) return
-  
   try {
     await teamsStore.deleteTeam(team.value.id)
     notifyStore.success('Team deleted successfully')
@@ -298,7 +392,6 @@ function canRemoveMember(member) {
 async function changeRole(member) {
   const newRole = prompt('Enter new role (admin, member, viewer):', member.role)
   if (!newRole || !['admin', 'member', 'viewer'].includes(newRole)) return
-  
   try {
     await teamsStore.updateMemberRole(team.value.id, member.id, newRole)
     member.role = newRole
@@ -310,13 +403,50 @@ async function changeRole(member) {
 
 async function removeMember(member) {
   if (!confirm(`Remove ${member.name} from the team?`)) return
-  
   try {
     await teamsStore.removeMember(team.value.id, member.id)
     team.value.members = team.value.members.filter(m => m.id !== member.id)
     notifyStore.success('Member removed')
   } catch (error) {
     notifyStore.error(error.response?.data?.message || 'Failed to remove member')
+  }
+}
+
+async function handleUnshareAccount(sa) {
+  if (!confirm(`Unshare ${sa.account_service} (${sa.account_name}) from this team?`)) return
+  try {
+    await teamsStore.unshareAccount(team.value.id, sa.twofaccount_id)
+    sharedAccounts.value = sharedAccounts.value.filter(s => s.id !== sa.id)
+    notifyStore.success('Account unshared')
+  } catch (error) {
+    notifyStore.error(error.response?.data?.message || 'Failed to unshare account')
+  }
+}
+
+async function sendEmailInvitation() {
+  if (!inviteEmail.value) return
+  isSendingInvitation.value = true
+  try {
+    await teamsStore.inviteByEmail(team.value.id, inviteEmail.value, inviteRole.value)
+    const invites = await teamsStore.fetchInvitations(team.value.id)
+    pendingInvitations.value = invites
+    inviteEmail.value = ''
+    notifyStore.success('Invitation sent successfully')
+  } catch (error) {
+    notifyStore.error(error.response?.data?.message || 'Failed to send invitation')
+  } finally {
+    isSendingInvitation.value = false
+  }
+}
+
+async function cancelInvitation(inv) {
+  if (!confirm(`Cancel invitation to ${inv.email}?`)) return
+  try {
+    await teamsStore.cancelInvitation(team.value.id, inv.id)
+    pendingInvitations.value = pendingInvitations.value.filter(i => i.id !== inv.id)
+    notifyStore.success('Invitation cancelled')
+  } catch (error) {
+    notifyStore.error(error.response?.data?.message || 'Failed to cancel invitation')
   }
 }
 </script>
@@ -351,7 +481,9 @@ async function removeMember(member) {
   gap: 0.5rem;
 }
 
-.members-section {
+.members-section,
+.invitations-section,
+.shared-accounts-section {
   margin-top: 2rem;
 }
 

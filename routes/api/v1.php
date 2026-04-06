@@ -90,6 +90,8 @@ Route::group(['middleware' => 'auth:api-guard'], function () {
     Route::post('push/subscribe', [\App\Http\Controllers\PushSubscriptionController::class, 'subscribe'])->name('push.subscribe');
     Route::delete('push/unsubscribe', [\App\Http\Controllers\PushSubscriptionController::class, 'unsubscribe'])->name('push.unsubscribe');
     Route::get('push/subscriptions', [\App\Http\Controllers\PushSubscriptionController::class, 'index'])->name('push.subscriptions.index');
+    Route::get('push/public-key', [\App\Http\Controllers\PushSubscriptionController::class, 'publicKey'])->name('push.publicKey');
+    Route::post('push/test', [\App\Http\Controllers\PushSubscriptionController::class, 'sendTest'])->name('push.test');
 
     // Teams routes
     Route::get('teams', [TeamController::class, 'index'])->name('teams.index');
@@ -100,10 +102,15 @@ Route::group(['middleware' => 'auth:api-guard'], function () {
     Route::post('teams/{id}/invite', [TeamController::class, 'invite'])->name('teams.invite');
     Route::post('teams/{id}/invitations', [TeamController::class, 'invite'])->name('teams.invitations.create');
     Route::post('teams/invitations/{token}/accept', [TeamController::class, 'acceptInvitation'])->name('teams.invitations.accept');
+    Route::get('teams/{id}/invitations', [TeamController::class, 'invitations'])->name('teams.invitations.index');
+    Route::delete('teams/{id}/invitations/{invitationId}', [TeamController::class, 'cancelInvitation'])->name('teams.invitations.cancel');
     Route::post('teams/join', [TeamController::class, 'join'])->name('teams.join');
     Route::post('teams/{id}/leave', [TeamController::class, 'leave'])->name('teams.leave');
     Route::delete('teams/{id}/members/{userId}', [TeamController::class, 'removeMember'])->name('teams.members.remove');
     Route::put('teams/{id}/members/{userId}/role', [TeamController::class, 'updateMemberRole'])->name('teams.members.updateRole');
+    Route::get('teams/{id}/shared-accounts', [TeamController::class, 'sharedAccounts'])->name('teams.sharedAccounts.index');
+    Route::post('teams/{id}/share', [TeamController::class, 'shareAccount'])->name('teams.shareAccount');
+    Route::delete('teams/{id}/share/{accountId}', [TeamController::class, 'unshareAccount'])->name('teams.unshareAccount');
 });
 
 /**

@@ -1,6 +1,7 @@
 <script setup>
     import tabs from './tabs'
     import systemService from '@/services/systemService'
+    import httpClientFactory from '@/services/httpClientFactory'
     import { useAppSettingsUpdater } from '@/composables/appSettingsUpdater'
     import { useAppSettingsStore } from '@/stores/appSettings'
     import { useNotify, TabBar } from '@2fauth/ui'
@@ -25,6 +26,7 @@
     const testEmailError = ref(null)
     const isClearingCache = ref(false)
     const healthEndPoint = $2fauth.config.subdirectory + '/up'
+    const features = ref([])
     const healthEndPointFullPath = location.hostname + $2fauth.config.subdirectory + '/up'
 
     /**
@@ -84,6 +86,13 @@
 
     onMounted(async () => {
         await appSettings.fetch()
+
+        // Fetch feature flags
+        try {
+            const apiClient = httpClientFactory('api')
+            const response = await apiClient.get('/features')
+            features.value = response.data
+        } catch {}
 
         systemService.getSystemInfos({returnError: true}).then(response => {
             infos.value = response.data.common
@@ -149,6 +158,16 @@
                     <!-- protect db -->
                     <FormCheckbox v-model="appSettings.useEncryption" @update:model-value="val => saveSetting('useEncryption', val)" fieldName="useEncryption" label="field.use_encryption" help="field.use_encryption.help" />
                 </form>
+
+                <h4 class="title is-4 pt-5">{{ $t('heading.features') }}</h4>
+                <div v-if="features.length > 0" class="tags">
+                    <span v-for="feature in features" :key="feature.name" class="tag is-success is-light">
+                        {{ feature.name }}
+                    </span>
+                </div>
+                <div v-else class="notification is-info is-light">
+                    {{ $t('message.no_features_enabled') }}
+                </div>
 
                 <h4 class="title is-4 pt-5">{{ $t('heading.environment') }}</h4>
                 <!-- cache management -->

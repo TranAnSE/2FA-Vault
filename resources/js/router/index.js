@@ -37,10 +37,12 @@ const router = createRouter({
         { path: '/teams', name: 'teams', component: () => import('../views/teams/TeamList.vue'), meta: { middlewares: [authGuard, syncAppSettings, setReturnTo], watchedByKicker: true } },
         { path: '/teams/create', name: 'createTeam', component: () => import('../views/teams/CreateTeam.vue'), meta: { middlewares: [authGuard, syncAppSettings, setReturnTo], watchedByKicker: true } },
         { path: '/teams/:id', name: 'teamDetail', component: () => import('../views/teams/TeamDetail.vue'), meta: { middlewares: [authGuard, syncAppSettings, setReturnTo], watchedByKicker: true }, props: true },
+        { path: '/teams/join/:token', name: 'joinTeamByToken', component: () => import('../views/teams/JoinTeam.vue'), meta: { middlewares: [authGuard, syncAppSettings], watchedByKicker: true } },
 
         { path: '/settings/options', name: 'settings.options', component: () => import('../views/settings/Options.vue'), meta: { middlewares: [authGuard, syncAppSettings], watchedByKicker: true, showAbout: true } },
         { path: '/settings/account', name: 'settings.account', component: () => import('../views/settings/Account.vue'), meta: { middlewares: [authGuard, syncAppSettings], watchedByKicker: true, showAbout: true } },
         { path: '/settings/backup', name: 'settings.backup', component: () => import('../views/settings/BackupRestore.vue'), meta: { middlewares: [authGuard, syncAppSettings], watchedByKicker: true, showAbout: true } },
+        { path: '/settings/encryption', name: 'settings.encryption', component: () => import('../views/settings/Encryption.vue'), meta: { middlewares: [authGuard, syncAppSettings], watchedByKicker: true, showAbout: true } },
         { path: '/settings/oauth', name: 'settings.oauth.tokens', component: () => import('../views/settings/OAuth.vue'), meta: { middlewares: [authGuard, syncAppSettings], watchedByKicker: true, showAbout: true, props: true } },
         { path: '/settings/webauthn/:credentialId/edit', name: 'settings.webauthn.editCredential', component: () => import('../views/settings/Credentials/Edit.vue'), meta: { middlewares: [authGuard, syncAppSettings], watchedByKicker: true, showAbout: true }, props: true },
         { path: '/settings/webauthn', name: 'settings.webauthn.devices', component: () => import('../views/settings/WebAuthn.vue'), meta: { middlewares: [authGuard, syncAppSettings], watchedByKicker: true, showAbout: true } },

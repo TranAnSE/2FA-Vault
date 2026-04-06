@@ -9,6 +9,7 @@
     import { timezones } from './timezones'
     import { useI18n } from 'vue-i18n'
     import { LucideExternalLink, LucideRefreshCw } from 'lucide-vue-next'
+    import pushNotifications from '@/services/push-notifications'
 
     const { t } = useI18n()
     const $2fauth = inject('2fauth')
@@ -18,6 +19,12 @@
     const appSettings = useAppSettingsStore()
     const returnTo = useStorage($2fauth.prefix + 'returnTo', 'accounts')
     const isLoading = ref(false)
+
+    // Push notification state
+    const pushSupported = ref('PushManager' in window)
+    const pushEnabled = ref(false)
+    const pushPermission = ref(typeof Notification !== 'undefined' ? Notification.permission : 'default')
+    const isSendingTestPush = ref(false)
 
     const layouts = [
         { text: 'label.grid', value: 'grid', icon: 'Grid3X3' },
@@ -128,6 +135,15 @@
         
         refreshIconPackList()
         user.refreshPreferences()
+
+        // Initialize push notification status
+        if (pushSupported.value) {
+            try {
+                const status = pushNotifications.getStatus()
+                pushEnabled.value = status.subscribed
+                pushPermission.value = status.permission
+            } catch {}
+        }
     })
 
     /**
@@ -222,6 +238,49 @@
         .finally(() => {
             isLoading.value = false
         })
+    }
+
+    /**
+     * Toggle push notifications on/off
+     */
+    async function togglePushNotifications(enabled) {
+        if (enabled) {
+            try {
+                const swReg = await navigator.serviceWorker.ready
+                await pushNotifications.init(swReg)
+                await pushNotifications.subscribe()
+                pushEnabled.value = true
+                pushPermission.value = Notification.permission
+                notify.success({ text: t('notification.push_enabled') })
+            } catch {
+                pushEnabled.value = false
+                notify.alert({ text: t('error.push_subscription_failed') })
+            }
+        } else {
+            try {
+                await pushNotifications.unsubscribe()
+                pushEnabled.value = false
+                notify.success({ text: t('notification.push_disabled') })
+            } catch {
+                pushEnabled.value = true
+                notify.alert({ text: t('error.push_unsubscribe_failed') })
+            }
+        }
+    }
+
+    /**
+     * Send a test push notification
+     */
+    async function sendTestPush() {
+        isSendingTestPush.value = true
+        try {
+            await pushNotifications.sendTestNotification()
+            notify.success({ text: t('notification.push_test_sent') })
+        } catch {
+            notify.alert({ text: t('error.push_test_failed') })
+        } finally {
+            isSendingTestPush.value = false
+        }
     }
 
     onBeforeRouteLeave((to) => {
@@ -325,7 +384,31 @@
                         <FormCheckbox v-model="user.preferences.notifyOnNewAuthDevice" @update:model-value="val => savePreference('notifyOnNewAuthDevice', val)" fieldName="notifyOnNewAuthDevice" :isLocked="appSettings.lockedPreferences.includes('notifyOnNewAuthDevice')" label="field.notify_on_new_auth_device" help="field.notify_on_new_auth_device.help" />
                         <!-- on failed login -->
                         <FormCheckbox v-model="user.preferences.notifyOnFailedLogin" @update:model-value="val => savePreference('notifyOnFailedLogin', val)" fieldName="notifyOnFailedLogin" :isLocked="appSettings.lockedPreferences.includes('notifyOnFailedLogin')" label="field.notify_on_failed_login" help="field.notify_on_failed_login.help" />
-                            
+
+                        <h4 class="title is-4 pt-4">{{ $t('heading.push_notifications') }}</h4>
+                        <template v-if="pushSupported">
+                            <FormCheckbox :model-value="pushEnabled" @update:model-value="togglePushNotifications" fieldName="pushEnabled" label="field.push_notifications" help="field.push_notifications.help" />
+                            <div v-if="pushEnabled" class="ml-5 mt-3">
+                                <p class="help mb-2">
+                                    <span v-if="pushPermission === 'granted'" class="has-text-success">
+                                        {{ $t('label.push_permission_granted') }}
+                                    </span>
+                                    <span v-else-if="pushPermission === 'denied'" class="has-text-danger">
+                                        {{ $t('label.push_permission_denied') }}
+                                    </span>
+                                    <span v-else>
+                                        {{ $t('label.push_permission_default') }}
+                                    </span>
+                                </p>
+                                <button type="button" class="button is-link is-small" @click="sendTestPush" :disabled="isSendingTestPush">
+                                    {{ $t('label.send_test_notification') }}
+                                </button>
+                            </div>
+                        </template>
+                        <div v-else class="notification is-warning is-light">
+                            {{ $t('message.push_not_supported') }}
+                        </div>
+
                         <h4 class="title is-4 pt-4">{{ $t('heading.data_input') }}</h4>
                         <!-- auto-save QrCoded account -->
                         <FormCheckbox v-model="user.preferences.AutoSaveQrcodedAccount" @update:model-value="val => savePreference('AutoSaveQrcodedAccount', val)" fieldName="AutoSaveQrcodedAccount" :isLocked="appSettings.lockedPreferences.includes('AutoSaveQrcodedAccount')" label="field.auto_save_qrcoded_account" help="field.auto_save_qrcoded_account.help" />

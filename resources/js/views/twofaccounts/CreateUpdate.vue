@@ -10,6 +10,7 @@
     import { useGroups } from '@/stores/groups'
     import { useBusStore } from '@/stores/bus'
     import { useCryptoStore } from '@/stores/crypto'
+    import { useTeamsStore } from '@/stores/teams'
     import { useNotify, OtpDisplay } from '@2fauth/ui'
     import { UseColorMode } from '@vueuse/components'
     import { useI18n } from 'vue-i18n'
@@ -119,6 +120,15 @@
     const hasSomeIconPack = ref(false)
     const isLoading = ref(false)
 
+    // Share with Team
+    const teamsStore = useTeamsStore()
+    const showShareModal = ref(false)
+    const shareForm = reactive({
+        team_id: '',
+        access_level: 'read'
+    })
+    const isSharing = ref(false)
+
     // $refs
     const iconInput = ref(null)
     const OtpDisplayForAutoSave = ref(null)
@@ -141,6 +151,34 @@
             return { text: item.id > 0 ? item.name : '- ' + t('label.no_group') + ' -', value: item.id }
         })
     })
+
+    const shareableTeams = computed(() => {
+        return teamsStore.teams.map(team => ({
+            text: team.name,
+            value: team.id
+        }))
+    })
+
+    const accessLevels = [
+        { text: 'label.read', value: 'read' },
+        { text: 'label.write', value: 'write' },
+    ]
+
+    async function shareWithTeam() {
+        if (!shareForm.team_id) return
+        isSharing.value = true
+        try {
+            await teamsStore.shareAccount(shareForm.team_id, props.twofaccountId, shareForm.access_level)
+            notify.success({ text: t('teams.share_success') })
+            showShareModal.value = false
+            shareForm.team_id = ''
+            shareForm.access_level = 'read'
+        } catch (error) {
+            notify.error({ text: error.response?.data?.message || t('teams.share_error') })
+        } finally {
+            isSharing.value = false
+        }
+    }
 
     onMounted(() => {
         if (route.name == 'editAccount') {
@@ -792,11 +830,31 @@
                     <p class="control" v-if="form.otp_type && form.secret">
                         <button id="btnPreview" type="button" class="button is-success is-rounded has-text-white" @click="previewOTP">{{ $t('label.test') }}</button>
                     </p>
+                    <p class="control" v-if="isEditMode && shareableTeams.length > 0">
+                        <button type="button" class="button is-link is-rounded" @click="showShareModal = true">{{ $t('teams.share_with_team') }}</button>
+                    </p>
                     <NavigationButton action="cancel" :useLinkTag="false" @canceled="cancelCreation" />
                 </template>
             </VueFooter>
         </template>
     </StackLayout>
     <Spinner v-if="showSpinner" :type="'fullscreen'" :isVisible="true" message="message.parsing_data" />
+    <!-- Share with Team modal -->
+    <Modal v-model="showShareModal">
+        <div class="modal-card">
+            <header class="modal-card-head">
+                <p class="modal-card-title">{{ $t('teams.share_with_team') }}</p>
+                <button class="delete" aria-label="close" @click="showShareModal = false"></button>
+            </header>
+            <section class="modal-card-body">
+                <FormSelect v-model="shareForm.team_id" :options="shareableTeams" fieldName="team_id" label="teams.select_team" />
+                <FormToggle v-model="shareForm.access_level" :choices="accessLevels" fieldName="access_level" label="teams.select_access_level" />
+            </section>
+            <footer class="modal-card-foot">
+                <VueButton nativeType="button" :isLoading="isSharing" :disabled="!shareForm.team_id" @click="shareWithTeam">{{ $t('label.share') }}</VueButton>
+                <NavigationButton action="cancel" :isText="true" :isRounded="false" :useLinkTag="false" @canceled="showShareModal = false" />
+            </footer>
+        </div>
+    </Modal>
     </UseColorMode>
 </template>

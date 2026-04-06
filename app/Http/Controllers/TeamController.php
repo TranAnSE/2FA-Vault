@@ -197,6 +197,55 @@ class TeamController extends Controller
     }
 
     /**
+     * List pending invitations for a team.
+     */
+    public function invitations(Request $request, $id)
+    {
+        $team = Team::findOrFail($id);
+
+        if (!Gate::allows('invite', $team)) {
+            return response()->json(['message' => 'Forbidden'], 403);
+        }
+
+        $invitations = \App\Models\TeamInvitation::where('team_id', $team->id)
+            ->where('status', 'pending')
+            ->get()
+            ->map(function ($inv) {
+                return [
+                    'id' => $inv->id,
+                    'email' => $inv->email,
+                    'role' => $inv->role,
+                    'status' => $inv->status,
+                    'expires_at' => $inv->expires_at,
+                    'created_at' => $inv->created_at,
+                ];
+            });
+
+        return response()->json($invitations);
+    }
+
+    /**
+     * Cancel a pending invitation.
+     */
+    public function cancelInvitation(Request $request, $id, $invitationId)
+    {
+        $team = Team::findOrFail($id);
+
+        if (!Gate::allows('invite', $team)) {
+            return response()->json(['message' => 'Forbidden'], 403);
+        }
+
+        $invitation = \App\Models\TeamInvitation::where('id', $invitationId)
+            ->where('team_id', $team->id)
+            ->where('status', 'pending')
+            ->firstOrFail();
+
+        $invitation->update(['status' => 'cancelled']);
+
+        return response()->json(['message' => 'Invitation cancelled']);
+    }
+
+    /**
      * Join a team via invite code.
      */
     public function join(Request $request)
@@ -272,5 +321,97 @@ class TeamController extends Controller
         } catch (\Exception $e) {
             return response()->json(['message' => $e->getMessage()], 403);
         }
+    }
+
+    /**
+     * Share an account with a team.
+     */
+    public function shareAccount(Request $request, $id)
+    {
+        $validated = $request->validate([
+            'twofaccount_id' => 'required|integer|exists:twofaccounts,id',
+            'access_level' => 'nullable|in:read,write,admin',
+        ]);
+
+        $team = Team::findOrFail($id);
+        $user = Auth::user();
+
+        if (!$team->hasMember($user->id)) {
+            return response()->json(['message' => 'Forbidden'], 403);
+        }
+
+        $account = \App\Models\TwoFAccount::where('id', $validated['twofaccount_id'])
+            ->where('user_id', $user->id)
+            ->firstOrFail();
+
+        try {
+            $sharedAccount = $this->teamService->shareAccountWithTeam(
+                $account,
+                $team,
+                $user,
+                $validated['access_level'] ?? 'read'
+            );
+
+            return response()->json([
+                'message' => 'Account shared with team successfully',
+                'shared_account' => $sharedAccount,
+            ], 201);
+        } catch (\Exception $e) {
+            return response()->json(['message' => $e->getMessage()], 403);
+        }
+    }
+
+    /**
+     * Unshare an account from a team.
+     */
+    public function unshareAccount(Request $request, $id, $accountId)
+    {
+        $team = Team::findOrFail($id);
+        $user = Auth::user();
+
+        $sharedAccount = \App\Models\SharedAccount::where('team_id', $team->id)
+            ->where('twofaccount_id', $accountId)
+            ->firstOrFail();
+
+        if ($sharedAccount->shared_by !== $user->id) {
+            $role = $team->getUserRole($user->id);
+            if (!in_array($role, ['owner', 'admin'])) {
+                return response()->json(['message' => 'Forbidden'], 403);
+            }
+        }
+
+        $sharedAccount->delete();
+
+        return response()->json(['message' => 'Account unshared successfully']);
+    }
+
+    /**
+     * List shared accounts for a team.
+     */
+    public function sharedAccounts(Request $request, $id)
+    {
+        $team = Team::findOrFail($id);
+
+        if (!Gate::allows('view', $team)) {
+            return response()->json(['message' => 'Forbidden'], 403);
+        }
+
+        $sharedAccounts = $team->sharedAccounts()
+            ->with(['twoFAccount', 'sharedBy'])
+            ->get()
+            ->map(function ($sa) {
+                return [
+                    'id' => $sa->id,
+                    'twofaccount_id' => $sa->twofaccount_id,
+                    'account_service' => $sa->twoFAccount->service ?? '',
+                    'account_name' => $sa->twoFAccount->account ?? '',
+                    'shared_by' => $sa->sharedBy->name,
+                    'shared_by_id' => $sa->shared_by,
+                    'access_level' => $sa->access_level,
+                    'created_at' => $sa->created_at,
+                ];
+            });
+
+        return response()->json($sharedAccounts);
     }
 }

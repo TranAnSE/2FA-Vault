@@ -7,6 +7,8 @@ export const useTeamsStore = defineStore('teams', {
   state: () => ({
     teams: [],
     currentTeam: null,
+    sharedAccounts: [],
+    pendingInvitations: [],
   }),
 
   getters: {
@@ -18,7 +20,7 @@ export const useTeamsStore = defineStore('teams', {
   actions: {
     async fetchTeams() {
       try {
-        const { data } = await apiClient.get('/api/v1/teams')
+        const { data } = await apiClient.get('/teams')
         this.teams = data
         return data
       } catch (error) {
@@ -29,7 +31,7 @@ export const useTeamsStore = defineStore('teams', {
 
     async fetchTeamDetail(teamId) {
       try {
-        const { data } = await apiClient.get(`/api/v1/teams/${teamId}`)
+        const { data } = await apiClient.get(`/teams/${teamId}`)
         this.currentTeam = data
         return data
       } catch (error) {
@@ -40,7 +42,7 @@ export const useTeamsStore = defineStore('teams', {
 
     async createTeam(teamData) {
       try {
-        const { data } = await apiClient.post('/api/v1/teams', teamData)
+        const { data } = await apiClient.post('/teams', teamData)
         this.teams.push(data)
         return data
       } catch (error) {
@@ -51,7 +53,7 @@ export const useTeamsStore = defineStore('teams', {
 
     async updateTeam(teamId, teamData) {
       try {
-        const { data } = await apiClient.put(`/api/v1/teams/${teamId}`, teamData)
+        const { data } = await apiClient.put(`/teams/${teamId}`, teamData)
         
         const index = this.teams.findIndex(t => t.id === teamId)
         if (index !== -1) {
@@ -71,7 +73,7 @@ export const useTeamsStore = defineStore('teams', {
 
     async deleteTeam(teamId) {
       try {
-        await apiClient.delete(`/api/v1/teams/${teamId}`)
+        await apiClient.delete(`/teams/${teamId}`)
         this.teams = this.teams.filter(t => t.id !== teamId)
         
         if (this.currentTeam?.id === teamId) {
@@ -85,7 +87,7 @@ export const useTeamsStore = defineStore('teams', {
 
     async generateInviteCode(teamId) {
       try {
-        const { data } = await apiClient.post(`/api/v1/teams/${teamId}/invite`)
+        const { data } = await apiClient.post(`/teams/${teamId}/invite`)
         return data
       } catch (error) {
         console.error('Failed to generate invite code:', error)
@@ -95,7 +97,7 @@ export const useTeamsStore = defineStore('teams', {
 
     async joinTeam(inviteCode) {
       try {
-        const { data } = await apiClient.post('/api/v1/teams/join', { invite_code: inviteCode })
+        const { data } = await apiClient.post('/teams/join', { invite_code: inviteCode })
         this.teams.push(data.team)
         return data
       } catch (error) {
@@ -106,7 +108,7 @@ export const useTeamsStore = defineStore('teams', {
 
     async leaveTeam(teamId) {
       try {
-        await apiClient.post(`/api/v1/teams/${teamId}/leave`)
+        await apiClient.post(`/teams/${teamId}/leave`)
         this.teams = this.teams.filter(t => t.id !== teamId)
         
         if (this.currentTeam?.id === teamId) {
@@ -120,7 +122,7 @@ export const useTeamsStore = defineStore('teams', {
 
     async removeMember(teamId, userId) {
       try {
-        await apiClient.delete(`/api/v1/teams/${teamId}/members/${userId}`)
+        await apiClient.delete(`/teams/${teamId}/members/${userId}`)
         
         if (this.currentTeam?.id === teamId) {
           this.currentTeam.members = this.currentTeam.members.filter(m => m.id !== userId)
@@ -133,8 +135,8 @@ export const useTeamsStore = defineStore('teams', {
 
     async updateMemberRole(teamId, userId, role) {
       try {
-        await apiClient.put(`/api/v1/teams/${teamId}/members/${userId}/role`, { role })
-        
+        await apiClient.put(`/teams/${teamId}/members/${userId}/role`, { role })
+
         if (this.currentTeam?.id === teamId) {
           const member = this.currentTeam.members.find(m => m.id === userId)
           if (member) {
@@ -143,6 +145,85 @@ export const useTeamsStore = defineStore('teams', {
         }
       } catch (error) {
         console.error('Failed to update member role:', error)
+        throw error
+      }
+    },
+
+    // --- Account Sharing ---
+
+    async fetchSharedAccounts(teamId) {
+      try {
+        const { data } = await apiClient.get(`/teams/${teamId}/shared-accounts`)
+        this.sharedAccounts = data
+        return data
+      } catch (error) {
+        console.error('Failed to fetch shared accounts:', error)
+        throw error
+      }
+    },
+
+    async shareAccount(teamId, twofaccountId, accessLevel = 'read') {
+      try {
+        const { data } = await apiClient.post(`/teams/${teamId}/share`, {
+          twofaccount_id: twofaccountId,
+          access_level: accessLevel,
+        })
+        return data
+      } catch (error) {
+        console.error('Failed to share account:', error)
+        throw error
+      }
+    },
+
+    async unshareAccount(teamId, twofaccountId) {
+      try {
+        await apiClient.delete(`/teams/${teamId}/share/${twofaccountId}`)
+        this.sharedAccounts = this.sharedAccounts.filter(sa => sa.twofaccount_id !== twofaccountId)
+      } catch (error) {
+        console.error('Failed to unshare account:', error)
+        throw error
+      }
+    },
+
+    // --- Email Invitations ---
+
+    async inviteByEmail(teamId, email, role = 'member') {
+      try {
+        const { data } = await apiClient.post(`/teams/${teamId}/invite`, { email, role })
+        return data
+      } catch (error) {
+        console.error('Failed to send email invitation:', error)
+        throw error
+      }
+    },
+
+    async fetchInvitations(teamId) {
+      try {
+        const { data } = await apiClient.get(`/teams/${teamId}/invitations`)
+        this.pendingInvitations = data
+        return data
+      } catch (error) {
+        console.error('Failed to fetch invitations:', error)
+        throw error
+      }
+    },
+
+    async cancelInvitation(teamId, invitationId) {
+      try {
+        await apiClient.delete(`/teams/${teamId}/invitations/${invitationId}`)
+        this.pendingInvitations = this.pendingInvitations.filter(inv => inv.id !== invitationId)
+      } catch (error) {
+        console.error('Failed to cancel invitation:', error)
+        throw error
+      }
+    },
+
+    async acceptEmailInvitation(token) {
+      try {
+        const { data } = await apiClient.post(`/teams/invitations/${token}/accept`)
+        return data
+      } catch (error) {
+        console.error('Failed to accept invitation:', error)
         throw error
       }
     },

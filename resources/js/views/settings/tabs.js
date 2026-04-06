@@ -24,4 +24,9 @@ export default [
         'view' : 'settings.backup',
         'id'   : 'lnkTabBackup'
     },
+    {
+        'name' : 'label.encryption',
+        'view' : 'settings.encryption',
+        'id'   : 'lnkTabEncryption'
+    },
 ]

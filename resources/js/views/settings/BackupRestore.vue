@@ -1,175 +1,169 @@
 <script setup>
-import tabs from './tabs'
-import Form from '@/components/formElements/Form'
-import { useUserStore } from '@/stores/user'
-import { useBackupStore } from '@/stores/backup'
-import { useNotify, TabBar } from '@2fauth/ui'
-import { useI18n } from 'vue-i18n'
-import { useErrorHandler } from '@2fauth/stores'
-import { computed, ref, onMounted } from 'vue'
+	import tabs from './tabs'
+	import Form from '@/components/formElements/Form'
+	import { useUserStore } from '@/stores/user'
+	import { useBackupStore } from '@/stores/backup'
+	import { useNotify, TabBar } from '@2fauth/ui'
+	import { useI18n } from 'vue-i18n'
+	import { useErrorHandler } from '@2fauth/stores'
+	import { computed, ref, onMounted } from 'vue'
 
-const errorHandler = useErrorHandler()
-const { t } = useI18n()
-const $2fauth = inject('2fauth')
-const user = useUserStore()
-const backup = useBackupStore()
-const notify = useNotify()
-const router = useRouter()
-const returnTo = useStorage($2fauth.prefix + 'returnTo', 'accounts')
+	const errorHandler = useErrorHandler()
+	const { t } = useI18n()
+	const $2fauth = inject('2fauth')
+	const user = useUserStore()
+	const backup = useBackupStore()
+	const notify = useNotify()
+	const router = useRouter()
+	const returnTo = useStorage($2fauth.prefix + 'returnTo', 'accounts')
 
-const isExporting = ref(false)
-const isImporting = ref(false)
-const backupFile = ref(null)
-const importMode = ref('merge')
-const showExportDialog = ref(false)
-const showImportDialog = ref(false)
-const exportPassword = ref('')
-const importPassword = ref('')
+	const isExporting = ref(false)
+	const isImporting = ref(false)
+	const backupFile = ref(null)
+	const showExportDialog = ref(false)
+	const showImportDialog = ref(false)
+	const exportPassword = ref('')
+	const importPassword = ref('')
 
-const backupInfo = computed(() => backup.info)
-const encryptionEnabled = computed(() => user.encryptionVersion > 0)
+	// Backup preview state
+	const backupMetadata = ref(null)
+	const isPreviewing = ref(false)
+	const conflictResolution = ref('skip')
+	const importGroups = ref(true)
 
-const formExport = reactive(new Form({
-    masterPassword: '',
-}))
+	const backupInfo = computed(() => backup.info)
+	const encryptionEnabled = computed(() => user.encryptionVersion > 0)
 
-const formImport = reactive(new Form({
-    backupFile: null,
-    masterPassword: '',
-    mode: 'merge',
-}))
+	onMounted(async () => {
+	    await backup.fetchInfo()
+	})
 
-onMounted(async () => {
-    await backup.fetchInfo()
-})
+	/**
+	 * Export encrypted backup
+	 */
+	function exportBackup() {
+	    if (!encryptionEnabled.value) {
+	        notify.alert({ text: t('error.encryption_not_enabled') })
+	        return
+	    }
+	    showExportDialog.value = true
+	}
 
-/**
- * Export encrypted backup
- */
-async function exportBackup() {
-    if (!encryptionEnabled.value) {
-        notify.alert({ text: t('errors.encryption_not_enabled') })
-        return
-    }
+	async function confirmExport() {
+	    if (!exportPassword.value) {
+	        notify.alert({ text: t('error.password_required') })
+	        return
+	    }
 
-    showExportDialog.value = true
-}
+	    isExporting.value = true
+	    try {
+	        await backup.exportBackup(exportPassword.value)
+	        notify.success({ text: t('notification.backup_exported') })
+	        showExportDialog.value = false
+	        exportPassword.value = ''
+	        await backup.fetchInfo()
+	    } catch (error) {
+	        if (error.response?.status === 400) {
+	            notify.alert({ text: error.response.data.message })
+	        } else {
+	            errorHandler.show(error)
+	        }
+	    } finally {
+	        isExporting.value = false
+	    }
+	}
 
-async function confirmExport() {
-    if (!exportPassword.value) {
-        notify.alert({ text: t('errors.password_required') })
-        return
-    }
+	/**
+	 * Import encrypted backup
+	 */
+	async function selectBackupFile(event) {
+	    const file = event.target.files[0]
+	    if (!file) return
 
-    isExporting.value = true
+	    backupFile.value = file
+	    isPreviewing.value = true
 
-    try {
-        // In production, this would derive the key from password
-        // For now, we'll use a placeholder
-        const response = await backup.exportBackup(exportPassword.value)
-        
-        notify.success({ text: t('notification.backup_exported') })
-        showExportDialog.value = false
-        exportPassword.value = ''
-        
-        await backup.fetchInfo()
-    } catch (error) {
-        if (error.response?.status === 400) {
-            notify.alert({ text: error.response.data.message })
-        } else {
-            errorHandler.show(error)
-        }
-    } finally {
-        isExporting.value = false
-    }
-}
+	    try {
+	        const metadata = await backup.getBackupMetadata(file)
+	        backupMetadata.value = metadata
+	    } catch {
+	        backupMetadata.value = null
+	    } finally {
+	        isPreviewing.value = false
+	        showImportDialog.value = true
+	    }
+	}
 
-/**
- * Import encrypted backup
- */
-function selectBackupFile(event) {
-    const file = event.target.files[0]
-    if (file) {
-        backupFile.value = file
-        showImportDialog.value = true
-    }
-}
+	async function confirmImport() {
+	    if (!backupFile.value) {
+	        notify.alert({ text: t('error.file_required') })
+	        return
+	    }
 
-async function confirmImport() {
-    if (!backupFile.value) {
-        notify.alert({ text: t('errors.file_required') })
-        return
-    }
+	    isImporting.value = true
+	    try {
+	        const result = await backup.importBackup(
+	            backupFile.value,
+	            importPassword.value,
+	            conflictResolution.value,
+	            importGroups.value
+	        )
 
-    if (!importPassword.value) {
-        notify.alert({ text: t('errors.password_required') })
-        return
-    }
+	        notify.success({
+	            text: t('notification.backup_imported', {
+	                imported: result.imported || result.imported_count || 0,
+	            })
+	        })
 
-    isImporting.value = true
+	        showImportDialog.value = false
+	        importPassword.value = ''
+	        backupFile.value = null
+	        backupMetadata.value = null
+	        await backup.fetchInfo()
+	    } catch (error) {
+	        if (error.response?.status === 422 || error.response?.status === 400) {
+	            notify.alert({ text: error.response.data.message })
+	        } else {
+	            errorHandler.show(error)
+	        }
+	    } finally {
+	        isImporting.value = false
+	    }
+	}
 
-    try {
-        const result = await backup.importBackup(
-            backupFile.value,
-            importPassword.value,
-            importMode.value
-        )
-        
-        notify.success({ 
-            text: t('notification.backup_imported', { 
-                imported: result.imported,
-                failed: result.failed 
-            })
-        })
-        
-        showImportDialog.value = false
-        importPassword.value = ''
-        backupFile.value = null
-        
-        await backup.fetchInfo()
-    } catch (error) {
-        if (error.response?.status === 400) {
-            notify.alert({ text: error.response.data.message })
-        } else {
-            errorHandler.show(error)
-        }
-    } finally {
-        isImporting.value = false
-    }
-}
+	function cancelExport() {
+	    showExportDialog.value = false
+	    exportPassword.value = ''
+	}
 
-function cancelExport() {
-    showExportDialog.value = false
-    exportPassword.value = ''
-}
+	function cancelImport() {
+	    showImportDialog.value = false
+	    importPassword.value = ''
+	    backupFile.value = null
+	    backupMetadata.value = null
+	}
 
-function cancelImport() {
-    showImportDialog.value = false
-    importPassword.value = ''
-    backupFile.value = null
-}
-
-onBeforeRouteLeave((to) => {
-    if (!to.name.startsWith('settings.') && to.name === 'login') {
-        returnTo.value = to.name
-    }
-})
+	onBeforeRouteLeave((to) => {
+	    if (!to.name.startsWith('settings.') && to.name === 'login') {
+	        returnTo.value = to.name
+	    }
+	})
 </script>
 
 <template>
     <div>
         <TabBar :tabs="tabs" :activeTab="'backup'" />
-        
+
         <div class="settings-panel">
             <!-- Export Section -->
             <div class="section">
                 <h3 class="title is-4">{{ t('settings.backup.export_title') }}</h3>
                 <p class="help">{{ t('settings.backup.export_description') }}</p>
-                
+
                 <div class="field">
                     <div class="control">
-                        <button 
-                            class="button is-primary" 
+                        <button
+                            class="button is-primary"
                             @click="exportBackup"
                             :disabled="!encryptionEnabled || isExporting"
                         >
@@ -213,13 +207,13 @@ onBeforeRouteLeave((to) => {
             <div class="section">
                 <h3 class="title is-4">{{ t('settings.backup.import_title') }}</h3>
                 <p class="help">{{ t('settings.backup.import_description') }}</p>
-                
+
                 <div class="field">
                     <div class="file has-name">
                         <label class="file-label">
-                            <input 
-                                class="file-input" 
-                                type="file" 
+                            <input
+                                class="file-input"
+                                type="file"
                                 accept=".vault,.json"
                                 @change="selectBackupFile"
                                 :disabled="isImporting"
@@ -239,24 +233,32 @@ onBeforeRouteLeave((to) => {
                     </div>
                 </div>
 
-                <!-- Import Mode Selection -->
-                <div class="field" v-if="showImportDialog">
-                    <label class="label">{{ t('settings.backup.import_mode') }}</label>
-                    <div class="control">
-                        <label class="radio">
-                            <input type="radio" v-model="importMode" value="merge" />
-                            {{ t('settings.backup.mode_merge') }}
-                        </label>
-                        <label class="radio">
-                            <input type="radio" v-model="importMode" value="replace" />
-                            {{ t('settings.backup.mode_replace') }}
-                        </label>
-                    </div>
-                    <p class="help" v-if="importMode === 'replace'">
-                        <strong class="has-text-danger">
-                            {{ t('settings.backup.replace_warning') }}
-                        </strong>
-                    </p>
+                <!-- Loading preview -->
+                <div v-if="isPreviewing" class="has-text-centered py-3">
+                    <span class="icon is-large"><i class="fa fa-spinner fa-pulse"></i></span>
+                    <p>{{ t('settings.backup.previewing') }}</p>
+                </div>
+
+                <!-- Backup Preview -->
+                <div v-if="backupMetadata" class="notification is-info is-light mt-3">
+                    <p class="has-text-weight-semibold mb-2">{{ t('settings.backup.preview_title') }}</p>
+                    <ul>
+                        <li>{{ t('settings.backup.preview_format') }}: <strong>{{ backupMetadata.format || 'unknown' }}</strong></li>
+                        <li>{{ t('settings.backup.preview_accounts') }}: <strong>{{ backupMetadata.account_count || backupMetadata.accountCount || 0 }}</strong></li>
+                        <li v-if="backupMetadata.group_count || backupMetadata.groupCount">
+                            {{ t('settings.backup.preview_groups') }}: <strong>{{ backupMetadata.group_count || backupMetadata.groupCount }}</strong>
+                        </li>
+                        <li v-if="backupMetadata.version">{{ t('settings.backup.preview_version') }}: <strong>{{ backupMetadata.version }}</strong></li>
+                        <li>
+                            {{ t('settings.backup.preview_encrypted') }}:
+                            <strong :class="backupMetadata.encrypted ? 'has-text-success' : 'has-text-warning'">
+                                {{ backupMetadata.encrypted ? t('label.yes') : t('label.no') }}
+                            </strong>
+                        </li>
+                        <li v-if="backupMetadata.exported_at || backupMetadata.exportedAt">
+                            {{ t('settings.backup.preview_exported_at') }}: <strong>{{ new Date(backupMetadata.exported_at || backupMetadata.exportedAt).toLocaleString() }}</strong>
+                        </li>
+                    </ul>
                 </div>
             </div>
         </div>
@@ -273,9 +275,9 @@ onBeforeRouteLeave((to) => {
                     <div class="field">
                         <label class="label">{{ t('settings.backup.master_password') }}</label>
                         <div class="control">
-                            <input 
-                                class="input" 
-                                type="password" 
+                            <input
+                                class="input"
+                                type="password"
                                 v-model="exportPassword"
                                 :placeholder="t('settings.backup.password_placeholder')"
                             />
@@ -288,9 +290,9 @@ onBeforeRouteLeave((to) => {
                         <span class="icon" v-if="isExporting">
                             <i class="fas fa-spinner fa-pulse"></i>
                         </span>
-                        <span>{{ t('common.confirm') }}</span>
+                        <span>{{ t('label.confirm') }}</span>
                     </button>
-                    <button class="button" @click="cancelExport">{{ t('common.cancel') }}</button>
+                    <button class="button" @click="cancelExport">{{ t('label.cancel') }}</button>
                 </footer>
             </div>
         </div>
@@ -304,17 +306,49 @@ onBeforeRouteLeave((to) => {
                     <button class="delete" @click="cancelImport" aria-label="close"></button>
                 </header>
                 <section class="modal-card-body">
+                    <!-- Password -->
                     <div class="field">
                         <label class="label">{{ t('settings.backup.master_password') }}</label>
                         <div class="control">
-                            <input 
-                                class="input" 
-                                type="password" 
+                            <input
+                                class="input"
+                                type="password"
                                 v-model="importPassword"
                                 :placeholder="t('settings.backup.password_placeholder')"
                             />
                         </div>
                         <p class="help">{{ t('settings.backup.password_help') }}</p>
+                    </div>
+
+                    <!-- Conflict Resolution -->
+                    <div class="field">
+                        <label class="label">{{ t('settings.backup.conflict_resolution') }}</label>
+                        <div class="control">
+                            <label class="radio">
+                                <input type="radio" v-model="conflictResolution" value="skip" />
+                                {{ t('settings.backup.conflict_skip') }}
+                            </label>
+                            <label class="radio">
+                                <input type="radio" v-model="conflictResolution" value="replace" />
+                                {{ t('settings.backup.conflict_replace') }}
+                            </label>
+                            <label class="radio">
+                                <input type="radio" v-model="conflictResolution" value="rename" />
+                                {{ t('settings.backup.conflict_rename') }}
+                            </label>
+                        </div>
+                        <p class="help" v-if="conflictResolution === 'replace'">
+                            <strong class="has-text-danger">{{ t('settings.backup.replace_warning') }}</strong>
+                        </p>
+                    </div>
+
+                    <!-- Import Groups Toggle -->
+                    <div class="field" v-if="backupMetadata && (backupMetadata.group_count || backupMetadata.groupCount)">
+                        <label class="checkbox">
+                            <input type="checkbox" v-model="importGroups" />
+                            {{ t('settings.backup.import_groups') }}
+                        </label>
+                        <p class="help">{{ t('settings.backup.import_groups.help') }}</p>
                     </div>
                 </section>
                 <footer class="modal-card-foot">
@@ -322,9 +356,9 @@ onBeforeRouteLeave((to) => {
                         <span class="icon" v-if="isImporting">
                             <i class="fas fa-spinner fa-pulse"></i>
                         </span>
-                        <span>{{ t('common.confirm') }}</span>
+                        <span>{{ t('label.confirm') }}</span>
                     </button>
-                    <button class="button" @click="cancelImport">{{ t('common.cancel') }}</button>
+                    <button class="button" @click="cancelImport">{{ t('label.cancel') }}</button>
                 </footer>
             </div>
         </div>
