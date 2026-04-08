@@ -133,12 +133,15 @@ class WebAuthnLoginController extends Controller
         $this->authenticated($user);
 
         return response()->json([
-            'message'     => 'authenticated',
-            'id'          => $user->id,
-            'name'        => $user->name,
-            'email'       => $user->email,
-            'preferences' => $user->preferences,
-            'is_admin'    => $user->isAdministrator(),
+            'message'            => 'authenticated',
+            'id'                 => $user->id,
+            'name'               => $user->name,
+            'email'              => $user->email,
+            'preferences'        => $user->preferences,
+            'is_admin'           => $user->isAdministrator(),
+            'encryption_version' => $user->encryption_version,
+            'vault_locked'       => $user->vault_locked,
+            'last_backup_at'     => $user->last_backup_at?->toIso8601String(),
         ], Response::HTTP_OK);
     }
 

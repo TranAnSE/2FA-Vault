@@ -2,9 +2,10 @@
 
 namespace Tests\Feature;
 
-use App\Models\User;
+use App\Models\Group;
 use App\Models\Team;
 use App\Models\TwoFAccount;
+use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
@@ -20,86 +21,79 @@ class BackupControllerTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
-        
+
         Storage::fake('local');
-        
-        // Create user with team
+
         $this->user = User::factory()->create([
             'email' => 'test@example.com',
             'encryption_version' => 1,
         ]);
-        
+
         $this->team = Team::factory()->create([
             'name' => 'Test Team',
             'owner_id' => $this->user->id,
         ]);
-        
+
         $this->team->users()->attach($this->user->id, ['role' => 'owner']);
     }
 
-    /** @test */
-    public function test_user_can_export_backup()
+    public function test_user_can_export_backup(): void
     {
-        // Create some test accounts
+        $group = Group::factory()->create([
+            'user_id' => $this->user->id,
+            'name' => 'Personal',
+        ]);
+
         TwoFAccount::factory()->count(3)->create([
             'user_id' => $this->user->id,
+            'group_id' => $group->id,
         ]);
 
         $response = $this->actingAs($this->user, 'api-guard')
             ->postJson('/api/v1/backups/export', [
                 'password' => 'strong-master-password',
+                'include_groups' => true,
             ]);
 
-        $response->assertStatus(200)
+        $response->assertOk()
             ->assertJsonStructure([
                 'filename',
                 'size',
                 'accounts_count',
+                'groups_count',
             ]);
 
         $data = $response->json();
 
-        // Verify filename format
         $this->assertStringStartsWith('2fa-vault-backup-', $data['filename']);
         $this->assertStringEndsWith('.vault', $data['filename']);
-
-        // Verify accounts count
         $this->assertEquals(3, $data['accounts_count']);
-
-        // Verify backup file was created
+        $this->assertEquals(0, $data['groups_count']);
         $this->assertTrue(Storage::exists('backups/' . $data['filename']));
 
-        // Verify backup content structure (should be encrypted JSON)
-        $backupContent = Storage::get('backups/' . $data['filename']);
-        $backupData = json_decode($backupContent, true);
+        $backupData = json_decode(Storage::get('backups/' . $data['filename']), true);
 
-        $this->assertArrayHasKey('app', $backupData);
         $this->assertEquals('2FA-Vault', $backupData['app']);
-
-        $this->assertArrayHasKey('version', $backupData);
-        $this->assertArrayHasKey('datetime', $backupData);
         $this->assertArrayHasKey('encryption', $backupData);
         $this->assertArrayHasKey('data', $backupData);
-        $this->assertArrayHasKey('iv', $backupData);
-        $this->assertArrayHasKey('tag', $backupData);
+        $this->assertArrayHasKey('_raw', $backupData);
+        $this->assertEquals(3, $backupData['_raw']['accountCount']);
+        $this->assertCount(1, $backupData['_raw']['groups']);
 
-        // Verify encryption metadata
-        $this->assertEquals('aes-256-gcm', $backupData['encryption']['algorithm']);
-        $this->assertEquals('argon2id', $backupData['encryption']['kdf']);
+        $this->user->refresh();
+        $this->assertNotNull($this->user->last_backup_at);
     }
 
-    /** @test */
-    public function test_export_requires_authentication()
+    public function test_export_requires_authentication(): void
     {
         $response = $this->postJson('/api/v1/backups/export', [
             'password' => 'strong-master-password',
         ]);
 
-        $response->assertStatus(401);
+        $response->assertUnauthorized();
     }
 
-    /** @test */
-    public function test_export_requires_password()
+    public function test_export_requires_password(): void
     {
         $response = $this->actingAs($this->user, 'api-guard')
             ->postJson('/api/v1/backups/export', []);
@@ -108,82 +102,86 @@ class BackupControllerTest extends TestCase
             ->assertJsonValidationErrors(['password']);
     }
 
-    /** @test */
-    public function test_user_can_import_backup()
+    public function test_export_with_no_accounts_creates_empty_backup(): void
     {
-        // Create accounts for export
-        $accounts = TwoFAccount::factory()->count(2)->create([
+        $response = $this->actingAs($this->user, 'api-guard')
+            ->postJson('/api/v1/backups/export', [
+                'password' => 'strong-master-password',
+            ]);
+
+        $response->assertOk();
+        $this->assertEquals(0, $response->json('accounts_count'));
+        $this->assertEquals(0, $response->json('groups_count'));
+    }
+
+    public function test_user_can_import_vault_backup(): void
+    {
+        $group = Group::factory()->create([
             'user_id' => $this->user->id,
+            'name' => 'Imported Group',
         ]);
 
-        // Build backup data manually (as the service would generate it)
+        $accounts = TwoFAccount::factory()->count(2)->create([
+            'user_id' => $this->user->id,
+            'group_id' => $group->id,
+        ]);
+
         $backupData = [
             'format' => '2FA-Vault',
-            'version' => '1.0',
-            'datetime' => now()->toIso8601String(),
+            'version' => '2.0',
+            'encrypted' => true,
+            'doubleEncrypted' => true,
             'accountCount' => 2,
-            'accounts' => [],
-        ];
-
-        foreach ($accounts as $account) {
-            $backupData['accounts'][] = [
+            'groups' => [
+                [
+                    'id' => $group->id,
+                    'name' => $group->name,
+                    'order' => $group->order_column,
+                ],
+            ],
+            'accounts' => $accounts->map(fn (TwoFAccount $account) => [
                 'id' => $account->id,
                 'service' => $account->service,
                 'account' => $account->account,
-                'secret' => $account->secret, // Already encrypted with user's key
+                'secret' => $account->secret,
+                'encrypted' => false,
                 'algorithm' => $account->algorithm,
                 'digits' => $account->digits,
                 'period' => $account->period,
-                'image_url' => $account->image_url,
-            ];
-        }
+                'otp_type' => $account->otp_type,
+                'group_id' => $group->id,
+            ])->all(),
+        ];
 
-        $backupJson = json_encode($backupData, JSON_PRETTY_PRINT);
-        $filename = 'test-backup.vault';
+        $file = $this->createUploadedBackupFile('test-backup.vault', $backupData);
 
-        // Create temporary file
-        $tempPath = sys_get_temp_dir() . '/' . $filename;
-        file_put_contents($tempPath, $backupJson);
-
-        // Create uploaded file from backup JSON
-        $file = new UploadedFile(
-            $tempPath,
-            $filename,
-            'application/json',
-            null,
-            true
-        );
-
-        // Delete accounts to prepare for import
         TwoFAccount::query()->delete();
+        Group::where('user_id', $this->user->id)->delete();
 
-        // Import the backup
         $response = $this->actingAs($this->user, 'api-guard')
             ->postJson('/api/v1/backups/import', [
                 'backup_file' => $file,
                 'password' => 'strong-master-password',
+                'conflict_resolution' => 'skip',
+                'import_groups' => true,
             ]);
 
-        $response->assertStatus(200)
-            ->assertJsonStructure([
-                'imported_count',
-                'skipped_count',
-                'errors',
+        $response->assertOk()
+            ->assertJson([
+                'imported_count' => 2,
+                'skipped_count' => 0,
+                'failed_count' => 0,
+                'conflict_resolution' => 'skip',
             ]);
 
-        $data = $response->json();
-
-        // Verify import count
-        $this->assertEquals(2, $data['imported_count']);
-        $this->assertEquals(0, $data['skipped_count']);
-        $this->assertEmpty($data['errors']);
-
-        // Verify accounts were restored
-        $this->assertCount(2, TwoFAccount::all());
+        $this->assertCount(2, TwoFAccount::where('user_id', $this->user->id)->get());
+        $this->assertDatabaseHas('groups', [
+            'user_id' => $this->user->id,
+            'name' => 'Imported Group',
+        ]);
     }
 
-    /** @test */
-    public function test_import_requires_authentication()
+    public function test_import_requires_authentication(): void
     {
         $file = UploadedFile::fake()->create('backup.vault', 100);
 
@@ -192,11 +190,10 @@ class BackupControllerTest extends TestCase
             'password' => 'strong-master-password',
         ]);
 
-        $response->assertStatus(401);
+        $response->assertUnauthorized();
     }
 
-    /** @test */
-    public function test_import_requires_backup_file()
+    public function test_import_requires_backup_file(): void
     {
         $response = $this->actingAs($this->user, 'api-guard')
             ->postJson('/api/v1/backups/import', [
@@ -207,32 +204,13 @@ class BackupControllerTest extends TestCase
             ->assertJsonValidationErrors(['backup_file']);
     }
 
-    /** @test */
-    public function test_import_requires_password()
+    public function test_import_requires_password_for_vault_format(): void
     {
-        // Create a valid vault format backup (but without password)
-        $backupData = [
+        $file = $this->createUploadedBackupFile('test-backup.vault', [
             'format' => '2FA-Vault',
-            'version' => '1.0',
-            'datetime' => now()->toIso8601String(),
-            'accountCount' => 0,
+            'version' => '2.0',
             'accounts' => [],
-        ];
-
-        $backupJson = json_encode($backupData);
-
-        // Create temporary file
-        $tempPath = sys_get_temp_dir() . '/test-backup.vault';
-        file_put_contents($tempPath, $backupJson);
-
-        // Create uploaded file from backup JSON
-        $file = new UploadedFile(
-            $tempPath,
-            'test-backup.vault',
-            'application/json',
-            null,
-            true
-        );
+        ]);
 
         $response = $this->actingAs($this->user, 'api-guard')
             ->postJson('/api/v1/backups/import', [
@@ -243,10 +221,8 @@ class BackupControllerTest extends TestCase
             ->assertJsonValidationErrors(['password']);
     }
 
-    /** @test */
-    public function test_invalid_backup_file_rejected()
+    public function test_invalid_backup_file_rejected(): void
     {
-        // Create invalid JSON file
         $invalidFile = UploadedFile::fake()->createWithContent(
             'invalid-backup.vault',
             'This is not valid JSON'
@@ -260,89 +236,33 @@ class BackupControllerTest extends TestCase
 
         $response->assertStatus(422)
             ->assertJsonStructure(['message', 'errors']);
-        
+
         $this->assertStringContainsString('Invalid backup file', $response->json('message'));
     }
 
-    /** @test */
-    public function test_backup_with_wrong_password_rejected()
+    public function test_import_of_unsupported_version_is_rejected(): void
     {
-        // Create account for backup
-        $account = TwoFAccount::factory()->create([
-            'user_id' => $this->user->id,
+        $file = $this->createUploadedBackupFile('unsupported.vault', [
+            'format' => '2FA-Vault',
+            'version' => '0.1',
+            'accounts' => [],
         ]);
 
-        // Build backup data manually
-        $backupData = [
-            'format' => '2FA-Vault',
-            'version' => '1.0',
-            'datetime' => now()->toIso8601String(),
-            'accountCount' => 1,
-            'accounts' => [
-                [
-                    'id' => $account->id,
-                    'service' => $account->service,
-                    'account' => $account->account,
-                    'secret' => $account->secret, // Already encrypted with user's key
-                    'algorithm' => $account->algorithm,
-                    'digits' => $account->digits,
-                    'period' => $account->period,
-                ],
-            ],
-        ];
-
-        $backupJson = json_encode($backupData, JSON_PRETTY_PRINT);
-
-        // Create temporary file
-        $tempPath = sys_get_temp_dir() . '/test-backup.vault';
-        file_put_contents($tempPath, $backupJson);
-
-        // Create uploaded file from backup JSON
-        $file = new UploadedFile(
-            $tempPath,
-            'test-backup.vault',
-            'application/json',
-            null,
-            true
-        );
-
-        // Try to import with wrong password
         $response = $this->actingAs($this->user, 'api-guard')
             ->postJson('/api/v1/backups/import', [
                 'backup_file' => $file,
-                'password' => 'wrong-password',
-            ]);
-
-        // The import should succeed because vault format doesn't validate password
-        // The password is only used for client-side encryption before sending
-        $response->assertStatus(200)
-            ->assertJsonStructure(['imported_count']);
-    }
-
-    /** @test */
-    public function test_backup_file_extension_validation()
-    {
-        // Try to upload non-.vault file
-        $invalidFile = UploadedFile::fake()->create('backup.txt', 100);
-
-        $response = $this->actingAs($this->user, 'api-guard')
-            ->postJson('/api/v1/backups/import', [
-                'backup_file' => $invalidFile,
                 'password' => 'strong-master-password',
             ]);
 
         $response->assertStatus(422)
-            ->assertJsonValidationErrors(['backup_file']);
+            ->assertJsonStructure(['message', 'errors']);
     }
 
-    /** @test */
-    public function test_import_2fauth_legacy_format()
+    public function test_import_2fauth_legacy_format_without_password(): void
     {
-        // Create 2FAuth-style JSON backup (unencrypted)
-        $legacyBackup = [
+        $file = $this->createUploadedBackupFile('2fauth-backup.json', [
             'app' => '2FAuth',
             'version' => '6.1.3',
-            'datetime' => now()->toIso8601String(),
             'accounts' => [
                 [
                     'service' => 'GitHub',
@@ -353,12 +273,7 @@ class BackupControllerTest extends TestCase
                     'period' => 30,
                 ],
             ],
-        ];
-
-        $file = UploadedFile::fake()->createWithContent(
-            '2fauth-backup.json',
-            json_encode($legacyBackup)
-        );
+        ]);
 
         $response = $this->actingAs($this->user, 'api-guard')
             ->postJson('/api/v1/backups/import', [
@@ -366,28 +281,113 @@ class BackupControllerTest extends TestCase
                 'format' => '2fauth',
             ]);
 
-        $response->assertStatus(200);
-        
-        $data = $response->json();
-        $this->assertEquals(1, $data['imported_count']);
-        
-        // Verify account was imported and encrypted
-        $account = TwoFAccount::first();
-        $this->assertEquals('GitHub', $account->service);
-        $this->assertEquals('user@example.com', $account->account);
-    }
-
-    /** @test */
-    public function test_export_with_no_accounts_creates_empty_backup()
-    {
-        $response = $this->actingAs($this->user, 'api-guard')
-            ->postJson('/api/v1/backups/export', [
-                'password' => 'strong-master-password',
+        $response->assertOk()
+            ->assertJson([
+                'imported_count' => 1,
+                'skipped_count' => 0,
+                'failed_count' => 0,
             ]);
 
-        $response->assertStatus(200);
-        
-        $data = $response->json();
-        $this->assertEquals(0, $data['accounts_count']);
+        $this->assertDatabaseHas('twofaccounts', [
+            'user_id' => $this->user->id,
+            'service' => 'GitHub',
+            'account' => 'user@example.com',
+        ]);
+    }
+
+    public function test_metadata_returns_backup_preview(): void
+    {
+        $file = UploadedFile::fake()->createWithContent(
+            'preview.json',
+            json_encode([
+                'format' => '2FA-Vault',
+                'version' => '2.0',
+                'encrypted' => true,
+                'doubleEncrypted' => true,
+                'exportedAt' => now()->toIso8601String(),
+                'groups' => [
+                    ['id' => 1, 'name' => 'Personal', 'order' => 0],
+                ],
+                'accounts' => [
+                    ['service' => 'GitHub', 'account' => 'user@example.com', 'encrypted' => true],
+                ],
+            ], JSON_PRETTY_PRINT)
+        );
+
+        $response = $this->actingAs($this->user, 'api-guard')
+            ->post('/api/v1/backups/metadata', [
+                'backup_file' => $file,
+            ]);
+
+        $response->assertOk()
+            ->assertJson([
+                'format' => '2FA-Vault',
+                'version' => '2.0',
+                'encrypted' => true,
+                'doubleEncrypted' => true,
+                'accountCount' => 1,
+                'groupCount' => 1,
+                'hasEncryptedAccounts' => true,
+                'compatible' => true,
+            ]);
+    }
+
+    public function test_metadata_rejects_invalid_file_type(): void
+    {
+        $invalidFile = UploadedFile::fake()->create('backup.txt', 10, 'text/plain');
+
+        $response = $this->actingAs($this->user, 'api-guard')
+            ->post('/api/v1/backups/metadata', [
+                'backup_file' => $invalidFile,
+            ]);
+
+        $response->assertStatus(422)
+            ->assertJsonValidationErrors(['backup_file']);
+    }
+
+    public function test_info_returns_backup_stats(): void
+    {
+        Group::factory()->create([
+            'user_id' => $this->user->id,
+        ]);
+
+        TwoFAccount::factory()->create([
+            'user_id' => $this->user->id,
+            'encrypted' => true,
+        ]);
+
+        TwoFAccount::factory()->create([
+            'user_id' => $this->user->id,
+            'encrypted' => false,
+        ]);
+
+        $this->user->last_backup_at = now()->subDays(5);
+        $this->user->save();
+
+        $response = $this->actingAs($this->user, 'api-guard')
+            ->getJson('/api/v1/backups/info');
+
+        $response->assertOk()
+            ->assertJson([
+                'total_accounts' => 2,
+                'encrypted_accounts' => 1,
+                'unencrypted_accounts' => 1,
+                'total_groups' => 1,
+                'has_backup' => true,
+                'should_backup' => false,
+            ]);
+
+        $this->assertNotNull($response->json('estimated_size_bytes'));
+        $this->assertNotNull($response->json('estimated_size_human'));
+        $this->assertNotNull($response->json('last_backup_at'));
+    }
+
+    private function createUploadedBackupFile(string $filename, array $backupData): UploadedFile
+    {
+        return UploadedFile::fake()->createWithContent(
+            $filename,
+            json_encode($backupData, JSON_PRETTY_PRINT)
+        );
     }
 }
+

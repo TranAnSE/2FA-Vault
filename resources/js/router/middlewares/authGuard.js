@@ -16,6 +16,9 @@ export default async function authGuard({ to, next, nextMiddleware, stores }) {
                 authenticated_by_proxy: currentUser.authenticated_by_proxy,
                 preferences: currentUser.preferences,
                 isAdmin: currentUser.is_admin,
+                encryption_version: currentUser.encryption_version,
+                vault_locked: currentUser.vault_locked,
+                last_backup_at: currentUser.last_backup_at,
             })
         })
         .catch(error => {

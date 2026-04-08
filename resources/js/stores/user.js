@@ -19,6 +19,9 @@ export const useUserStore = defineStore('user', {
             authenticated_by_proxy: undefined,
             preferences: window.defaultPreferences,
             isAdmin: false,
+            encryption_version: 0,
+            vault_locked: false,
+            last_backup_at: null,
         }
     },
 

@@ -7,6 +7,7 @@
     import { useI18n } from 'vue-i18n'
     import { useErrorHandler } from '@2fauth/stores'
     import { computed, ref, onMounted } from 'vue'
+    import httpClientFactory from '@/services/httpClientFactory'
 
     const errorHandler = useErrorHandler()
     const { t } = useI18n()
@@ -16,6 +17,7 @@
     const notify = useNotify()
     const router = useRouter()
     const returnTo = useStorage($2fauth.prefix + 'returnTo', 'accounts')
+    const apiClient = httpClientFactory('api')
 
     const isExporting = ref(false)
     const isImporting = ref(false)
@@ -32,10 +34,28 @@
     const importGroups = ref(true)
 
     const backupInfo = computed(() => backup.info)
-    const encryptionEnabled = computed(() => user.encryptionVersion > 0)
+    const encryptionStatus = ref(null)
+    const encryptionEnabled = computed(() => {
+        if (encryptionStatus.value) {
+            return encryptionStatus.value.encryption_enabled === true
+        }
+
+        return user.encryption_version > 0
+    })
 
     onMounted(async () => {
-        await backup.fetchInfo()
+        const [backupResponse, encryptionResponse] = await Promise.allSettled([
+            backup.fetchInfo(),
+            apiClient.get('/encryption/status'),
+        ])
+
+        if (encryptionResponse.status === 'fulfilled') {
+            encryptionStatus.value = encryptionResponse.value.data
+        }
+
+        if (backupResponse.status === 'rejected') {
+            throw backupResponse.reason
+        }
     })
 
     /**
@@ -188,10 +208,10 @@
                             <div v-if="backupInfo.hasBackup" class="notification is-info is-light mt-3">
                                 <p>
                                     <strong>{{ $t('settings.backup.last_backup') }}:</strong>
-                                    {{ new Date(backupInfo.lastBackupAt).toLocaleString() }}
+                                    {{ new Date(backupInfo.last_backup_at || backupInfo.lastBackupAt).toLocaleString() }}
                                 </p>
-                                <p v-if="backupInfo.daysSinceBackup" class="is-size-7 mt-1">
-                                    {{ $t('settings.backup.days_ago', { days: backupInfo.daysSinceBackup }) }}
+                                <p v-if="backupInfo.days_since_backup || backupInfo.daysSinceBackup" class="is-size-7 mt-1">
+                                    {{ $t('settings.backup.days_ago', { days: backupInfo.days_since_backup || backupInfo.daysSinceBackup }) }}
                                 </p>
                             </div>
 

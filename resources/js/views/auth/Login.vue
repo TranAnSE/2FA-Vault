@@ -55,6 +55,9 @@
                 authenticated_by_proxy: false,
                 preferences: response.data.preferences,
                 isAdmin: response.data.is_admin,
+                encryption_version: response.data.encryption_version,
+                vault_locked: response.data.vault_locked,
+                last_backup_at: response.data.last_backup_at,
             })
 
             router.push({ name: 'accounts' })
@@ -86,6 +89,9 @@
                 authenticated_by_proxy: false,
                 preferences: response.data.preferences,
                 isAdmin: response.data.is_admin,
+                encryption_version: response.data.encryption_version,
+                vault_locked: response.data.vault_locked,
+                last_backup_at: response.data.last_backup_at,
             })
 
             router.push({ name: 'accounts' })

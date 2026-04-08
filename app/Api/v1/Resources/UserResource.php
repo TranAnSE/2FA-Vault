@@ -31,6 +31,9 @@ class UserResource extends JsonResource
             'authenticated_by_proxy' => Auth::getDefaultDriver() === 'reverse-proxy-guard',
             'preferences'            => $this->preferences,
             'is_admin'               => $this->is_admin,
+            'encryption_version'     => $this->encryption_version,
+            'vault_locked'           => $this->vault_locked,
+            'last_backup_at'         => $this->last_backup_at?->toIso8601String(),
         ];
     }
 }

@@ -1,5 +1,7 @@
 import { defineStore } from 'pinia'
-import { useUserStore } from './user'
+import httpClientFactory from '@/services/httpClientFactory'
+
+const apiClient = httpClientFactory('api')
 
 export const useBackupStore = defineStore('backup', {
     state: () => ({
@@ -29,36 +31,15 @@ export const useBackupStore = defineStore('backup', {
          */
         async exportBackup(masterPassword) {
             this.isExporting = true
-            
+
             try {
-                // Derive encryption key from password (client-side)
-                // This is a placeholder - in production, use proper key derivation
-                const keyHash = await this.deriveKeyHash(masterPassword)
-                
-                const response = await window.axios.post('/api/v1/backups/export', {
+                const response = await apiClient.post('/backups/export', {
                     password: masterPassword,
-                }, {
-                    params: {
-                        encryption_key_hash: keyHash,
-                        master_password_verified: true
-                    },
-                    responseType: 'blob'
                 })
-                
-                // Download file
-                const url = window.URL.createObjectURL(new Blob([response.data]))
-                const link = document.createElement('a')
-                link.href = url
-                link.setAttribute('download', `2fauth-backup-${Date.now()}.vault`)
-                document.body.appendChild(link)
-                link.click()
-                link.remove()
-                window.URL.revokeObjectURL(url)
-                
-                // Update last backup date
+
                 this.lastBackupDate = new Date().toISOString()
-                
-                return response
+
+                return response.data
             } finally {
                 this.isExporting = false
             }
@@ -84,7 +65,7 @@ export const useBackupStore = defineStore('backup', {
                     formData.append('password', masterPassword)
                 }
 
-                const response = await window.axios.post('/api/v1/backups/import', formData, {
+                const response = await apiClient.post('/backups/import', formData, {
                     headers: {
                         'Content-Type': 'multipart/form-data'
                     }
@@ -106,7 +87,7 @@ export const useBackupStore = defineStore('backup', {
             const formData = new FormData()
             formData.append('backup_file', file)
             
-            const response = await window.axios.post('/api/v1/backups/metadata', formData, {
+            const response = await apiClient.post('/backups/metadata', formData, {
                 headers: {
                     'Content-Type': 'multipart/form-data'
                 }
@@ -122,10 +103,12 @@ export const useBackupStore = defineStore('backup', {
          */
         async fetchInfo() {
             try {
-                const response = await window.axios.get('/api/v1/backups/info')
+                const response = await apiClient.get('/backups/info')
                 this.info = response.data
                 
-                if (this.info.lastBackupAt) {
+                if (this.info.last_backup_at) {
+                    this.lastBackupDate = this.info.last_backup_at
+                } else if (this.info.lastBackupAt) {
                     this.lastBackupDate = this.info.lastBackupAt
                 }
                 
@@ -136,21 +119,5 @@ export const useBackupStore = defineStore('backup', {
             }
         },
 
-        /**
-         * Derive key hash from password (placeholder)
-         * In production, use Argon2id with salt from server
-         * 
-         * @param {string} password
-         * @returns {Promise<string>}
-         */
-        async deriveKeyHash(password) {
-            // This is a placeholder
-            // In production: fetch salt from server, use Argon2id to derive key
-            const encoder = new TextEncoder()
-            const data = encoder.encode(password)
-            const hashBuffer = await crypto.subtle.digest('SHA-256', data)
-            const hashArray = Array.from(new Uint8Array(hashBuffer))
-            return hashArray.map(b => b.toString(16).padStart(2, '0')).join('')
-        },
     }
 })
