@@ -88,6 +88,10 @@ fi
 ln -s /2fauth/storage /srv/storage
 echo "/srv/storage is now a symlink to /2fauth/storage"
 
+# Ensure bootstrap/cache exists and is clean (may be excluded via .dockerignore)
+rm -rf /srv/bootstrap/cache
+mkdir -p /srv/bootstrap/cache
+
 # validate a bunch of environment variables and warn the user:
 for v in APP_KEY; do
     eval "val=\$$v"
@@ -112,6 +116,15 @@ fi
 
 echo "${COMMIT}" > /2fauth/installed
 php artisan storage:link --quiet
+
+# Ensure bootstrap/cache and storage/framework directories exist
+# (storage/framework is excluded by .dockerignore)
+rm -rf /srv/bootstrap/cache
+mkdir -p /srv/bootstrap/cache
+mkdir -p /srv/storage/framework/sessions
+mkdir -p /srv/storage/framework/views
+mkdir -p /srv/storage/framework/cache
+mkdir -p /srv/storage/framework/data
 
 # Clearing compiled, cache has already been cleared
 php artisan clear-compiled

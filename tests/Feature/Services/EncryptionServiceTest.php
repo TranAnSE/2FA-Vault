@@ -131,6 +131,8 @@ class EncryptionServiceTest extends TestCase
      */
     public function test_can_lock_vault(): void
     {
+        $this->user->encryption_salt = 'test_salt';
+        $this->user->encryption_test_value = '{"test":"value"}';
         $this->user->encryption_version = 1;
         $this->user->vault_locked = false;
         $this->user->save();
@@ -157,6 +159,8 @@ class EncryptionServiceTest extends TestCase
      */
     public function test_can_unlock_vault(): void
     {
+        $this->user->encryption_salt = 'test_salt';
+        $this->user->encryption_test_value = '{"test":"value"}';
         $this->user->encryption_version = 1;
         $this->user->vault_locked = true;
         $this->user->save();
@@ -195,6 +199,8 @@ class EncryptionServiceTest extends TestCase
      */
     public function test_get_encryption_status(): void
     {
+        $this->user->encryption_salt = 'test_salt';
+        $this->user->encryption_test_value = '{"test":"value"}';
         $this->user->encryption_version = 1;
         $this->user->vault_locked = true;
         $this->user->last_backup_at = now();

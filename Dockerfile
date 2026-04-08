@@ -56,7 +56,9 @@ RUN apk add --update --no-cache \
     # Runtime dependencies
     php84-session php84-openssl \
     # Nginx and PHP FPM to serve over HTTP
-    php84-fpm nginx
+    php84-fpm nginx \
+    # ImageMagick for PWA icon generation (with SVG support)
+    imagemagick librsvg
 
 # PHP FPM configuration
 # Change username and ownership in php-fpm pool config
@@ -102,6 +104,19 @@ COPY --from=vendor --chown=${UID}:${GID} /srv/vendor /srv/vendor
 # Copy the rest of the code
 COPY --chown=${UID}:${GID} . .
 RUN composer dump-autoload --no-scripts --no-dev --optimize
+
+# Generate PWA icons from SVG
+RUN if [ -f public/icons/pwa-icon.svg ]; then \
+        for size in 16 32 48 72 96 128 144 152 180 192 384 512; do \
+            magick public/icons/pwa-icon.svg -background none -resize ${size}x${size} public/icons/pwa-${size}x${size}.png ; \
+        done && \
+        cp public/icons/pwa-180x180.png public/icons/apple-touch-icon.png && \
+        cp public/icons/pwa-32x32.png public/icons/favicon-32x32.png && \
+        cp public/icons/pwa-16x16.png public/icons/favicon-16x16.png ; \
+    fi
+
+# Fix CRLF line endings on shell/config files copied from Windows
+RUN sed -i 's/\r$//' /usr/local/bin/entrypoint.sh /etc/nginx/nginx.conf /etc/supervisor/supervisord.conf 2>/dev/null || true
 
 # Entrypoint
 ENTRYPOINT [ "/usr/local/bin/entrypoint.sh" ]

@@ -12,8 +12,8 @@ return new class extends Migration
     public function up(): void
     {
         Schema::table('users', function (Blueprint $table) {
-            // Encryption enabled flag
-            $table->boolean('encryption_enabled')->default(true)->after('password');
+            // Encryption enabled flag (null = not set up, true = setup complete)
+            $table->boolean('encryption_enabled')->default(false)->after('password');
             
             // Salt for Argon2id key derivation (base64 encoded, 32 bytes)
             $table->string('encryption_salt', 255)->nullable()->after('encryption_enabled');
@@ -21,8 +21,8 @@ return new class extends Migration
             // Encrypted test value for zero-knowledge password verification
             $table->text('encryption_test_value')->nullable()->after('encryption_salt');
             
-            // Encryption version for future compatibility (1 = enabled by default)
-            $table->tinyInteger('encryption_version')->default(1)->after('encryption_test_value');
+            // Encryption version for future compatibility (0 = not set up)
+            $table->tinyInteger('encryption_version')->default(0)->after('encryption_test_value');
             
             // Vault lock status (session-based, unlocked by default)
             $table->boolean('vault_locked')->default(false)->after('encryption_version');

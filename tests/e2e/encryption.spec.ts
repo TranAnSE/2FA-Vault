@@ -33,9 +33,8 @@ test.describe('Encryption Flow', () => {
     await passwordInputs.nth(0).fill(masterPassword);
     await passwordInputs.nth(1).fill(masterPassword);
 
-    // Acknowledge the risk checkbox (the "I understand..." one, not "Show password")
-    const riskCheckbox = page.locator('input[type="checkbox"]').nth(1);
-    await riskCheckbox.check();
+    // Acknowledge the risk checkbox (FormCheckbox hides the native input, click the label)
+    await page.locator('label', { hasText: 'I understand' }).click();
 
     // Submit
     await page.locator('button[type="submit"]').click();

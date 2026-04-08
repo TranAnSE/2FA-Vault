@@ -25,6 +25,7 @@ if (!fs.existsSync(DB_PATH)) {
 
 // Run migrations and seed
 console.log('[E2E Server] Running migrations...');
+execSync('php artisan config:clear', { stdio: 'pipe', cwd: ROOT });
 execSync('php artisan migrate:fresh --env=e2e --force', { stdio: 'pipe', cwd: ROOT });
 console.log('[E2E Server] Seeding database...');
 execSync('php artisan db:seed --class=E2eSeeder --env=e2e --force', { stdio: 'pipe', cwd: ROOT });

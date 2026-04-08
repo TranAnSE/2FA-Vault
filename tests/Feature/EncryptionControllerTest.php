@@ -81,7 +81,9 @@ class EncryptionControllerTest extends TestCase
      */
     public function test_encryption_setup_cannot_be_done_twice(): void
     {
-        // First setup
+        // First setup - must have all fields set
+        $this->user->encryption_salt = 'existing_salt';
+        $this->user->encryption_test_value = '{"test":"value"}';
         $this->user->encryption_version = 1;
         $this->user->save();
         
@@ -106,19 +108,19 @@ class EncryptionControllerTest extends TestCase
     {
         // Setup encryption
         $this->user->encryption_salt = 'test_salt';
-        $this->user->encryption_test_value = 'test_value';
+        $this->user->encryption_test_value = '{"ciphertext":"test","iv":"test","authTag":"test"}';
         $this->user->encryption_version = 1;
         $this->user->vault_locked = false;
         $this->user->save();
-        
+
         $response = $this->actingAs($this->user, 'api-guard')
             ->getJson('/api/v1/encryption/info');
-        
+
         $response->assertOk()
             ->assertJson([
                 'encryption_enabled' => true,
                 'encryption_salt' => 'test_salt',
-                'encryption_test_value' => 'test_value',
+                'encryption_test_value' => '{"ciphertext":"test","iv":"test","authTag":"test"}',
                 'encryption_version' => 1,
                 'vault_locked' => false
             ]);
@@ -144,6 +146,8 @@ class EncryptionControllerTest extends TestCase
     public function test_user_can_lock_vault(): void
     {
         // Setup encryption
+        $this->user->encryption_salt = 'test_salt';
+        $this->user->encryption_test_value = '{"test":"value"}';
         $this->user->encryption_version = 1;
         $this->user->vault_locked = false;
         $this->user->save();
@@ -176,6 +180,8 @@ class EncryptionControllerTest extends TestCase
      */
     public function test_vault_verification(): void
     {
+        $this->user->encryption_salt = 'test_salt';
+        $this->user->encryption_test_value = '{"test":"value"}';
         $this->user->encryption_version = 1;
         $this->user->vault_locked = true;
         $this->user->save();
@@ -200,6 +206,8 @@ class EncryptionControllerTest extends TestCase
      */
     public function test_failed_verification(): void
     {
+        $this->user->encryption_salt = 'test_salt';
+        $this->user->encryption_test_value = '{"test":"value"}';
         $this->user->encryption_version = 1;
         $this->user->vault_locked = true;
         $this->user->save();
@@ -242,8 +250,9 @@ class EncryptionControllerTest extends TestCase
      */
     public function test_user_can_get_encryption_salt(): void
     {
-        $this->user->encryption_version = 1;
         $this->user->encryption_salt = 'user_specific_salt_base64';
+        $this->user->encryption_test_value = '{"test":"value"}';
+        $this->user->encryption_version = 1;
         $this->user->save();
 
         $response = $this->actingAs($this->user, 'api-guard')
@@ -261,9 +270,9 @@ class EncryptionControllerTest extends TestCase
     public function test_encryption_state_transitions(): void
     {
         // Setup encryption
-        $this->user->encryption_version = 1;
         $this->user->encryption_salt = 'test_salt';
-        $this->user->encryption_test_value = 'test_value';
+        $this->user->encryption_test_value = '{"test":"value"}';
+        $this->user->encryption_version = 1;
         $this->user->vault_locked = true;
         $this->user->save();
 
@@ -358,8 +367,9 @@ class EncryptionControllerTest extends TestCase
     {
         $anotherUser = User::factory()->create();
 
-        $this->user->encryption_version = 1;
         $this->user->encryption_salt = 'secret_salt';
+        $this->user->encryption_test_value = '{"test":"value"}';
+        $this->user->encryption_version = 1;
         $this->user->save();
 
         // Another user cannot see first user's encryption info
@@ -377,6 +387,8 @@ class EncryptionControllerTest extends TestCase
     public function test_vault_state_persists_across_requests(): void
     {
         // Setup encryption and lock vault
+        $this->user->encryption_salt = 'test_salt';
+        $this->user->encryption_test_value = '{"test":"value"}';
         $this->user->encryption_version = 1;
         $this->user->vault_locked = true;
         $this->user->save();
@@ -397,6 +409,8 @@ class EncryptionControllerTest extends TestCase
      */
     public function test_verification_requires_valid_result_parameter(): void
     {
+        $this->user->encryption_salt = 'test_salt';
+        $this->user->encryption_test_value = '{"test":"value"}';
         $this->user->encryption_version = 1;
         $this->user->vault_locked = true;
         $this->user->save();

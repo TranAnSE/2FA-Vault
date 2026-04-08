@@ -58,7 +58,7 @@ class EncryptionController extends Controller
         $user = Auth::user();
 
         // Check if user already has encryption setup
-        if ($user->encryption_version > 0) {
+        if ($this->encryptionService->isEncryptionEnabled($user)) {
             return response()->json([
                 'message' => 'Encryption is already enabled for this account'
             ], 400);
@@ -123,7 +123,7 @@ class EncryptionController extends Controller
     {
         $user = Auth::user();
 
-        if (!$user->encryption_version || $user->encryption_version === 0) {
+        if (!$this->encryptionService->isEncryptionEnabled($user)) {
             return response()->json([
                 'message' => 'Encryption is not enabled'
             ], 400);
@@ -167,7 +167,7 @@ class EncryptionController extends Controller
         $user = Auth::user();
 
         // Verify encryption is enabled before allowing verification
-        if (!$user->encryption_version || $user->encryption_version === 0) {
+        if (!$this->encryptionService->isEncryptionEnabled($user)) {
             return response()->json([
                 'message' => 'Encryption is not enabled for this account'
             ], 400);
@@ -200,7 +200,7 @@ class EncryptionController extends Controller
     {
         $user = Auth::user();
 
-        if (!$user->encryption_version || $user->encryption_version === 0) {
+        if (!$this->encryptionService->isEncryptionEnabled($user)) {
             return response()->json([
                 'message' => 'Encryption is not enabled'
             ], 400);

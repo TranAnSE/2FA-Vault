@@ -154,6 +154,8 @@ class AuthWithEncryptionE2ETest extends TestCase
     public function test_failed_verification_keeps_vault_locked(): void
     {
         // Setup encryption with vault locked
+        $this->user->encryption_salt = 'test_salt';
+        $this->user->encryption_test_value = '{"test":"value"}';
         $this->user->encryption_version = 1;
         $this->user->vault_locked = true;
         $this->user->save();
@@ -209,6 +211,7 @@ class AuthWithEncryptionE2ETest extends TestCase
         // Setup encryption
         $salt = base64_encode(random_bytes(32));
         $this->user->encryption_salt = $salt;
+        $this->user->encryption_test_value = '{"test":"value"}';
         $this->user->encryption_version = 1;
         $this->user->save();
 

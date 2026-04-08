@@ -42,3 +42,8 @@ pnpm-debug.log
 Thumbs.db
 .playwright-mcp/
 login-page-check.png
+playwright-report/
+docker/2fauth/
+public/node_modules/
+e2e-test-*.png
+test-encryption-*.png

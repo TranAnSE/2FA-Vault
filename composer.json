@@ -61,7 +61,10 @@
     },
     "extra": {
         "laravel": {
-            "dont-discover": []
+            "dont-discover": [
+            "barryvdh/laravel-ide-helper",
+            "nunomaduro/collision"
+        ]
         }
     },
     "autoload": {

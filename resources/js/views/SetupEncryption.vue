@@ -1,207 +1,104 @@
-<template>
-    <div class="setup-encryption-container">
-        <div class="setup-encryption-card">
-            <h1 class="title">🔐 Setup End-to-End Encryption</h1>
-            
-            <div class="content">
-                <div class="notification is-info">
-                    <p class="has-text-weight-semibold">What is End-to-End Encryption?</p>
-                    <ul class="mt-2">
-                        <li>✅ Your OTP secrets are encrypted in your browser before being sent to the server</li>
-                        <li>✅ Only you can decrypt your secrets with your master password</li>
-                        <li>✅ The server NEVER sees your plaintext secrets or encryption keys</li>
-                        <li>⚠️ If you forget your master password, your data CANNOT be recovered</li>
-                    </ul>
-                </div>
-
-                <form @submit.prevent="handleSetup" class="mt-5">
-                    <div class="field">
-                        <label class="label">Master Password</label>
-                        <div class="control has-icons-left">
-                            <input 
-                                v-model="masterPassword"
-                                :type="showPassword ? 'text' : 'password'"
-                                class="input" 
-                                placeholder="Enter a strong master password"
-                                required
-                                minlength="8"
-                                :disabled="isLoading"
-                            />
-                            <span class="icon is-small is-left">
-                                <i class="fas fa-lock"></i>
-                            </span>
-                        </div>
-                        <p class="help">Minimum 8 characters. Use a strong, unique password.</p>
-                    </div>
-
-                    <div class="field">
-                        <label class="label">Confirm Master Password</label>
-                        <div class="control has-icons-left">
-                            <input 
-                                v-model="confirmPassword"
-                                :type="showPassword ? 'text' : 'password'"
-                                class="input" 
-                                placeholder="Confirm your master password"
-                                required
-                                :disabled="isLoading"
-                            />
-                            <span class="icon is-small is-left">
-                                <i class="fas fa-lock"></i>
-                            </span>
-                        </div>
-                    </div>
-
-                    <div class="field">
-                        <div class="control">
-                            <label class="checkbox">
-                                <input type="checkbox" v-model="showPassword" />
-                                Show password
-                            </label>
-                        </div>
-                    </div>
-
-                    <div v-if="error" class="notification is-danger">
-                        {{ error }}
-                    </div>
-
-                    <div class="field">
-                        <div class="control">
-                            <label class="checkbox">
-                                <input type="checkbox" v-model="understood" required />
-                                I understand that if I forget my master password, my data cannot be recovered
-                            </label>
-                        </div>
-                    </div>
-
-                    <div class="field is-grouped mt-5">
-                        <div class="control">
-                            <button 
-                                type="submit" 
-                                class="button is-primary"
-                                :class="{ 'is-loading': isLoading }"
-                                :disabled="isLoading || !understood"
-                            >
-                                Enable Encryption
-                            </button>
-                        </div>
-                        <div class="control">
-                            <button 
-                                type="button" 
-                                class="button is-light"
-                                @click="handleSkip"
-                                :disabled="isLoading"
-                            >
-                                Skip for Now
-                            </button>
-                        </div>
-                    </div>
-                </form>
-            </div>
-        </div>
-    </div>
-</template>
-
 <script setup>
-import { ref } from 'vue'
-import { useRouter } from 'vue-router'
-import { useCryptoStore } from '@/stores/crypto'
-import { useNotification } from '@kyvg/vue3-notification'
-import httpClientFactory from '@/services/httpClientFactory'
+    import Form from '@/components/formElements/Form'
+    import { useCryptoStore } from '@/stores/crypto'
+    import { useNotify } from '@2fauth/ui'
+    import { useI18n } from 'vue-i18n'
+    import { useErrorHandler } from '@2fauth/stores'
+    import httpClientFactory from '@/services/httpClientFactory'
 
-const router = useRouter()
-const cryptoStore = useCryptoStore()
-const { notify } = useNotification()
+    const errorHandler = useErrorHandler()
+    const { t } = useI18n()
+    const cryptoStore = useCryptoStore()
+    const notify = useNotify()
+    const router = useRouter()
+    const apiClient = httpClientFactory('api')
 
-const masterPassword = ref('')
-const confirmPassword = ref('')
-const showPassword = ref(false)
-const understood = ref(false)
-const isLoading = ref(false)
-const error = ref('')
+    const setupForm = reactive(new Form({
+        masterPassword: '',
+        masterPassword_confirmation: '',
+        understood: false,
+    }))
 
-const apiClient = httpClientFactory('api')
+    /**
+     * Setup encryption with client-side key derivation
+     */
+    async function doSetup() {
+        if (!setupForm.understood) {
+            return
+        }
 
-async function handleSetup() {
-    error.value = ''
-    
-    // Validate passwords match
-    if (masterPassword.value !== confirmPassword.value) {
-        error.value = 'Passwords do not match'
-        return
+        if (setupForm.masterPassword.length < 8) {
+            setupForm.errors.set('masterPassword', t('validation.min_string', { attribute: t('field.master_password'), min: 8 }))
+            return
+        }
+
+        if (setupForm.masterPassword !== setupForm.masterPassword_confirmation) {
+            setupForm.errors.set('masterPassword_confirmation', t('validation.confirmed', { attribute: t('field.master_password') }))
+            return
+        }
+
+        setupForm.startProcessing()
+
+        try {
+            // Client-side: derive key and create test value
+            const { salt, testValue } = await cryptoStore.setupEncryption(setupForm.masterPassword)
+
+            // Send only salt + test value to server (NEVER the password)
+            await apiClient.post('/encryption/setup', {
+                encryption_salt: salt,
+                encryption_test_value: testValue,
+                encryption_version: 1,
+            })
+
+            notify.success({ text: t('notification.encryption_enabled') })
+            router.push({ name: 'accounts' })
+        } catch (err) {
+            const msg = err.response?.data?.message || t('error.encryption_setup_failed')
+            setupForm.errors.set('masterPassword', msg)
+        } finally {
+            setupForm.finishProcessing()
+        }
     }
-    
-    // Validate password strength
-    if (masterPassword.value.length < 8) {
-        error.value = 'Master password must be at least 8 characters long'
-        return
-    }
-    
-    isLoading.value = true
-    
-    try {
-        // Setup encryption (generates salt and test value)
-        const { salt, testValue } = await cryptoStore.setupEncryption(masterPassword.value)
-        
-        // Send salt and test value to server (NOT the password or key!)
-        await apiClient.post('/encryption/setup', {
-            encryption_salt: salt,
-            encryption_test_value: testValue,
-            encryption_version: 1
-        })
-        
-        notify({
-            type: 'success',
-            title: 'Encryption Enabled',
-            text: 'Your vault is now protected with end-to-end encryption'
-        })
-        
-        // Redirect to main app
+
+    /**
+     * Skip encryption setup
+     */
+    function handleSkip() {
         router.push({ name: 'accounts' })
-    } catch (err) {
-        console.error('Encryption setup failed:', err)
-        error.value = err.response?.data?.message || 'Failed to setup encryption. Please try again.'
-    } finally {
-        isLoading.value = false
     }
-}
 
-function handleSkip() {
-    // User chose not to enable encryption
-    router.push({ name: 'accounts' })
-}
+    onBeforeRouteLeave(() => {
+        notify.clear()
+    })
 </script>
 
-<style scoped>
-.setup-encryption-container {
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    min-height: 100vh;
-    padding: 1rem;
-}
-
-.setup-encryption-card {
-    max-width: 600px;
-    width: 100%;
-    background: white;
-    border-radius: 8px;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-    padding: 2rem;
-}
-
-.title {
-    font-size: 1.75rem;
-    font-weight: bold;
-    text-align: center;
-    margin-bottom: 1.5rem;
-}
-
-.notification ul {
-    list-style: none;
-    padding-left: 0;
-}
-
-.notification li {
-    margin-bottom: 0.5rem;
-}
-</style>
+<template>
+    <StackLayout>
+        <template #content>
+            <FormWrapper :title="'heading.end_to_end_encryption'" :punchline="'message.e2ee_description'">
+                <div class="block">
+                    <ul class="mb-3">
+                        <li class="mb-1">{{ $t('message.e2ee_benefit_1') }}</li>
+                        <li class="mb-1">{{ $t('message.e2ee_benefit_2') }}</li>
+                        <li class="mb-1">{{ $t('message.e2ee_benefit_3') }}</li>
+                    </ul>
+                    <div class="notification is-warning is-light">
+                        {{ $t('message.e2ee_warning_setup') }}
+                    </div>
+                </div>
+                <form @submit.prevent="doSetup" @keydown="setupForm.onKeydown($event)">
+                    <FormField v-model="setupForm.masterPassword" fieldName="masterPassword" :errorMessage="setupForm.errors.get('masterPassword')" inputType="password" autocomplete="new-password" label="field.master_password" help="field.master_password.help" />
+                    <FormField v-model="setupForm.masterPassword_confirmation" fieldName="masterPassword_confirmation" :errorMessage="setupForm.errors.get('masterPassword_confirmation')" inputType="password" autocomplete="new-password" label="field.confirm_password" />
+                    <FormCheckbox v-model="setupForm.understood" fieldName="understood" label="field.understand_data_loss" />
+                    <FormButtons :isBusy="setupForm.isBusy" :isDisabled="!setupForm.understood" submitLabel="label.enable_encryption" submitId="btnEnableEncryption" />
+                </form>
+                <div class="nav-links">
+                    <p><a class="is-link" @click="handleSkip">{{ $t('link.maybe_later') }}</a></p>
+                </div>
+            </FormWrapper>
+        </template>
+        <template #footer>
+            <VueFooter />
+        </template>
+    </StackLayout>
+</template>

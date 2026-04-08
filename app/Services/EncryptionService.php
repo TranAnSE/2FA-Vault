@@ -64,7 +64,9 @@ class EncryptionService
      */
     public function isEncryptionEnabled(User $user): bool
     {
-        return $user->encryption_version > 0;
+        return $user->encryption_version > 0
+            && !is_null($user->encryption_salt)
+            && !is_null($user->encryption_test_value);
     }
 
     /**
