@@ -16,13 +16,15 @@ services:
     volumes:
       # Mount entire project for live reloading
       - .:/srv:cached
+      # Mount sibling component workspace required by Vite aliases
+      - ../2FAuth-Components:/2FAuth-Components:cached
       # Persist vendor and node_modules (faster on Windows)
       - vendor:/srv/vendor
       - node_modules:/srv/node_modules
       # Persist storage
       - ./storage:/srv/storage
       # Database
-      - ./database/database.sqlite:/srv/database/database.sqlite
+      - ./database:/srv/database
     environment:
       # App Configuration
       - APP_NAME=2FA-Vault-Dev
@@ -80,6 +82,8 @@ services:
         echo 'Installing NPM dependencies...' &&
         npm install &&
         echo 'Creating SQLite database...' &&
+        mkdir -p /srv/database &&
+        rm -rf /srv/database/database.sqlite &&
         touch /srv/database/database.sqlite &&
         echo 'Running migrations...' &&
         php artisan migrate --force &&
@@ -111,6 +115,7 @@ services:
       - "5174:5173"
     volumes:
       - .:/srv:cached
+      - ../2FAuth-Components:/2FAuth-Components:cached
       - node_modules:/srv/node_modules
     environment:
       - NODE_ENV=development

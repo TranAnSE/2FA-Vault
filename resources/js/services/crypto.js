@@ -8,7 +8,7 @@
  * - Web Crypto API for cryptographic operations
  */
 
-import argon2 from 'argon2-browser'
+import argon2 from 'argon2-browser/dist/argon2-bundled.min.js'
 
 // Crypto configuration constants
 const ARGON2_CONFIG = {

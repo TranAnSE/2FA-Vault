@@ -17,6 +17,7 @@ export default function encryptionGate({ to, next, nextMiddleware, stores }) {
 
     if (!hasEncryption) {
         cryptoStore.disableEncryption()
+        user.vault_locked = false
 
         if (isUnlockRoute) {
             next({ name: 'accounts' })
@@ -32,7 +33,9 @@ export default function encryptionGate({ to, next, nextMiddleware, stores }) {
             cryptoStore.enableEncryption(null)
         }
 
-        user.vault_locked = true
+        if (user.vault_locked !== true) {
+            user.vault_locked = true
+        }
 
         if (!isUnlockRoute) {
             next({ name: 'unlock-vault' })

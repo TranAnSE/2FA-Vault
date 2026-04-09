@@ -48,10 +48,11 @@ class EncryptionService
             return false;
         }
 
+        $user->encryption_enabled = true;
         $user->encryption_salt = $salt;
         $user->encryption_test_value = $testValue;
         $user->encryption_version = $version;
-        $user->vault_locked = false;
+        $user->vault_locked = true;
 
         return $user->save();
     }
@@ -64,7 +65,8 @@ class EncryptionService
      */
     public function isEncryptionEnabled(User $user): bool
     {
-        return $user->encryption_version > 0
+        return $user->encryption_enabled === true
+            && $user->encryption_version > 0
             && !is_null($user->encryption_salt)
             && !is_null($user->encryption_test_value);
     }
@@ -129,6 +131,7 @@ class EncryptionService
      */
     public function disableEncryption(User $user): bool
     {
+        $user->encryption_enabled = false;
         $user->encryption_salt = null;
         $user->encryption_test_value = null;
         $user->encryption_version = 0;

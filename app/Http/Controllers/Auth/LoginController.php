@@ -172,6 +172,11 @@ class LoginController extends Controller
     protected function authenticated(Request $request, $user)
     {
         $user->last_seen_at = Carbon::now()->format('Y-m-d H:i:s');
+
+        if ($user->encryption_enabled && $user->encryption_version > 0) {
+            $user->vault_locked = true;
+        }
+
         $user->save();
 
         Log::info(sprintf('User ID #%s authenticated (using email+password)', $user->id));

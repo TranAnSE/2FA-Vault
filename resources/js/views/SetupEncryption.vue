@@ -52,12 +52,19 @@
                 encryption_version: 1,
             })
 
+            await apiClient.post('/encryption/verify', {
+                verification_result: true,
+            })
+
             userStore.encryption_version = 1
             userStore.vault_locked = false
 
             notify.success({ text: t('notification.encryption_enabled') })
             router.push({ name: 'accounts' })
         } catch (err) {
+            cryptoStore.reset()
+            userStore.encryption_version = 0
+            userStore.vault_locked = false
             const msg = err.response?.data?.message || t('error.encryption_setup_failed')
             setupForm.errors.set('masterPassword', msg)
         } finally {
