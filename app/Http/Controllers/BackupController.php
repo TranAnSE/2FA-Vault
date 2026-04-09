@@ -61,9 +61,11 @@ class BackupController extends Controller
             $user->last_backup_at = now();
             $user->save();
 
+            $normalizedBackup = $this->backupService->normalizeVaultBackupData($backupData);
+
             Log::info('Backup exported', [
                 'user_id' => $user->id,
-                'account_count' => $backupData['accountCount'] ?? 0,
+                'account_count' => $normalizedBackup['account_count'] ?? 0,
                 'groups_included' => $includeGroups,
             ]);
 
@@ -78,8 +80,8 @@ class BackupController extends Controller
                 return response()->json([
                     'filename' => $filename,
                     'size' => strlen($backupJson),
-                    'accounts_count' => $backupData['accountCount'] ?? 0,
-                    'groups_count' => isset($backupData['groups']) ? count($backupData['groups']) : 0,
+                    'account_count' => $normalizedBackup['account_count'] ?? 0,
+                    'group_count' => isset($normalizedBackup['groups']) ? count($normalizedBackup['groups']) : 0,
                 ]);
             }
 
@@ -133,7 +135,7 @@ class BackupController extends Controller
         // Build validation rules - password only required for vault format
         $rules = [
             'backup_file' => 'required|file',
-            'format' => 'nullable|in:2fauth,vault,aegis,bitwarden',
+            'format' => $this->backupService->backupFormatValidationRule(),
             'conflict_resolution' => 'nullable|in:skip,replace,rename',
             'import_groups' => 'nullable|boolean',
         ];
@@ -158,29 +160,31 @@ class BackupController extends Controller
             }
 
             // Determine format from file content or explicit parameter
-            $detectedFormat = 'vault'; // Default
-            if (isset($backupData['app']) && $backupData['app'] === '2FAuth') {
-                $detectedFormat = '2fauth';
-            } elseif (isset($backupData['format']) && $backupData['format'] === '2FA-Vault') {
-                $detectedFormat = 'vault';
+            $explicitFormat = $validated['format'] ?? null;
+            $finalFormat = $this->backupService->normalizeImportFormat(
+                $explicitFormat ?? $this->backupService->detectImportFormat($backupData)
+            );
+
+            if (!$this->backupService->isImportFormatSupported($finalFormat)) {
+                return response()->json([
+                    'message' => 'Invalid format selected',
+                    'errors' => ['format' => ['The selected format is not supported']]
+                ], 422);
             }
 
-            $explicitFormat = $validated['format'] ?? null;
-            $finalFormat = $explicitFormat ?? $detectedFormat;
-
             // Validate password requirement for vault format
-            if ($finalFormat === 'vault' && empty($validated['password'])) {
+            if ($this->backupService->passwordRequiredForFormat($finalFormat) && empty($validated['password'])) {
                 return response()->json([
                     'message' => 'The password field is required.',
                     'errors' => ['password' => ['The password field is required.']]
                 ], 422);
             }
 
-            // Validate backup structure
-            if (!$this->backupService->validateBackupFile($backupData)) {
+            // Validate backup structure against selected format
+            if (!$this->backupService->validateImportPayload($backupData, $finalFormat)) {
                 return response()->json([
-                    'message' => 'Invalid backup format or version not supported',
-                    'errors' => ['backup_file' => ['The backup file format is invalid or from an unsupported version']]
+                    'message' => $this->backupService->importValidationErrorMessage($finalFormat),
+                    'errors' => ['backup_file' => [$this->backupService->importValidationErrorDetail($finalFormat)]]
                 ], 422);
             }
 

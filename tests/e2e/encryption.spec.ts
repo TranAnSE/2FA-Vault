@@ -1,59 +1,68 @@
-import { test, expect } from '@playwright/test';
+import { test, expect } from './fixtures/auth.fixture';
 import { testUsers, routes } from './fixtures/test-data.fixture';
 import { LoginPage } from './pages/LoginPage';
+import { SetupEncryptionPage } from './pages/SetupEncryptionPage';
+
+const masterPassword = 'MasterPass123!';
 
 test.describe('Encryption Flow', () => {
-  test('P1: Setup encryption page loads for authenticated user', async ({ page }) => {
-    const loginPage = new LoginPage(page);
-    await loginPage.goto();
-    await loginPage.login(testUsers.user.email, testUsers.user.password);
-    await loginPage.waitForRedirect();
-    // New user lands on /start, navigate to encryption setup
+  test('P1: Setup encryption page loads for unencrypted authenticated user', async ({ page, loginAsUser }) => {
     await page.goto(routes.setupEncryption);
 
-    // Should show the encryption setup form
-    const passwordInputs = page.locator('input[type="password"]');
-    await expect(passwordInputs.first()).toBeVisible({ timeout: 10000 });
+    const setupPage = new SetupEncryptionPage(page);
+    await expect(setupPage.passwordInputs.first()).toBeVisible({ timeout: 10000 });
   });
 
-  test('P1: Setup encryption with master password', async ({ page }) => {
-    // Login as regular user (no encryption)
-    const loginPage = new LoginPage(page);
-    await loginPage.goto();
-    await loginPage.login(testUsers.user.email, testUsers.user.password);
-    await loginPage.waitForRedirect();
+  test('P1: Setup encryption submit stays disabled without acknowledgment', async ({ page, loginAsUser }) => {
+    const setupPage = new SetupEncryptionPage(page);
+    await setupPage.goto();
 
-    // Navigate to setup encryption
-    await page.goto(routes.setupEncryption);
-    await page.waitForLoadState('networkidle');
+    await setupPage.fillMasterPassword(masterPassword);
 
-    // Fill master password (two password inputs: master + confirm)
-    const masterPassword = 'MasterPass123!';
-    const passwordInputs = page.locator('input[type="password"]');
-    await passwordInputs.nth(0).fill(masterPassword);
-    await passwordInputs.nth(1).fill(masterPassword);
-
-    // Acknowledge the risk checkbox (FormCheckbox hides the native input, click the label)
-    await page.locator('label', { hasText: 'I understand' }).click();
-
-    // Submit
-    await page.locator('button[type="submit"]').click();
-
-    // Should redirect to accounts or start
-    await Promise.race([
-      page.waitForURL('**/accounts', { timeout: 15000 }),
-      page.waitForURL('**/start', { timeout: 5000 }),
-    ]).catch(() => {});
+    await expect(setupPage.submitButton).toBeDisabled();
+    await expect(page).toHaveURL(/\/setup-encryption/, { timeout: 10000 });
   });
 
-  test('P1: Encrypted user can login and access app', async ({ page }) => {
+  test('P1: Locked encrypted user is authenticated and then route-gated from backup to unlock-vault', async ({ page, loginAsLockedEncrypted }) => {
+    await expect(page).toHaveURL(/\/(start|accounts|unlock-vault)/, { timeout: 15000 });
+
+    await page.goto(routes.settingsBackup);
+    await expect(page).toHaveURL(/\/unlock-vault/, { timeout: 10000 });
+  });
+
+  test('P1: Locked encrypted user cannot access accounts directly', async ({ page, loginAsLockedEncrypted }) => {
+    await page.goto(routes.accounts);
+    await expect(page).toHaveURL(/\/(unlock-vault|start)/, { timeout: 10000 });
+  });
+
+  test('P1: Locked encrypted user remains on unlock-vault with invalid unlock password', async ({ page, loginAsLockedEncrypted }) => {
+    await page.goto(routes.unlockVault);
+
+    const passwordInput = page.locator('input[placeholder="Enter your master password"]');
+    await expect(passwordInput).toBeVisible({ timeout: 10000 });
+    await passwordInput.fill('password');
+    await page.getByRole('button', { name: /Unlock Vault/ }).click();
+
+    await expect(page).toHaveURL(/\/unlock-vault/, { timeout: 15000 });
+    await expect(page.getByText('Invalid master password. Please try again.')).toBeVisible({ timeout: 10000 });
+  });
+
+  test('P1: Encrypted unlocked user can access backup page directly', async ({ page, loginAsBackup }) => {
+    await page.goto(routes.settingsBackup);
+    await expect(page).toHaveURL(/\/settings\/backup/, { timeout: 10000 });
+  });
+
+  test('P1: Unencrypted user navigating to unlock-vault is redirected to accounts/start', async ({ page, loginAsUser }) => {
+    await page.goto(routes.unlockVault);
+    await expect(page).toHaveURL(/\/(accounts|start)/, { timeout: 10000 });
+  });
+
+  test('P1: Encrypted user login is redirected to unlock-vault when vault is locked', async ({ page }) => {
     const loginPage = new LoginPage(page);
     await loginPage.goto();
-    await loginPage.login(testUsers.encrypted.email, testUsers.encrypted.password);
+    await loginPage.login(testUsers.backup.email, testUsers.backup.password);
     await loginPage.waitForRedirect();
 
-    // Encrypted user has no accounts, so lands on /start
-    // (starter middleware redirects users with no accounts to /start)
-    await expect(page).toHaveURL(/\/(start|accounts)/);
+    await expect(page).toHaveURL(/\/unlock-vault/, { timeout: 15000 });
   });
 });

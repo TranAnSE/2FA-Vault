@@ -6,7 +6,13 @@ use App\Models\Group;
 use App\Models\TwoFAccount;
 use App\Models\User;
 use App\Services\BackupService;
+use App\Services\Migrators\AegisMigrator;
+use App\Services\Migrators\BitwardenMigrator;
+use App\Services\Migrators\GoogleAuthMigrator;
+use App\Services\Migrators\TwoFAuthMigrator;
+use App\Services\Migrators\TwoFASMigrator;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Tests\Data\MigrationTestData;
 use Tests\TestCase;
 
 /**
@@ -25,7 +31,13 @@ class BackupServiceTest extends TestCase
     {
         parent::setUp();
 
-        $this->backupService = new BackupService();
+        $this->backupService = new BackupService(
+            app(TwoFAuthMigrator::class),
+            app(TwoFASMigrator::class),
+            app(AegisMigrator::class),
+            app(BitwardenMigrator::class),
+            app(GoogleAuthMigrator::class),
+        );
         $this->user = User::factory()->create();
     }
 
@@ -36,14 +48,17 @@ class BackupServiceTest extends TestCase
     {
         $backup = $this->backupService->generateEncryptedBackup($this->user);
 
-        // The service returns a wrapped structure with _raw containing the actual data
-        $rawBackup = $backup['_raw'] ?? $backup;
+        $this->assertEquals('2FA-Vault', $backup['app']);
+        $this->assertEquals('2.0', $backup['version']);
+        $this->assertArrayHasKey('data', $backup);
+
+        $rawBackup = $this->backupService->normalizeVaultBackupData($backup);
 
         $this->assertEquals('2FA-Vault', $rawBackup['format']);
         $this->assertEquals('2.0', $rawBackup['version']);
         $this->assertTrue($rawBackup['encrypted']);
-        $this->assertTrue($rawBackup['doubleEncrypted']);
-        $this->assertEquals(0, $rawBackup['accountCount']);
+        $this->assertTrue($rawBackup['double_encrypted']);
+        $this->assertEquals(0, $rawBackup['account_count']);
         $this->assertIsArray($rawBackup['accounts']);
         $this->assertEmpty($rawBackup['accounts']);
     }
@@ -58,9 +73,9 @@ class BackupServiceTest extends TestCase
         ]);
 
         $backup = $this->backupService->generateEncryptedBackup($this->user);
-        $rawBackup = $backup['_raw'] ?? $backup;
+        $rawBackup = $this->backupService->normalizeVaultBackupData($backup);
 
-        $this->assertEquals(3, $rawBackup['accountCount']);
+        $this->assertEquals(3, $rawBackup['account_count']);
         $this->assertCount(3, $rawBackup['accounts']);
         $this->assertArrayHasKey('id', $rawBackup['accounts'][0]);
         $this->assertArrayHasKey('service', $rawBackup['accounts'][0]);
@@ -84,7 +99,7 @@ class BackupServiceTest extends TestCase
         ]);
 
         $backup = $this->backupService->generateEncryptedBackup($this->user, includeGroups: true);
-        $rawBackup = $backup['_raw'] ?? $backup;
+        $rawBackup = $this->backupService->normalizeVaultBackupData($backup);
 
         $this->assertArrayHasKey('groups', $rawBackup);
         $this->assertCount(1, $rawBackup['groups']);
@@ -101,7 +116,7 @@ class BackupServiceTest extends TestCase
         ]);
 
         $backup = $this->backupService->generateEncryptedBackup($this->user, includeGroups: false);
-        $rawBackup = $backup['_raw'] ?? $backup;
+        $rawBackup = $this->backupService->normalizeVaultBackupData($backup);
 
         $this->assertArrayNotHasKey('groups', $rawBackup);
     }
@@ -125,7 +140,7 @@ class BackupServiceTest extends TestCase
         ]);
 
         $backup = $this->backupService->generateEncryptedBackup($this->user);
-        $rawBackup = $backup['_raw'] ?? $backup;
+        $rawBackup = $this->backupService->normalizeVaultBackupData($backup);
 
         $this->assertEquals(1, $rawBackup['encryption_version']);
         $this->assertTrue($rawBackup['accounts'][0]['encrypted']);
@@ -381,12 +396,21 @@ class BackupServiceTest extends TestCase
      */
     public function test_validate_invalid_backup_files(): void
     {
-        // Missing version
+        // Missing version in payload
         $invalid1 = [
+            'format' => '2FA-Vault',
             'encrypted' => true,
             'accounts' => [],
         ];
         $this->assertFalse($this->backupService->validateBackupFile($invalid1));
+
+        // Invalid envelope data
+        $invalidEnvelope = [
+            'app' => '2FA-Vault',
+            'version' => '2.0',
+            'data' => 'not-base64',
+        ];
+        $this->assertFalse($this->backupService->validateBackupFile($invalidEnvelope));
 
         // Missing accounts
         $invalid2 = [
@@ -409,9 +433,9 @@ class BackupServiceTest extends TestCase
             'format' => '2FA-Vault',
             'version' => '2.0',
             'encrypted' => true,
-            'doubleEncrypted' => true,
+            'double_encrypted' => true,
             'encryption_version' => 1,
-            'exportedAt' => '2024-01-01T00:00:00Z',
+            'exported_at' => '2024-01-01T00:00:00Z',
             'user' => [
                 'email' => 'test@example.com',
             ],
@@ -425,11 +449,10 @@ class BackupServiceTest extends TestCase
         $this->assertEquals('2FA-Vault', $metadata['format']);
         $this->assertEquals('2.0', $metadata['version']);
         $this->assertTrue($metadata['encrypted']);
-        $this->assertTrue($metadata['doubleEncrypted']);
+        $this->assertTrue($metadata['double_encrypted']);
         $this->assertEquals(1, $metadata['encryption_version']);
-        // The service counts the actual accounts array, not the accountCount field
-        $this->assertEquals(1, $metadata['accountCount']);
-        $this->assertTrue($metadata['hasEncryptedAccounts']);
+        $this->assertEquals(1, $metadata['account_count']);
+        $this->assertTrue($metadata['has_encrypted_accounts']);
         $this->assertTrue($metadata['compatible']);
     }
 
@@ -611,5 +634,45 @@ class BackupServiceTest extends TestCase
 
         // Should have unit suffix
         $this->assertMatchesRegularExpression('/^\d+(\.\d+)? (B|KB|MB|GB)$/', $size);
+    }
+
+    public function test_detect_import_format_for_external_formats(): void
+    {
+        $this->assertEquals('2fas', $this->backupService->detectImportFormat([
+            'schemaVersion' => 2,
+            'services' => [],
+        ]));
+
+        $this->assertEquals('aegis', $this->backupService->detectImportFormat([
+            'db' => ['entries' => []],
+        ]));
+
+        $this->assertEquals('bitwarden', $this->backupService->detectImportFormat([
+            'encrypted' => false,
+            'items' => [],
+        ]));
+
+        $this->assertEquals('googleauth', $this->backupService->detectImportFormat([
+            'payload' => MigrationTestData::GOOGLE_AUTH_MIGRATION_URI,
+        ]));
+    }
+
+    public function test_validate_import_payload_for_external_accounts_shape(): void
+    {
+        $externalPayload = [
+            'accounts' => [
+                [
+                    'service' => 'GitHub',
+                    'account' => 'import@example.com',
+                    'secret' => 'JBSWY3DPEHPK3PXP',
+                    'algorithm' => 'sha1',
+                    'digits' => 6,
+                    'period' => 30,
+                    'otp_type' => 'totp',
+                ],
+            ],
+        ];
+
+        $this->assertTrue($this->backupService->validateImportPayload($externalPayload, '2fauth'));
     }
 }

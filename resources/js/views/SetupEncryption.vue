@@ -1,6 +1,7 @@
 <script setup>
     import Form from '@/components/formElements/Form'
     import { useCryptoStore } from '@/stores/crypto'
+    import { useUserStore } from '@/stores/user'
     import { useNotify } from '@2fauth/ui'
     import { useI18n } from 'vue-i18n'
     import { useErrorHandler } from '@2fauth/stores'
@@ -9,6 +10,7 @@
     const errorHandler = useErrorHandler()
     const { t } = useI18n()
     const cryptoStore = useCryptoStore()
+    const userStore = useUserStore()
     const notify = useNotify()
     const router = useRouter()
     const apiClient = httpClientFactory('api')
@@ -49,6 +51,9 @@
                 encryption_test_value: testValue,
                 encryption_version: 1,
             })
+
+            userStore.encryption_version = 1
+            userStore.vault_locked = false
 
             notify.success({ text: t('notification.encryption_enabled') })
             router.push({ name: 'accounts' })

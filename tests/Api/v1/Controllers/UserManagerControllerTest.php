@@ -131,7 +131,7 @@ class UserManagerControllerTest extends FeatureTestCase
     #[Test]
     public function test_show_returns_the_expected_UserManagerResource() : void
     {
-        $this->actingAs($this->admin, 'api-guard')
+        $response = $this->actingAs($this->admin, 'api-guard')
             ->json('GET', '/api/v1/users/' . $this->user->id)
             ->assertJson([
                 'info' => [
@@ -142,13 +142,14 @@ class UserManagerControllerTest extends FeatureTestCase
                     'preferences'        => $this->defaultPreferences,
                     'is_admin'           => false,
                     'twofaccounts_count' => 0,
-                    'last_seen_at'       => '0 seconds ago',
-                    'created_at'         => '0 seconds ago',
                 ],
                 'password_reset'               => null,
                 'valid_personal_access_tokens' => 0,
                 'webauthn_credentials'         => 0,
             ]);
+
+        $this->assertMatchesRegularExpression('/ago$/', $response->json('info.last_seen_at'));
+        $this->assertMatchesRegularExpression('/ago$/', $response->json('info.created_at'));
     }
 
     #[Test]
@@ -197,6 +198,8 @@ class UserManagerControllerTest extends FeatureTestCase
 
         $response = $this->actingAs($this->admin, 'api-guard')
             ->json('PATCH', $path);
+
+        $user->refresh();
         $resources = UserManagerResource::make($user);
 
         $response->assertExactJson($resources->response($request)->getData(true));

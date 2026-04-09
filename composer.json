@@ -100,6 +100,15 @@
             "vendor/bin/phpunit",
             "php artisan config:clear"
         ],
+        "lint": [
+            "vendor/bin/pint --test"
+        ],
+        "analyse": [
+            "vendor/bin/phpstan analyse --memory-limit=1G"
+        ],
+        "ci:backend": [
+            "@test"
+        ],
         "test-para": [
             "php artisan config:clear",
             "php artisan test --parallel",

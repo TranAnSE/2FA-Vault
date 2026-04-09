@@ -125,7 +125,17 @@ class WebAuthnLoginControllerTest extends FeatureTestCase
                 'is_admin' => false,
             ])
             ->assertJsonStructure([
+                'message',
+                'id',
+                'name',
+                'email',
+                'oauth_provider',
+                'authenticated_by_proxy',
                 'preferences',
+                'is_admin',
+                'encryption_version',
+                'vault_locked',
+                'last_backup_at',
             ]);
     }
 
@@ -150,7 +160,17 @@ class WebAuthnLoginControllerTest extends FeatureTestCase
                 'is_admin' => true,
             ])
             ->assertJsonStructure([
+                'message',
+                'id',
+                'name',
+                'email',
+                'oauth_provider',
+                'authenticated_by_proxy',
                 'preferences',
+                'is_admin',
+                'encryption_version',
+                'vault_locked',
+                'last_backup_at',
             ]);
 
         $this->user->promoteToAdministrator(false);

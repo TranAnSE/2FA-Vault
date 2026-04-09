@@ -27,6 +27,12 @@ export class SetupEncryptionPage {
   }
 
   async acknowledgeRisk() {
+    const label = this.page.locator('label', { hasText: 'I understand' });
+    if (await label.isVisible().catch(() => false)) {
+      await label.click();
+      return;
+    }
+
     const cb = this.checkbox;
     if (!(await cb.isChecked())) {
       await cb.check();

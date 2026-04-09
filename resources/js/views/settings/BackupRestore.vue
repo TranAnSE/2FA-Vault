@@ -131,7 +131,7 @@
 
             notify.success({
                 text: t('notification.backup_imported', {
-                    imported: result.imported || result.imported_count || 0,
+                    imported: result.imported_count || 0,
                 })
             })
 
@@ -205,13 +205,13 @@
                             </button>
 
                             <!-- Backup info -->
-                            <div v-if="backupInfo.hasBackup" class="notification is-info is-light mt-3">
+                            <div v-if="backupInfo.has_backup" class="notification is-info is-light mt-3">
                                 <p>
                                     <strong>{{ $t('settings.backup.last_backup') }}:</strong>
-                                    {{ new Date(backupInfo.last_backup_at || backupInfo.lastBackupAt).toLocaleString() }}
+                                    {{ new Date(backupInfo.last_backup_at).toLocaleString() }}
                                 </p>
-                                <p v-if="backupInfo.days_since_backup || backupInfo.daysSinceBackup" class="is-size-7 mt-1">
-                                    {{ $t('settings.backup.days_ago', { days: backupInfo.days_since_backup || backupInfo.daysSinceBackup }) }}
+                                <p v-if="backupInfo.days_since_backup" class="is-size-7 mt-1">
+                                    {{ $t('settings.backup.days_ago', { days: backupInfo.days_since_backup }) }}
                                 </p>
                             </div>
 
@@ -309,9 +309,9 @@
                             <p class="has-text-weight-semibold mb-2">{{ $t('settings.backup.preview_title') }}</p>
                             <ul>
                                 <li>{{ $t('settings.backup.preview_format') }}: <strong>{{ backupMetadata.format || 'unknown' }}</strong></li>
-                                <li>{{ $t('settings.backup.preview_accounts') }}: <strong>{{ backupMetadata.account_count || backupMetadata.accountCount || 0 }}</strong></li>
-                                <li v-if="backupMetadata.group_count || backupMetadata.groupCount">
-                                    {{ $t('settings.backup.preview_groups') }}: <strong>{{ backupMetadata.group_count || backupMetadata.groupCount }}</strong>
+                                <li>{{ $t('settings.backup.preview_accounts') }}: <strong>{{ backupMetadata.account_count || 0 }}</strong></li>
+                                <li v-if="backupMetadata.group_count">
+                                    {{ $t('settings.backup.preview_groups') }}: <strong>{{ backupMetadata.group_count }}</strong>
                                 </li>
                                 <li v-if="backupMetadata.version">{{ $t('settings.backup.preview_version') }}: <strong>{{ backupMetadata.version }}</strong></li>
                                 <li>
@@ -320,8 +320,8 @@
                                         {{ backupMetadata.encrypted ? $t('label.yes') : $t('label.no') }}
                                     </strong>
                                 </li>
-                                <li v-if="backupMetadata.exported_at || backupMetadata.exportedAt">
-                                    {{ $t('settings.backup.preview_exported_at') }}: <strong>{{ new Date(backupMetadata.exported_at || backupMetadata.exportedAt).toLocaleString() }}</strong>
+                                <li v-if="backupMetadata.exported_at">
+                                    {{ $t('settings.backup.preview_exported_at') }}: <strong>{{ new Date(backupMetadata.exported_at).toLocaleString() }}</strong>
                                 </li>
                             </ul>
                         </div>
@@ -363,7 +363,7 @@
                         </div>
 
                         <!-- Import Groups Toggle -->
-                        <div class="field" v-if="backupMetadata && (backupMetadata.group_count || backupMetadata.groupCount)">
+                        <div class="field" v-if="backupMetadata && backupMetadata.group_count">
                             <label class="checkbox">
                                 <input type="checkbox" v-model="importGroups" />
                                 {{ $t('settings.backup.import_groups') }}

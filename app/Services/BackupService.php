@@ -2,8 +2,15 @@
 
 namespace App\Services;
 
-use App\Models\User;
+use App\Models\Group;
 use App\Models\TwoFAccount;
+use App\Models\User;
+use App\Services\Migrators\AegisMigrator;
+use App\Services\Migrators\BitwardenMigrator;
+use App\Services\Migrators\GoogleAuthMigrator;
+use App\Services\Migrators\Migrator;
+use App\Services\Migrators\TwoFAuthMigrator;
+use App\Services\Migrators\TwoFASMigrator;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
@@ -15,20 +22,6 @@ use Illuminate\Support\Facades\Log;
  * Double Encryption Architecture:
  * 1. Primary encryption: Per-account encryption with user's master key (client-side)
  * 2. Secondary encryption: Backup password for the .vault file (client-side)
- *
- * The server only:
- * - Retrieves encrypted secrets from database
- * - Packages them into backup structure
- * - Stores encrypted backup payload received from client
- * - Validates backup structure
- *
- * Import from other apps:
- * - Aegis: Use AegisMigrator (app/Services/Migrators/AegisMigrator.php)
- * - 2FAS: Use TwoFASMigrator (app/Services/Migrators/TwoFASMigrator.php)
- * - Google Authenticator: Use GoogleAuthMigrator (app/Services/Migrators/GoogleAuthMigrator.php)
- * - Bitwarden: Use BitwardenMigrator (app/Services/Migrators/BitwardenMigrator.php)
- *
- * All migrators support encrypted imports natively.
  */
 class BackupService
 {
@@ -36,21 +29,24 @@ class BackupService
     const MIN_SUPPORTED_VERSION = '1.0';
     const MAX_ACCOUNTS_PER_BACKUP = 10000;
 
+    public function __construct(
+        private readonly TwoFAuthMigrator $twoFAuthMigrator,
+        private readonly TwoFASMigrator $twoFASMigrator,
+        private readonly AegisMigrator $aegisMigrator,
+        private readonly BitwardenMigrator $bitwardenMigrator,
+        private readonly GoogleAuthMigrator $googleAuthMigrator,
+    ) {
+    }
+
     /**
      * Generate encrypted backup for user
      *
-     * The server retrieves encrypted accounts and packages them.
-     * The client then encrypts the entire backup with a backup password.
-     *
-     * @param User $user
-     * @param bool $includeGroups Whether to include group information
-     * @return array Backup data structure (to be encrypted by client)
+     * @return array Canonical .vault envelope
      */
     public function generateEncryptedBackup(User $user, bool $includeGroups = true): array
     {
         $accountsQuery = TwoFAccount::where('user_id', $user->id);
 
-        // Handle large backups efficiently
         if ($accountsQuery->count() > self::MAX_ACCOUNTS_PER_BACKUP) {
             Log::warning('Large backup requested', [
                 'user_id' => $user->id,
@@ -59,7 +55,7 @@ class BackupService
         }
 
         $accounts = $accountsQuery
-            ->when($includeGroups, fn($q) => $q->with('group'))
+            ->when($includeGroups, fn ($q) => $q->with('group'))
             ->get()
             ->map(function ($account) {
                 return [
@@ -82,25 +78,24 @@ class BackupService
             })
             ->toArray();
 
-        // Backup structure (will be encrypted by client with backup password)
-        $backupData = [
+        $backupPayload = [
             'format' => '2FA-Vault',
             'version' => self::CURRENT_FORMAT_VERSION,
             'encrypted' => true,
-            'doubleEncrypted' => true, // Indicates double encryption
+            'double_encrypted' => true,
             'encryption_version' => $user->encryption_version ?? 0,
-            'exportedAt' => now()->toIso8601String(),
-            'accountCount' => count($accounts),
+            'exported_at' => now()->toIso8601String(),
+            'account_count' => count($accounts),
             'user' => [
                 'id' => $user->id,
                 'email' => $user->email,
                 'name' => $user->name,
             ],
+            'accounts' => $accounts,
         ];
 
-        // Include groups if requested
         if ($includeGroups) {
-            $backupData['groups'] = $user->groups()
+            $backupPayload['groups'] = $user->groups()
                 ->orderBy('order_column')
                 ->get()
                 ->map(function ($group) {
@@ -113,43 +108,25 @@ class BackupService
                 ->toArray();
         }
 
-        // Encrypted accounts (each already encrypted with user's master key)
-        $backupData['accounts'] = $accounts;
-
-        // Wrap in expected format for compatibility with tests
-        // The outer layer is for backup password encryption (client-side)
-        $wrappedBackup = [
+        return [
             'app' => '2FA-Vault',
             'version' => self::CURRENT_FORMAT_VERSION,
             'datetime' => now()->toIso8601String(),
-            'accountCount' => $backupData['accountCount'],
             'encryption' => [
                 'algorithm' => 'aes-256-gcm',
                 'kdf' => 'argon2id',
             ],
-            // In production, 'data', 'iv', and 'tag' would be populated client-side
-            // after encrypting with backup password. For now, we include the structure.
-            'data' => base64_encode(json_encode($backupData)),
-            'iv' => null, // Client will populate after encryption
-            'tag' => null, // Client will populate after encryption
-            // Also include the raw backup data for testing purposes
-            '_raw' => $backupData,
+            'data' => base64_encode(json_encode($backupPayload)),
+            'iv' => null,
+            'tag' => null,
         ];
-
-        return $wrappedBackup;
     }
 
     /**
      * Restore encrypted backup
      *
-     * Client decrypts the backup with backup password, then sends decrypted data here.
-     * Each account secret is still encrypted with the user's master key.
-     *
-     * @param User $user
      * @param array $backupData Decrypted backup data from client
      * @param string $format Backup format ('vault', '2fauth', 'aegis', etc.)
-     * @param array $options Import options
-     * @return array Import results
      */
     public function restoreEncryptedBackup(
         User $user,
@@ -157,27 +134,42 @@ class BackupService
         string $format = 'vault',
         array $options = []
     ): array {
+        $conflictResolution = $options['conflict_resolution'] ?? 'skip';
+        $importGroups = $options['import_groups'] ?? true;
+
+        $prepared = $this->isVaultFormat($format)
+            ? $this->prepareVaultImport($backupData)
+            : $this->prepareExternalImport($backupData, $format);
+
+        return $this->persistImportedAccounts(
+            $user,
+            $prepared['accounts'],
+            $prepared['groups'],
+            $conflictResolution,
+            $importGroups
+        );
+    }
+
+    private function persistImportedAccounts(
+        User $user,
+        array $accounts,
+        array $groups,
+        string $conflictResolution,
+        bool $importGroups
+    ): array {
         $imported = 0;
         $failed = 0;
         $skipped = 0;
         $errors = [];
 
-        $conflictResolution = $options['conflict_resolution'] ?? 'skip'; // 'skip', 'replace', 'rename'
-        $importGroups = $options['import_groups'] ?? true;
-
         DB::beginTransaction();
 
         try {
-            // Handle different formats
-            $accounts = $this->extractAccountsFromBackup($backupData, $format);
-            $groups = $this->extractGroupsFromBackup($backupData, $format);
-
-            // Import groups first (if enabled)
             $groupMapping = [];
             if ($importGroups && !empty($groups)) {
                 foreach ($groups as $groupData) {
                     try {
-                        $group = new \App\Models\Group();
+                        $group = new Group();
                         $group->user_id = $user->id;
                         $group->name = $groupData['name'];
                         $group->order_column = $groupData['order'] ?? 0;
@@ -193,10 +185,8 @@ class BackupService
                 }
             }
 
-            // Import accounts
             foreach ($accounts as $accountData) {
                 try {
-                    // Check if account already exists
                     $existingAccount = TwoFAccount::where('user_id', $user->id)
                         ->where('service', $accountData['service'] ?? 'Unknown')
                         ->where('account', $accountData['account'] ?? '')
@@ -206,22 +196,14 @@ class BackupService
                         switch ($conflictResolution) {
                             case 'skip':
                                 $skipped++;
-                                Log::info('Account skipped (already exists)', [
-                                    'service' => $accountData['service'] ?? 'Unknown',
-                                    'account' => $accountData['account'] ?? '',
-                                ]);
                                 continue 2;
-
                             case 'replace':
                                 $account = $existingAccount;
                                 break;
-
                             case 'rename':
-                                // Generate unique name by appending timestamp (use format without colons for OTP compatibility)
-                                $accountData['account'] = $accountData['account'] . ' (' . now()->format('YmdHis') . ')';
+                                $accountData['account'] = ($accountData['account'] ?? '') . ' (' . now()->format('YmdHis') . ')';
                                 $account = new TwoFAccount();
                                 break;
-
                             default:
                                 $account = new TwoFAccount();
                         }
@@ -229,21 +211,21 @@ class BackupService
                         $account = new TwoFAccount();
                     }
 
-                    // Set account properties
                     $account->user_id = $user->id;
                     $account->service = $accountData['service'] ?? 'Unknown';
                     $account->account = $accountData['account'] ?? '';
                     $account->secret = $accountData['secret'];
-                    $account->encrypted = $accountData['encrypted'] ?? false;
+                    $account->encrypted = (bool) ($accountData['encrypted'] ?? false);
                     $account->algorithm = $accountData['algorithm'] ?? 'sha1';
-                    $account->digits = (int)($accountData['digits'] ?? 6);
-                    $account->period = (int)($accountData['period'] ?? 30);
+                    $account->digits = (int) ($accountData['digits'] ?? 6);
+                    $account->period = (int) ($accountData['period'] ?? 30);
                     $account->counter = $accountData['counter'] ?? null;
                     $account->otp_type = $accountData['otp_type'] ?? 'totp';
                     $account->icon = $accountData['icon'] ?? null;
 
-                    // Map group IDs if groups were imported
-                    if (isset($accountData['group_id']) && isset($groupMapping[$accountData['group_id']])) {
+                    if (!$importGroups) {
+                        $account->group_id = null;
+                    } elseif (isset($accountData['group_id']) && isset($groupMapping[$accountData['group_id']])) {
                         $account->group_id = $groupMapping[$accountData['group_id']];
                     } else {
                         $account->group_id = $accountData['group_id'] ?? null;
@@ -251,12 +233,6 @@ class BackupService
 
                     $account->save();
                     $imported++;
-
-                    Log::info('Account imported successfully', [
-                        'service' => $account->service,
-                        'account' => $account->account,
-                    ]);
-
                 } catch (\Exception $e) {
                     $failed++;
                     $errors[] = [
@@ -264,16 +240,9 @@ class BackupService
                         'account' => $accountData['account'] ?? '',
                         'error' => $e->getMessage(),
                     ];
-
-                    Log::error('Failed to import account', [
-                        'service' => $accountData['service'] ?? 'Unknown',
-                        'error' => $e->getMessage(),
-                        'trace' => $e->getTraceAsString(),
-                    ]);
                 }
             }
 
-            // Update user's last backup timestamp
             $user->last_backup_at = now();
             $user->save();
 
@@ -286,7 +255,6 @@ class BackupService
                 'errors' => $errors,
                 'conflict_resolution' => $conflictResolution,
             ];
-
         } catch (\Exception $e) {
             DB::rollBack();
             Log::error('Backup import failed', [
@@ -298,49 +266,279 @@ class BackupService
         }
     }
 
-    /**
-     * Extract accounts from backup data based on format
-     */
-    private function extractAccountsFromBackup(array $backupData, string $format): array
+    private function prepareVaultImport(array $backupData): array
     {
-        switch ($format) {
-            case '2fauth':
-            case 'aegis':
-            case 'bitwarden':
-            case 'googleauth':
-                // For migration formats, accounts are in the 'accounts' key
-                if (isset($backupData['accounts'])) {
-                    return $backupData['accounts'];
-                }
-                throw new \Exception('Invalid backup format: no accounts found');
+        $normalizedBackup = $this->normalizeVaultBackupData($backupData);
 
-            case 'vault':
-            default:
-                if (isset($backupData['accounts'])) {
-                    return $backupData['accounts'];
-                }
-                throw new \Exception('Invalid .vault file format: no accounts found');
-        }
+        return [
+            'accounts' => $this->extractAccountsFromBackup($normalizedBackup),
+            'groups' => $this->extractGroupsFromBackup($normalizedBackup),
+        ];
     }
 
-    /**
-     * Extract groups from backup data
-     */
-    private function extractGroupsFromBackup(array $backupData, string $format): array
+    private function prepareExternalImport(array $backupData, string $format): array
+    {
+        if (isset($backupData['accounts']) && is_array($backupData['accounts'])) {
+            return [
+                'accounts' => $this->normalizeExternalAccounts($backupData['accounts']),
+                'groups' => [],
+            ];
+        }
+
+        $migrator = $this->resolveExternalMigrator($format);
+        $migrationPayload = $this->extractExternalMigrationPayload($backupData, $format);
+
+        $accounts = $migrator->migrate($migrationPayload)
+            ->map(fn (TwoFAccount $account) => $this->mapMigratedAccountToArray($account))
+            ->toArray();
+
+        return [
+            'accounts' => $accounts,
+            'groups' => [],
+        ];
+    }
+
+    private function extractExternalMigrationPayload(array $backupData, string $format): string
+    {
+        if ($this->normalizeImportFormat($format) === 'googleauth' && isset($backupData['payload']) && is_string($backupData['payload'])) {
+            return $backupData['payload'];
+        }
+
+        $migrationPayload = json_encode($backupData, JSON_UNESCAPED_SLASHES);
+
+        if (!is_string($migrationPayload)) {
+            throw new \Exception('Invalid backup format: migration payload could not be encoded');
+        }
+
+        return $migrationPayload;
+    }
+
+    private function mapMigratedAccountToArray(TwoFAccount $account): array
+    {
+        return [
+            'service' => $account->service,
+            'account' => $account->account,
+            'secret' => $account->secret,
+            'encrypted' => false,
+            'algorithm' => $account->algorithm,
+            'digits' => $account->digits,
+            'period' => $account->period,
+            'counter' => $account->counter,
+            'otp_type' => $account->otp_type,
+            'icon' => $account->icon,
+            'group_id' => null,
+        ];
+    }
+
+    private function normalizeExternalAccounts(array $accounts): array
+    {
+        return array_map(function (array $accountData) {
+            return [
+                'service' => $accountData['service'] ?? 'Unknown',
+                'account' => $accountData['account'] ?? '',
+                'secret' => $accountData['secret'] ?? '',
+                'encrypted' => (bool) ($accountData['encrypted'] ?? false),
+                'algorithm' => $accountData['algorithm'] ?? 'sha1',
+                'digits' => (int) ($accountData['digits'] ?? 6),
+                'period' => (int) ($accountData['period'] ?? 30),
+                'counter' => $accountData['counter'] ?? null,
+                'otp_type' => $accountData['otp_type'] ?? 'totp',
+                'icon' => $accountData['icon'] ?? null,
+                'group_id' => null,
+            ];
+        }, $accounts);
+    }
+
+    private function resolveExternalMigrator(string $format): Migrator
+    {
+        return match ($this->normalizeImportFormat($format)) {
+            '2fauth' => $this->twoFAuthMigrator,
+            '2fas' => $this->twoFASMigrator,
+            'aegis' => $this->aegisMigrator,
+            'bitwarden' => $this->bitwardenMigrator,
+            'googleauth' => $this->googleAuthMigrator,
+            default => throw new \Exception('Unsupported backup format: ' . $format),
+        };
+    }
+
+    public function validateImportPayload(?array $backupData, string $format = 'vault'): bool
+    {
+        if (!is_array($backupData)) {
+            return false;
+        }
+
+        if ($this->isVaultFormat($format)) {
+            return $this->validateBackupFile($backupData);
+        }
+
+        try {
+            $prepared = $this->prepareExternalImport($backupData, $format);
+        } catch (\Throwable $e) {
+            return false;
+        }
+
+        return isset($prepared['accounts'])
+            && is_array($prepared['accounts'])
+            && count($prepared['accounts']) <= self::MAX_ACCOUNTS_PER_BACKUP;
+    }
+
+    public function detectImportFormat(array $backupData): string
+    {
+        if (isset($backupData['app']) && $backupData['app'] === '2FAuth') {
+            return '2fauth';
+        }
+
+        if (isset($backupData['format']) && $backupData['format'] === '2FA-Vault') {
+            return 'vault';
+        }
+
+        if (isset($backupData['schemaVersion']) && isset($backupData['services'])) {
+            return '2fas';
+        }
+
+        if (isset($backupData['db']) && isset($backupData['db']['entries'])) {
+            return 'aegis';
+        }
+
+        if (array_key_exists('encrypted', $backupData) && isset($backupData['items'])) {
+            return 'bitwarden';
+        }
+
+        if (isset($backupData['payload'])
+            && is_string($backupData['payload'])
+            && str_starts_with($backupData['payload'], 'otpauth-migration://offline?data=')) {
+            return 'googleauth';
+        }
+
+        return 'vault';
+    }
+
+    public function supportedImportFormats(): array
+    {
+        return ['2fauth', '2fas', 'vault', 'aegis', 'bitwarden', 'googleauth'];
+    }
+
+    public function backupFormatValidationRule(): string
+    {
+        return 'nullable|in:' . implode(',', $this->supportedImportFormats());
+    }
+
+    public function normalizeImportFormat(string $format): string
+    {
+        return strtolower($format);
+    }
+
+    public function isImportFormatSupported(string $format): bool
+    {
+        return in_array($this->normalizeImportFormat($format), $this->supportedImportFormats(), true);
+    }
+
+    public function passwordRequiredForFormat(string $format): bool
+    {
+        return $this->isVaultFormat($format);
+    }
+
+    public function importValidationErrorMessage(string $format): string
+    {
+        return $this->isVaultFormat($format)
+            ? 'Invalid backup format or version not supported'
+            : 'Invalid backup file for selected import format';
+    }
+
+    public function importValidationErrorDetail(string $format): string
+    {
+        return $this->isVaultFormat($format)
+            ? 'The backup file format is invalid or from an unsupported version'
+            : 'The backup file cannot be parsed with the selected format';
+    }
+
+    private function isVaultFormat(string $format): bool
+    {
+        return $this->normalizeImportFormat($format) === 'vault';
+    }
+
+    private function extractAccountsFromBackup(array $backupData): array
+    {
+        if (isset($backupData['accounts']) && is_array($backupData['accounts'])) {
+            return $backupData['accounts'];
+        }
+
+        throw new \Exception('Invalid .vault file format: no accounts found');
+    }
+
+    private function extractGroupsFromBackup(array $backupData): array
     {
         if (isset($backupData['groups']) && is_array($backupData['groups'])) {
             return $backupData['groups'];
         }
+
         return [];
     }
 
     /**
-     * Validate backup file structure
-     *
-     * Validates the backup format without decrypting contents.
-     *
-     * @param array|null $backupData
-     * @return bool
+     * Normalize native vault backup data from either envelope or payload form.
+     */
+    public function normalizeVaultBackupData(array $backupData): array
+    {
+        $isEnvelope = isset($backupData['app'], $backupData['data'])
+            && $backupData['app'] === '2FA-Vault'
+            && is_string($backupData['data']);
+
+        if (!$isEnvelope) {
+            return $this->normalizeVaultPayload($backupData);
+        }
+
+        $decodedData = base64_decode($backupData['data'], true);
+        if ($decodedData === false) {
+            throw new \Exception('Invalid .vault file format: data payload is not valid base64');
+        }
+
+        $payload = json_decode($decodedData, true);
+        if (!is_array($payload)) {
+            throw new \Exception('Invalid .vault file format: data payload is not valid JSON');
+        }
+
+        return $this->normalizeVaultPayload($payload, $backupData);
+    }
+
+    /**
+     * Normalize canonical vault payload keys.
+     */
+    private function normalizeVaultPayload(array $payload, ?array $envelope = null): array
+    {
+        if (!array_key_exists('accounts', $payload)) {
+            throw new \Exception('Invalid .vault file format: accounts not found');
+        }
+
+        $accounts = $payload['accounts'];
+
+        if (!is_array($accounts)) {
+            throw new \Exception('Invalid .vault file format: accounts must be an array');
+        }
+
+        $normalized = [
+            'format' => $payload['format'] ?? ($envelope['app'] ?? '2FA-Vault'),
+            'version' => $payload['version'] ?? ($envelope['version'] ?? null),
+            'encrypted' => (bool) ($payload['encrypted'] ?? true),
+            'double_encrypted' => (bool) ($payload['double_encrypted'] ?? $payload['doubleEncrypted'] ?? false),
+            'encryption_version' => (int) ($payload['encryption_version'] ?? 0),
+            'exported_at' => $payload['exported_at'] ?? $payload['exportedAt'] ?? ($envelope['datetime'] ?? null),
+            'account_count' => isset($payload['account_count'])
+                ? (int) $payload['account_count']
+                : count($accounts),
+            'user' => $payload['user'] ?? null,
+            'accounts' => $accounts,
+        ];
+
+        if (isset($payload['groups']) && is_array($payload['groups'])) {
+            $normalized['groups'] = $payload['groups'];
+        }
+
+        return $normalized;
+    }
+
+    /**
+     * Validate backup file structure (vault only).
      */
     public function validateBackupFile(?array $backupData): bool
     {
@@ -348,33 +546,34 @@ class BackupService
             return false;
         }
 
-        // Required top-level fields
-        $requiredFields = ['version', 'accounts'];
-        foreach ($requiredFields as $field) {
-            if (!isset($backupData[$field])) {
+        try {
+            $normalized = $this->normalizeVaultBackupData($backupData);
+        } catch (\Throwable $e) {
+            return false;
+        }
+
+        foreach (['version', 'accounts'] as $field) {
+            if (!isset($normalized[$field])) {
                 return false;
             }
         }
 
-        // Validate version compatibility
-        if (!$this->isVersionCompatible($backupData['version'])) {
+        if (!$this->isVersionCompatible($normalized['version'])) {
             Log::warning('Backup version not compatible', [
-                'backup_version' => $backupData['version'],
+                'backup_version' => $normalized['version'],
                 'min_supported' => self::MIN_SUPPORTED_VERSION,
                 'current' => self::CURRENT_FORMAT_VERSION,
             ]);
             return false;
         }
 
-        // Validate accounts structure
-        if (!is_array($backupData['accounts'])) {
+        if (!is_array($normalized['accounts'])) {
             return false;
         }
 
-        // Check for reasonable account count
-        if (count($backupData['accounts']) > self::MAX_ACCOUNTS_PER_BACKUP) {
+        if (count($normalized['accounts']) > self::MAX_ACCOUNTS_PER_BACKUP) {
             Log::warning('Backup has too many accounts', [
-                'count' => count($backupData['accounts']),
+                'count' => count($normalized['accounts']),
                 'max' => self::MAX_ACCOUNTS_PER_BACKUP,
             ]);
             return false;
@@ -383,46 +582,35 @@ class BackupService
         return true;
     }
 
-    /**
-     * Check if backup version is compatible
-     */
     private function isVersionCompatible(string $version): bool
     {
-        // Simple version check - can be enhanced with semver comparison
         return version_compare($version, self::MIN_SUPPORTED_VERSION, '>=');
     }
 
     /**
-     * Get backup metadata without decrypting
-     *
-     * Returns information about the backup for preview/validation.
-     *
-     * @param array $backupData
-     * @return array
+     * Get backup metadata without decrypting.
      */
     public function getBackupMetadata(array $backupData): array
     {
-        $accounts = $backupData['accounts'] ?? [];
-        $groupCount = isset($backupData['groups']) ? count($backupData['groups']) : 0;
+        $normalized = $this->normalizeVaultBackupData($backupData);
+        $accounts = $normalized['accounts'] ?? [];
+        $groups = $normalized['groups'] ?? [];
 
         return [
-            'format' => $backupData['format'] ?? $backupData['app'] ?? 'unknown',
-            'version' => $backupData['version'] ?? 'unknown',
-            'encrypted' => $backupData['encrypted'] ?? false,
-            'doubleEncrypted' => $backupData['doubleEncrypted'] ?? false,
-            'encryption_version' => $backupData['encryption_version'] ?? 0,
-            'exportedAt' => $backupData['exportedAt'] ?? $backupData['datetime'] ?? null,
-            'accountCount' => count($accounts),
-            'groupCount' => $groupCount,
-            'user' => $backupData['user'] ?? null,
-            'compatible' => $this->isVersionCompatible($backupData['version'] ?? '0'),
-            'hasEncryptedAccounts' => $this->hasEncryptedAccounts($accounts),
+            'format' => $normalized['format'] ?? 'unknown',
+            'version' => $normalized['version'] ?? 'unknown',
+            'encrypted' => $normalized['encrypted'] ?? false,
+            'double_encrypted' => $normalized['double_encrypted'] ?? false,
+            'encryption_version' => $normalized['encryption_version'] ?? 0,
+            'exported_at' => $normalized['exported_at'] ?? null,
+            'account_count' => count($accounts),
+            'group_count' => count($groups),
+            'user' => $normalized['user'] ?? null,
+            'compatible' => $this->isVersionCompatible($normalized['version'] ?? '0'),
+            'has_encrypted_accounts' => $this->hasEncryptedAccounts($accounts),
         ];
     }
 
-    /**
-     * Check if backup contains encrypted accounts
-     */
     private function hasEncryptedAccounts(array $accounts): bool
     {
         foreach ($accounts as $account) {
@@ -430,14 +618,12 @@ class BackupService
                 return true;
             }
         }
+
         return false;
     }
 
     /**
-     * Get backup statistics for a user
-     *
-     * @param User $user
-     * @return array
+     * Get backup statistics for a user.
      */
     public function getBackupStats(User $user): array
     {
@@ -462,18 +648,11 @@ class BackupService
         ];
     }
 
-    /**
-     * Estimate backup file size
-     */
     private function estimateBackupSize(int $accountCount, int $groupCount): int
     {
-        // Rough estimate: ~500 bytes per account, ~100 bytes per group, ~1KB overhead
         return ($accountCount * 500) + ($groupCount * 100) + 1024;
     }
 
-    /**
-     * Format bytes to human readable
-     */
     private function formatBytes(int $bytes, int $precision = 2): string
     {
         $units = ['B', 'KB', 'MB', 'GB'];
@@ -481,6 +660,7 @@ class BackupService
         $pow = floor(($bytes ? log($bytes) : 0) / log(1024));
         $pow = min($pow, count($units) - 1);
         $bytes /= pow(1024, $pow);
+
         return round($bytes, $precision) . ' ' . $units[$pow];
     }
 }

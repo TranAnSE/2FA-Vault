@@ -90,9 +90,12 @@ const error = ref('')
 const apiClient = httpClientFactory('api')
 
 onMounted(async () => {
-    // Check if user has encryption enabled
-    if (!cryptoStore.isEncryptionEnabled) {
-        // User doesn't have encryption setup, redirect to main app
+    if (userStore.encryption_version <= 0) {
+        router.push({ name: 'accounts' })
+        return
+    }
+
+    if (!userStore.vault_locked && cryptoStore.isVaultUnlocked) {
         router.push({ name: 'accounts' })
     }
 })
@@ -119,14 +122,17 @@ async function handleUnlock() {
             return
         }
         
+        userStore.vault_locked = false
+
         notify({
             type: 'success',
             title: 'Vault Unlocked',
             text: 'Your vault has been unlocked successfully'
         })
-        
+
         // Redirect to main app
         router.push({ name: 'accounts' })
+        userStore.initDataStores()
     } catch (err) {
         console.error('Unlock failed:', err)
         error.value = err.response?.data?.message || 'Failed to unlock vault. Please try again.'

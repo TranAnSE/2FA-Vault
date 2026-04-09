@@ -59,16 +59,16 @@ class BackupControllerTest extends TestCase
             ->assertJsonStructure([
                 'filename',
                 'size',
-                'accounts_count',
-                'groups_count',
+                'account_count',
+                'group_count',
             ]);
 
         $data = $response->json();
 
         $this->assertStringStartsWith('2fa-vault-backup-', $data['filename']);
         $this->assertStringEndsWith('.vault', $data['filename']);
-        $this->assertEquals(3, $data['accounts_count']);
-        $this->assertEquals(0, $data['groups_count']);
+        $this->assertEquals(3, $data['account_count']);
+        $this->assertEquals(1, $data['group_count']);
         $this->assertTrue(Storage::exists('backups/' . $data['filename']));
 
         $backupData = json_decode(Storage::get('backups/' . $data['filename']), true);
@@ -76,12 +76,58 @@ class BackupControllerTest extends TestCase
         $this->assertEquals('2FA-Vault', $backupData['app']);
         $this->assertArrayHasKey('encryption', $backupData);
         $this->assertArrayHasKey('data', $backupData);
-        $this->assertArrayHasKey('_raw', $backupData);
-        $this->assertEquals(3, $backupData['_raw']['accountCount']);
-        $this->assertCount(1, $backupData['_raw']['groups']);
+
+        $decoded = json_decode(base64_decode($backupData['data']), true);
+        $this->assertEquals(3, $decoded['account_count']);
+        $this->assertCount(1, $decoded['groups']);
 
         $this->user->refresh();
         $this->assertNotNull($this->user->last_backup_at);
+    }
+
+    public function test_user_can_export_backup_via_legacy_alias_with_post(): void
+    {
+        $group = Group::factory()->create([
+            'user_id' => $this->user->id,
+            'name' => 'Legacy Alias Group',
+        ]);
+
+        TwoFAccount::factory()->count(2)->create([
+            'user_id' => $this->user->id,
+            'group_id' => $group->id,
+        ]);
+
+        $response = $this->actingAs($this->user, 'api-guard')
+            ->postJson('/api/v1/backup/export', [
+                'password' => 'strong-master-password',
+                'include_groups' => true,
+            ]);
+
+        $response->assertOk()
+            ->assertJson([
+                'account_count' => 2,
+                'group_count' => 1,
+            ]);
+
+        $this->assertTrue(Storage::exists('backups/' . $response->json('filename')));
+    }
+
+    public function test_user_can_export_backup_via_legacy_alias_with_get(): void
+    {
+        TwoFAccount::factory()->count(1)->create([
+            'user_id' => $this->user->id,
+        ]);
+
+        $response = $this->actingAs($this->user, 'api-guard')
+            ->getJson('/api/v1/backup/export?password=strong-master-password&include_groups=1');
+
+        $response->assertOk()
+            ->assertJson([
+                'account_count' => 1,
+            ]);
+
+        $this->assertStringEndsWith('.vault', $response->json('filename'));
+        $this->assertTrue(Storage::exists('backups/' . $response->json('filename')));
     }
 
     public function test_export_requires_authentication(): void
@@ -110,8 +156,8 @@ class BackupControllerTest extends TestCase
             ]);
 
         $response->assertOk();
-        $this->assertEquals(0, $response->json('accounts_count'));
-        $this->assertEquals(0, $response->json('groups_count'));
+        $this->assertEquals(0, $response->json('account_count'));
+        $this->assertEquals(0, $response->json('group_count'));
     }
 
     public function test_user_can_import_vault_backup(): void
@@ -130,8 +176,8 @@ class BackupControllerTest extends TestCase
             'format' => '2FA-Vault',
             'version' => '2.0',
             'encrypted' => true,
-            'doubleEncrypted' => true,
-            'accountCount' => 2,
+            'double_encrypted' => true,
+            'account_count' => 2,
             'groups' => [
                 [
                     'id' => $group->id,
@@ -303,8 +349,8 @@ class BackupControllerTest extends TestCase
                 'format' => '2FA-Vault',
                 'version' => '2.0',
                 'encrypted' => true,
-                'doubleEncrypted' => true,
-                'exportedAt' => now()->toIso8601String(),
+                'double_encrypted' => true,
+                'exported_at' => now()->toIso8601String(),
                 'groups' => [
                     ['id' => 1, 'name' => 'Personal', 'order' => 0],
                 ],
@@ -324,10 +370,10 @@ class BackupControllerTest extends TestCase
                 'format' => '2FA-Vault',
                 'version' => '2.0',
                 'encrypted' => true,
-                'doubleEncrypted' => true,
-                'accountCount' => 1,
-                'groupCount' => 1,
-                'hasEncryptedAccounts' => true,
+                'double_encrypted' => true,
+                'account_count' => 1,
+                'group_count' => 1,
+                'has_encrypted_accounts' => true,
                 'compatible' => true,
             ]);
     }

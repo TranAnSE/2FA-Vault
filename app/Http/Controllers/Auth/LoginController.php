@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Auth;
 
+use App\Api\v1\Resources\UserResource;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\LoginRequest;
 use Carbon\Carbon;
@@ -112,21 +113,15 @@ class LoginController extends Controller
          * @var \App\Models\User|null
          */
         $user = $this->guard()->user();
-        $name = $user?->name;
 
-        $this->authenticated($request, $this->guard()->user());
+        $this->authenticated($request, $user);
 
-        return response()->json([
-            'message'            => 'authenticated',
-            'id'                 => $user->id,
-            'name'               => $name,
-            'email'              => $user->email,
-            'preferences'        => $user->preferences,
-            'is_admin'           => $user->isAdministrator(),
-            'encryption_version' => $user->encryption_version,
-            'vault_locked'       => $user->vault_locked,
-            'last_backup_at'     => $user->last_backup_at?->toIso8601String(),
-        ], Response::HTTP_OK);
+        return response()->json(
+            array_merge([
+                'message' => 'authenticated',
+            ], (new UserResource($user))->resolve($request)),
+            Response::HTTP_OK
+        );
     }
 
     /**

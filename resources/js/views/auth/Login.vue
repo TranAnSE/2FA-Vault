@@ -47,18 +47,7 @@
         notify.clear()
 
         form.post('/user/login', {returnError: true}).then(async (response) => {
-            await user.loginAs({
-                id: response.data.id,
-                name: response.data.name,
-                email: response.data.email,
-                oauth_provider: response.data.oauth_provider,
-                authenticated_by_proxy: false,
-                preferences: response.data.preferences,
-                isAdmin: response.data.is_admin,
-                encryption_version: response.data.encryption_version,
-                vault_locked: response.data.vault_locked,
-                last_backup_at: response.data.last_backup_at,
-            })
+            await user.loginAs(response.data)
 
             router.push({ name: 'accounts' })
         })
@@ -81,18 +70,7 @@
         isBusy.value = true
 
         webauthnService.authenticate(form.email).then(async (response) => {
-            await user.loginAs({
-                id: response.data.id,
-                name: response.data.name,
-                email: response.data.email,
-                oauth_provider: response.data.oauth_provider,
-                authenticated_by_proxy: false,
-                preferences: response.data.preferences,
-                isAdmin: response.data.is_admin,
-                encryption_version: response.data.encryption_version,
-                vault_locked: response.data.vault_locked,
-                last_backup_at: response.data.last_backup_at,
-            })
+            await user.loginAs(response.data)
 
             router.push({ name: 'accounts' })
         })

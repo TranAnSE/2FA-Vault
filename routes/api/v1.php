@@ -81,7 +81,7 @@ Route::group(['middleware' => 'auth:api-guard'], function () {
     Route::get('backups/info', [\App\Http\Controllers\BackupController::class, 'info'])->name('backups.info');
     
     // Legacy backup routes (backward compatibility)
-    Route::get('backup/export', [\App\Http\Controllers\BackupController::class, 'export'])->name('backup.export');
+    Route::match(['get', 'post'], 'backup/export', [\App\Http\Controllers\BackupController::class, 'export'])->name('backup.export');
     Route::post('backup/import', [\App\Http\Controllers\BackupController::class, 'import'])->name('backup.import');
     Route::post('backup/metadata', [\App\Http\Controllers\BackupController::class, 'metadata'])->name('backup.metadata');
     Route::get('backup/info', [\App\Http\Controllers\BackupController::class, 'info'])->name('backup.info');

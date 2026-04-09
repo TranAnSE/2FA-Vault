@@ -3,9 +3,13 @@
     "type": "module",
     "scripts": {
         "dev": "vite --host=127.0.0.1",
+        "lint": "npx eslint resources/js",
         "build": "vite build",
         "rebuild": "vite build --watch",
+        "ci:frontend": "npm run build",
         "test:e2e": "npx playwright test",
+        "test:e2e:smoke": "npx playwright test tests/e2e/encryption.spec.ts tests/e2e/settings.spec.ts --workers=1 --reporter=line",
+        "ci:e2e": "npm run test:e2e:smoke",
         "test:e2e:ui": "npx playwright test --ui",
         "test:e2e:headed": "npx playwright test --headed",
         "test:e2e:debug": "npx playwright test --debug"

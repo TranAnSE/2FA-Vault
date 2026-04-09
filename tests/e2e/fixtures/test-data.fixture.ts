@@ -1,23 +1,55 @@
 export const testUsers = {
   admin: {
-    email: 'e2eAdmin@2fauth.app',
+    email: 'e2eadmin@2fauth.app',
     password: 'password',
     name: 'E2E Admin',
   },
   user: {
-    email: 'e2eUser@2fauth.app',
+    email: 'e2euser@2fauth.app',
     password: 'password',
     name: 'E2E User',
   },
   encrypted: {
-    email: 'e2eEncrypted@2fauth.app',
+    email: 'e2eencrypted@2fauth.app',
     password: 'password',
     name: 'E2E Encrypted',
+  },
+  lockedEncrypted: {
+    email: 'e2elocked@2fauth.app',
+    password: 'password',
+    name: 'E2E Locked',
+  },
+  conflict: {
+    email: 'e2econflict@2fauth.app',
+    password: 'password',
+    name: 'E2E Conflict',
+  },
+  backup: {
+    email: 'e2ebackup@2fauth.app',
+    password: 'password',
+    name: 'E2E Backup',
   },
   newRegistration: {
     name: 'E2E New User',
     email: 'e2enew@example.com',
     password: 'TestPassword123!',
+  },
+};
+
+export const seededData = {
+  groups: {
+    adminPrimary: 'E2E Test Group',
+    adminSecondary: 'E2E Shared Group',
+    encrypted: 'E2E Encrypted Group',
+    backup: 'E2E Backup Group',
+  },
+  accounts: {
+    admin: ['GitHub', 'Google', 'Slack'],
+    conflictKey: {
+      service: 'ConflictService',
+      account: 'duplicate@vault.test',
+    },
+    backupMix: ['Recovery', 'EncryptedBackup'],
   },
 };
 

@@ -93,4 +93,64 @@ class UserFactory extends Factory
             ];
         });
     }
+
+    public function e2eAdmin()
+    {
+        return $this->administrator()->state(function (array $attributes) {
+            return [
+                'name' => 'E2E Admin',
+                'email' => 'e2eadmin@2fauth.app',
+            ];
+        });
+    }
+
+    public function e2eUser()
+    {
+        return $this->state(function (array $attributes) {
+            return [
+                'name' => 'E2E User',
+                'email' => 'e2euser@2fauth.app',
+            ];
+        });
+    }
+
+    public function e2eEncrypted()
+    {
+        return $this->withE2EE()->state(function (array $attributes) {
+            return [
+                'name' => 'E2E Encrypted',
+                'email' => 'e2eencrypted@2fauth.app',
+            ];
+        });
+    }
+
+    public function e2eLockedEncrypted()
+    {
+        return $this->withLockedVault()->state(function (array $attributes) {
+            return [
+                'name' => 'E2E Locked',
+                'email' => 'e2elocked@2fauth.app',
+            ];
+        });
+    }
+
+    public function e2eConflictUser()
+    {
+        return $this->withE2EE()->state(function (array $attributes) {
+            return [
+                'name' => 'E2E Conflict',
+                'email' => 'e2econflict@2fauth.app',
+            ];
+        });
+    }
+
+    public function e2eBackupUser()
+    {
+        return $this->withE2EE()->state(function (array $attributes) {
+            return [
+                'name' => 'E2E Backup',
+                'email' => 'e2ebackup@2fauth.app',
+            ];
+        });
+    }
 }

@@ -5,6 +5,7 @@ import router from '@/router'
 import { useColorMode } from '@vueuse/core'
 import { useTwofaccounts } from '@/stores/twofaccounts'
 import { useGroups } from '@/stores/groups'
+import { useCryptoStore } from '@/stores/crypto'
 import { useNotify } from '@2fauth/ui'
 import { useAppSettingsStore } from '@/stores/appSettings'
 import { useErrorHandler } from '@2fauth/stores'
@@ -33,14 +34,35 @@ export const useUserStore = defineStore('user', {
 
     actions: {
         /**
-         * Initializes the store for the given user
-         * 
-         * @param {object} user 
+         * Initializes the store from canonical auth payload
+         *
+         * @param {object} payload
          */
-        async loginAs(user) {
-            this.$patch(user)
+        async loginAs(payload) {
+            this.$patch(this.hydrateFromAuthPayload(payload))
             await this.initDataStores()
             this.applyUserPrefs()
+        },
+
+        /**
+         * Map backend auth payload to user store shape
+         *
+         * @param {object} payload
+         * @returns {object}
+         */
+        hydrateFromAuthPayload(payload) {
+            return {
+                id: payload.id,
+                name: payload.name,
+                email: payload.email,
+                oauth_provider: payload.oauth_provider,
+                authenticated_by_proxy: payload.authenticated_by_proxy,
+                preferences: payload.preferences,
+                isAdmin: payload.is_admin,
+                encryption_version: payload.encryption_version,
+                vault_locked: payload.vault_locked,
+                last_backup_at: payload.last_backup_at,
+            }
         },
 
         /**
@@ -51,7 +73,15 @@ export const useUserStore = defineStore('user', {
             const groups = useGroups()
 
             if (this.isAuthenticated) {
-                await accounts.fetch()
+                const cryptoStore = useCryptoStore()
+
+                if (! this.vault_locked || cryptoStore.isVaultUnlocked) {
+                    await accounts.fetch()
+                }
+                else {
+                    accounts.$reset()
+                }
+
                 groups.fetch()
             }
             else {
@@ -100,6 +130,7 @@ export const useUserStore = defineStore('user', {
          */
         tossOut() {
             this.$reset()
+            useCryptoStore().reset()
             this.initDataStores()
             this.applyUserPrefs()
 

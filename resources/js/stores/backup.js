@@ -9,16 +9,16 @@ export const useBackupStore = defineStore('backup', {
         isExporting: false,
         isImporting: false,
         info: {
-            hasBackup: false,
-            lastBackupAt: null,
-            daysSinceBackup: null,
-            shouldBackup: true,
+            has_backup: false,
+            last_backup_at: null,
+            days_since_backup: null,
+            should_backup: true,
         }
     }),
 
     getters: {
         needsBackup: (state) => {
-            return state.info.shouldBackup || !state.info.hasBackup
+            return state.info.should_backup || !state.info.has_backup
         },
     },
 
@@ -108,8 +108,6 @@ export const useBackupStore = defineStore('backup', {
                 
                 if (this.info.last_backup_at) {
                     this.lastBackupDate = this.info.last_backup_at
-                } else if (this.info.lastBackupAt) {
-                    this.lastBackupDate = this.info.lastBackupAt
                 }
                 
                 return this.info

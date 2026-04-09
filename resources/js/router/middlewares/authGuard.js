@@ -7,19 +7,7 @@ export default async function authGuard({ to, next, nextMiddleware, stores }) {
     // get an active user from the back-end side
     if (! user.isAuthenticated) {
         await authService.getCurrentUser({ returnError: true }).then(async (response) => {
-            const currentUser = response.data
-            await user.loginAs({
-                id: currentUser.id,
-                name: currentUser.name,
-                email: currentUser.email,
-                oauth_provider: currentUser.oauth_provider,
-                authenticated_by_proxy: currentUser.authenticated_by_proxy,
-                preferences: currentUser.preferences,
-                isAdmin: currentUser.is_admin,
-                encryption_version: currentUser.encryption_version,
-                vault_locked: currentUser.vault_locked,
-                last_backup_at: currentUser.last_backup_at,
-            })
+            await user.loginAs(response.data)
         })
         .catch(error => {
             // nothing to do
