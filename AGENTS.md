@@ -1,7 +1,14 @@
+## Repository Operating Rules
+
+- MUST read `CLAUDE.md` at the start of every new task in this repository before planning, editing, or committing.
+- `CLAUDE.md` is a required companion instruction source for this repo, not optional reference material.
+- NEVER add commit footers or trailers such as `Ultraworked with [Sisyphus](...)`, `Co-authored-by: Sisyphus <...>`, or any equivalent AI-agent attribution.
+- If a commit needs extra context, put it in the commit message body as plain project-relevant description only.
+
 <!-- gitnexus:start -->
 # GitNexus — Code Intelligence
 
-This project is indexed by GitNexus as **2FA-Vault** (4626 symbols, 12354 relationships, 202 execution flows). Use the GitNexus MCP tools to understand code, assess impact, and navigate safely.
+This project is indexed by GitNexus as **2FA-Vault** (4703 symbols, 12715 relationships, 208 execution flows). Use the GitNexus MCP tools to understand code, assess impact, and navigate safely.
 
 > If any GitNexus tool warns the index is stale, run `npx gitnexus analyze` in terminal first.
 
