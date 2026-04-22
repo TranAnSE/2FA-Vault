@@ -29,6 +29,7 @@ class UserModelTest extends ModelTestCase
                 'password'           => 'hashed',
                 'is_admin'           => 'boolean',
                 'is_active'          => 'boolean',
+                'encryption_enabled' => 'boolean',
                 'encryption_version' => 'integer',
                 'vault_locked'       => 'boolean',
                 'last_backup_at'     => 'datetime',

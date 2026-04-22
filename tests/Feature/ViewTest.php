@@ -19,6 +19,8 @@ class ViewTest extends FeatureTestCase
     {
         parent::setUp();
 
+        $this->withoutVite();
+
         Http::preventStrayRequests();
         Http::fake([
             config('2fauth.latestReleaseUrl') => Http::response(HttpRequestTestData::LATEST_RELEASE_BODY_NO_NEW_RELEASE),
@@ -49,7 +51,9 @@ class ViewTest extends FeatureTestCase
         $response->assertViewHas('isTestingApp');
         $response->assertViewHas('lang');
         $response->assertViewHas('locales');
-        $response->assertViewHas('cspNonce');
+        if (config('2fauth.config.contentSecurityPolicy')) {
+            $response->assertViewHas('cspNonce');
+        }
         $response->assertViewHas('manifestUrl');
     }
 
