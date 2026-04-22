@@ -140,8 +140,11 @@ class UserControllerTest extends FeatureTestCase
     #[Test]
     public function test_show_preference_returns_preference_with_locked_default_env_value()
     {
-        // See .env.testing which sets USERPREF_DEFAULT__THEME=light
-        // while config/2fauth.php sets the default value to 'system'
+        config()->set('2fauth.preferences.theme', 'light');
+        config()->set('2fauth.lockedPreferences', array_values(array_unique([
+            ...config('2fauth.lockedPreferences'),
+            'theme',
+        ])));
 
         /**
          * @var \App\Models\User|\Illuminate\Contracts\Auth\Authenticatable
@@ -228,7 +231,11 @@ class UserControllerTest extends FeatureTestCase
     #[Test]
     public function test_set_preference_on_locked_preference_returns_forbidden()
     {
-        // See .env.testing which sets USERPREF_LOCKED__THEME=true
+        config()->set('2fauth.lockedPreferences', array_values(array_unique([
+            ...config('2fauth.lockedPreferences'),
+            'theme',
+        ])));
+
         $response = $this->actingAs($this->user, 'api-guard')
             ->json('PUT', '/api/v1/user/preferences/theme', [
                 'key'   => 'theme',

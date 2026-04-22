@@ -222,11 +222,15 @@ class HelpersTest extends TestCase
     #[Test]
     public function test_lockedPreferences_returns_locked_preferences()
     {
-        // See .env.testing which sets USERPREF_DEFAULT__THEME=light
-        // while config/2fauth.php sets the default value to 'system'
-        $lockedPreferences = Helpers::lockedPreferences(config('2fauth.preferences'));
+        putenv('USERPREF_LOCKED__THEME=true');
 
-        $this->assertContains('theme', $lockedPreferences);
+        try {
+            $lockedPreferences = Helpers::lockedPreferences(config('2fauth.preferences'));
+
+            $this->assertContains('theme', $lockedPreferences);
+        } finally {
+            putenv('USERPREF_LOCKED__THEME');
+        }
     }
 
     #[Test]

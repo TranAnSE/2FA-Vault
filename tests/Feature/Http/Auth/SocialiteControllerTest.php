@@ -64,6 +64,8 @@ class SocialiteControllerTest extends FeatureTestCase
     public function test_redirect_redirects_to_provider_url()
     {
         Settings::set('enableSso', true);
+        config(['services.github.client_id' => 'testing']);
+        config(['services.github.client_secret' => 'testing']);
 
         $response = $this->get('/socialite/redirect/github');
 
@@ -74,6 +76,8 @@ class SocialiteControllerTest extends FeatureTestCase
     public function test_redirect_returns_error_when_registrations_are_disabled()
     {
         Settings::set('enableSso', false);
+        config(['services.github.client_id' => 'testing']);
+        config(['services.github.client_secret' => 'testing']);
 
         $response = $this->get('/socialite/redirect/github');
 

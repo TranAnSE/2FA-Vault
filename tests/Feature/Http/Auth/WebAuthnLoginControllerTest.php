@@ -344,7 +344,8 @@ class WebAuthnLoginControllerTest extends FeatureTestCase
         $this->addWebauthnChallengeToSession();
 
         for ($i = 0; $i < $throttle - 1; $i++) {
-            $this->json('POST', '/webauthn/login', self::ASSERTION_RESPONSE_INVALID);
+            $this->json('POST', '/webauthn/login', self::ASSERTION_RESPONSE_INVALID)
+                ->assertUnauthorized();
         }
 
         $this->json('POST', '/webauthn/login', self::ASSERTION_RESPONSE_INVALID)
