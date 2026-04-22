@@ -118,6 +118,10 @@ jobs:
         with:
           node-version: '22'
 
+      - name: Copy environment file
+        working-directory: ./2FA-Vault
+        run: cp .env.testing .env
+
       - name: Prepare Laravel bootstrap directories
         working-directory: ./2FA-Vault
         run: mkdir -p bootstrap/cache storage/framework/{cache,sessions,views} storage/logs

@@ -28,6 +28,7 @@ RUN composer dump-autoload --no-scripts --no-dev --optimize
 
 FROM --platform=${BUILDPLATFORM} vendor AS test
 COPY . .
+RUN mkdir -p bootstrap/cache storage/framework/cache storage/framework/sessions storage/framework/views storage/logs
 RUN mv .env.testing .env
 RUN composer install
 RUN php artisan key:generate
