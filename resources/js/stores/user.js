@@ -46,6 +46,16 @@ export const useUserStore = defineStore('user', {
         },
 
         /**
+         * Determines whether protected bootstrap requests should be deferred
+         * until the user completes required encryption setup.
+         *
+         * @returns {boolean}
+         */
+        shouldDeferProtectedBootstrap() {
+            return this.isAuthenticated && this.e2ee_required === true && this.encryption_version <= 0
+        },
+
+        /**
          * Map backend auth payload to user store shape
          *
          * @param {object} payload
@@ -75,6 +85,12 @@ export const useUserStore = defineStore('user', {
             const groups = useGroups()
 
             if (this.isAuthenticated) {
+                if (this.shouldDeferProtectedBootstrap()) {
+                    accounts.$reset()
+                    groups.$reset()
+                    return
+                }
+
                 const cryptoStore = useCryptoStore()
 
                 if (! this.vault_locked || cryptoStore.isVaultUnlocked) {
