@@ -22,7 +22,6 @@ webpack.mix.js
 node_modules
 storage/framework
 storage/logs
-tests
 test-results
 public/storage
 public/hot

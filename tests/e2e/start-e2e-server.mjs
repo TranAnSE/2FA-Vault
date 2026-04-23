@@ -10,6 +10,12 @@ import { fileURLToPath } from 'url';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(__dirname, '../..');
 const DB_PATH = path.resolve(ROOT, 'database/database_e2e.sqlite');
+const E2E_ENV = {
+  ...process.env,
+  APP_ENV: 'e2e',
+  DB_CONNECTION: 'sqlite',
+  DB_DATABASE: DB_PATH,
+};
 
 // Remove stale Vite hot file (forces @vite() to use production build)
 const hotFile = path.resolve(ROOT, 'public/hot');
@@ -25,10 +31,10 @@ if (!fs.existsSync(DB_PATH)) {
 
 // Run migrations and seed
 console.log('[E2E Server] Running migrations...');
-execSync('php artisan config:clear', { stdio: 'pipe', cwd: ROOT });
-execSync('php artisan migrate:fresh --env=e2e --force', { stdio: 'pipe', cwd: ROOT });
+execSync('php artisan config:clear', { stdio: 'pipe', cwd: ROOT, env: E2E_ENV });
+execSync('php artisan migrate:fresh --env=e2e --force', { stdio: 'pipe', cwd: ROOT, env: E2E_ENV });
 console.log('[E2E Server] Seeding database...');
-execSync('php artisan db:seed --class=E2eSeeder --env=e2e --force', { stdio: 'pipe', cwd: ROOT });
+execSync('php artisan db:seed --class=E2eSeeder --env=e2e --force', { stdio: 'pipe', cwd: ROOT, env: E2E_ENV });
 
 // Build frontend if no build exists
 const buildManifest = path.resolve(ROOT, 'public/build/manifest.json');
@@ -44,6 +50,7 @@ console.log('[E2E Server] Starting Laravel on port 8001...');
 // Start the Laravel server (blocking)
 const server = spawn('php', ['artisan', 'serve', '--host=127.0.0.1', '--port=8001', '--env=e2e'], {
   cwd: ROOT,
+  env: E2E_ENV,
   stdio: 'inherit',
 });
 

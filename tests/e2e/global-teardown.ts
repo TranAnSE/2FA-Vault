@@ -3,7 +3,7 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const DB_PATH = path.resolve(__dirname, '../../../database/database_e2e.sqlite');
+const DB_PATH = path.resolve(__dirname, '../..', 'database/database_e2e.sqlite');
 
 /**
  * E2E global teardown - cleans up the test database.
