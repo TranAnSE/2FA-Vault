@@ -32,6 +32,7 @@ RUN mkdir -p bootstrap/cache storage/framework/cache storage/framework/sessions 
 RUN mv .env.testing .env
 RUN composer install
 RUN php artisan key:generate
+RUN php artisan passport:keys --force
 COPY docker/php-test.ini /usr/local/etc/php/php.ini
 ENTRYPOINT [ "/srv/vendor/bin/phpunit" ]
 

@@ -15,23 +15,32 @@ type AuthFixture = {
 async function performLogin(page: Page, email: string, password: string): Promise<void> {
   await page.goto(routes.login);
 
-  // Wait for SPA mount - legacy login form
-  const form = page.locator(sel.legacyLoginForm);
-  await form.waitFor({ state: 'visible', timeout: 15000 });
-
-  // If only WebAuthn form is showing, switch to legacy
+  const legacyForm = page.locator(sel.legacyLoginForm);
+  const webauthnForm = page.locator('#frmWebauthnLogin');
+  const ssoForm = page.locator('#lnkSsoDocs');
   const legacyLink = page.locator(sel.switchToLegacy);
+
+  // Wait for whichever login surface is currently active.
+  await Promise.race([
+    legacyForm.waitFor({ state: 'visible', timeout: 15000 }),
+    webauthnForm.waitFor({ state: 'visible', timeout: 15000 }),
+    ssoForm.waitFor({ state: 'visible', timeout: 15000 }),
+    legacyLink.waitFor({ state: 'visible', timeout: 15000 }),
+  ]);
+
   if (await legacyLink.isVisible()) {
     await legacyLink.click();
-    await form.waitFor({ state: 'visible' });
+    await legacyForm.waitFor({ state: 'visible', timeout: 15000 });
   }
 
+  await legacyForm.waitFor({ state: 'visible', timeout: 15000 });
+
   // Fill credentials
-  await form.locator(sel.emailInput).fill(email);
-  await form.locator(sel.passwordInput).fill(password);
+  await legacyForm.locator(sel.emailInput).fill(email);
+  await legacyForm.locator(sel.passwordInput).fill(password);
 
   // Submit
-  await form.locator(sel.signInButton).click();
+  await legacyForm.locator(sel.signInButton).click();
 
   // Wait for SPA navigation (client-side routing)
   await Promise.race([
