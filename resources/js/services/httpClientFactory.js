@@ -2,6 +2,20 @@ import axios from "axios"
 import { useUserStore } from '@/stores/user'
 import { useErrorHandler } from '@2fauth/stores'
 
+const getCookie = (name) => {
+	const cookie = document.cookie
+		.split('; ')
+		.find((entry) => entry.startsWith(`${name}=`))
+
+	if (!cookie) {
+		return null
+	}
+
+	return decodeURIComponent(cookie.substring(name.length + 1))
+}
+
+const getCsrfToken = () => getCookie('XSRF-TOKEN')
+
 export const httpClientFactory = (endpoint = 'api') => {
 	let baseURL
     const subdir = window.appConfig.subdirectory
@@ -21,52 +35,51 @@ export const httpClientFactory = (endpoint = 'api') => {
 		withXSRFToken: true,
 	})
 
-	const csrfMetaToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content')
-	if (csrfMetaToken) {
-		httpClient.defaults.headers.common['X-CSRF-TOKEN'] = csrfMetaToken
-	}
+	httpClient.interceptors.request.use(
+		async function (config) {
+			const method = (config.method ?? 'get').toLowerCase()
+			const isUnsafeMethod = ['post', 'put', 'patch', 'delete'].includes(method)
 
-	// httpClient.interceptors.request.use(
-    //     async function (config) {
-    //         // We get a CSRF token when needed
-    //         const cookies = Object.fromEntries(document.cookie.split('; ').map(c => c.split('=')))
-    //         console.log(cookies)
+			if (!isUnsafeMethod) {
+				return config
+			}
 
-    //         if (! Object.hasOwnProperty(cookies, 'XSRF-TOKEN') && ['post', 'put', 'patch', 'delete'].includes(config.method))
-    //         {
-    //             await axios.get('/refresh-csrf', {withCredentials:true})
-    //             return config
-    //         }
+			let csrfToken = getCsrfToken()
 
-    //         return config
-    //     },
-    //     (error) => {
-    //         Promise.reject(error)
-    //     }
-    // )
+			if (!csrfToken) {
+				await httpClient.get('/refresh-csrf')
+				csrfToken = getCsrfToken()
+			}
+
+			if (csrfToken) {
+				config.headers = {
+					...config.headers,
+					'X-CSRF-TOKEN': csrfToken,
+					'X-XSRF-TOKEN': csrfToken,
+				}
+			}
+
+			return config
+		},
+		(error) => Promise.reject(error)
+	)
 
     httpClient.interceptors.response.use(
         (response) => {
             return response;
         },
-        async function (error) {
-            const originalRequestConfig = error.config
+		async function (error) {
+			const originalRequestConfig = error.config
 
             // Here we handle a missing/invalid CSRF cookie
             // We try to get a fresh on, but only once.
-            if (error.response.status === 419 && ! originalRequestConfig._retried) {
-                originalRequestConfig._retried = true;
-                delete originalRequestConfig.headers?.['X-CSRF-TOKEN']
-                delete originalRequestConfig.headers?.['X-XSRF-TOKEN']
-                await httpClient.get('/refresh-csrf')
+			if (error.response.status === 419 && ! originalRequestConfig._retried) {
+				originalRequestConfig._retried = true;
+				delete originalRequestConfig.headers?.['X-XSRF-TOKEN']
+				await httpClient.get('/refresh-csrf')
 
-                const refreshedCsrfMetaToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content')
-                if (refreshedCsrfMetaToken) {
-                    httpClient.defaults.headers.common['X-CSRF-TOKEN'] = refreshedCsrfMetaToken
-                }
-
-                return httpClient.request(originalRequestConfig)
-            }
+				return httpClient.request(originalRequestConfig)
+			}
 
             // api calls are stateless so when user inactivity is detected
             // by the backend middleware, it cannot logout the user directly
