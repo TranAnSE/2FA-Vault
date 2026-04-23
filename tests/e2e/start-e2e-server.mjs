@@ -11,9 +11,12 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(__dirname, '../..');
 const DB_PATH = path.resolve(ROOT, 'database/database_e2e.sqlite');
 const IS_CI = process.env.CI === 'true' || process.env.CI === '1';
+const E2E_ORIGIN = 'http://127.0.0.1:8001';
 const E2E_ENV = {
   ...process.env,
   APP_ENV: 'e2e',
+  APP_URL: E2E_ORIGIN,
+  ASSET_URL: E2E_ORIGIN,
   DB_CONNECTION: 'sqlite',
   DB_DATABASE: DB_PATH,
 };
