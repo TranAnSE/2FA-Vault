@@ -13,6 +13,29 @@ type AuthFixture = {
 };
 
 async function performLogin(page: Page, email: string, password: string): Promise<void> {
+  const consoleMessages: string[] = [];
+  const failedRequests: string[] = [];
+  const assetResponses: string[] = [];
+
+  const consoleHandler = (message) => {
+    consoleMessages.push(`[${message.type()}] ${message.text()}`);
+  };
+
+  const requestFailedHandler = (request) => {
+    failedRequests.push(`${request.method()} ${request.url()} => ${request.failure()?.errorText ?? 'unknown failure'}`);
+  };
+
+  const responseHandler = (response) => {
+    const url = response.url();
+    if (url.includes('/build/') || url.endsWith('/login')) {
+      assetResponses.push(`${response.status()} ${url} (${response.request().resourceType()})`);
+    }
+  };
+
+  page.on('console', consoleHandler);
+  page.on('requestfailed', requestFailedHandler);
+  page.on('response', responseHandler);
+
   await page.goto(routes.login);
   await page.waitForLoadState('networkidle').catch(() => {});
   await page.locator('#app').waitFor({ state: 'attached', timeout: 15000 });
@@ -50,6 +73,9 @@ async function performLogin(page: Page, email: string, password: string): Promis
   }
 
   if (loginSurface === 'sso') {
+    page.off('console', consoleHandler);
+    page.off('requestfailed', requestFailedHandler);
+    page.off('response', responseHandler);
     throw new Error(`Login page is in SSO-only mode for ${email} at ${page.url()}`);
   }
 
@@ -62,12 +88,23 @@ async function performLogin(page: Page, email: string, password: string): Promis
     }).catch(() => []);
     const headings = await page.getByRole('heading').allTextContents().catch(() => []);
     const forms = await page.locator('form').evaluateAll((nodes) => nodes.map((node) => ({ id: node.id, className: node.className }))).catch(() => []);
+    const scripts = await page.evaluate(() => Array.from(document.scripts).map((script) => ({ src: script.src, type: script.type }))).catch(() => []);
+    const readyState = await page.evaluate(() => document.readyState).catch(() => 'unknown');
+
+    page.off('console', consoleHandler);
+    page.off('requestfailed', requestFailedHandler);
+    page.off('response', responseHandler);
 
     throw new Error(
       `Unable to detect login surface for ${email} at ${page.url()}. ` +
+      `readyState=${readyState} ` +
       `activeLoginForm=${JSON.stringify(activeLoginForm)} ` +
       `headings=${JSON.stringify(headings)} ` +
       `forms=${JSON.stringify(forms)} ` +
+      `scripts=${JSON.stringify(scripts)} ` +
+      `assetResponses=${JSON.stringify(assetResponses.slice(-20))} ` +
+      `failedRequests=${JSON.stringify(failedRequests.slice(-20))} ` +
+      `consoleMessages=${JSON.stringify(consoleMessages.slice(-20))} ` +
       `bodyHtml=${String(bodyHtml).slice(0, 2000)}`
     );
   }
@@ -88,6 +125,10 @@ async function performLogin(page: Page, email: string, password: string): Promis
     page.waitForURL('**/setup-encryption', { timeout: 15000 }),
     page.waitForURL('**/unlock-vault', { timeout: 15000 }),
   ]);
+
+  page.off('console', consoleHandler);
+  page.off('requestfailed', requestFailedHandler);
+  page.off('response', responseHandler);
 }
 
 async function performLogout(page: Page): Promise<void> {
