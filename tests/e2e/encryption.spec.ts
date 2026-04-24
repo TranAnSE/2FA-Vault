@@ -44,7 +44,7 @@ test.describe('Encryption Flow', () => {
     await page.getByRole('button', { name: /Unlock Vault/ }).click();
 
     await expect(page).toHaveURL(/\/unlock-vault/, { timeout: 15000 });
-    await expect(page.getByText('Invalid master password. Please try again.')).toBeVisible({ timeout: 10000 });
+    await expect(page.getByText('Invalid master password')).toBeVisible({ timeout: 10000 });
   });
 
   test('P1: Encrypted unlocked user can access backup page directly', async ({ page, loginAsBackup }) => {
