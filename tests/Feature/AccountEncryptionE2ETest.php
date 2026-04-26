@@ -69,6 +69,47 @@ class AccountEncryptionE2ETest extends TestCase
         $this->assertTrue($account->encrypted);
     }
 
+    public function test_encrypted_account_create_and_fetch_preserve_ciphertext(): void
+    {
+        $this->user->encryption_enabled = true;
+        $this->user->encryption_version = 1;
+        $this->user->encryption_salt = base64_encode(random_bytes(32));
+        $this->user->encryption_test_value = json_encode(['ciphertext' => base64_encode(random_bytes(32)), 'iv' => base64_encode(random_bytes(12)), 'authTag' => base64_encode(random_bytes(16))]);
+        $this->user->save();
+
+        $encryptedSecret = json_encode([
+            'ciphertext' => base64_encode('client_encrypted_totp_secret'),
+            'iv' => base64_encode(random_bytes(12)),
+            'authTag' => base64_encode(random_bytes(16)),
+        ]);
+
+        $createResponse = $this->actingAs($this->user, 'api-guard')
+            ->postJson('/api/v1/twofaccounts', [
+                'service' => 'GitHub',
+                'account' => 'roundtrip@example.com',
+                'secret' => $encryptedSecret,
+                'otp_type' => 'totp',
+                'algorithm' => 'sha1',
+                'digits' => 6,
+                'period' => 30,
+            ]);
+
+        $createResponse->assertStatus(201);
+
+        $account = TwoFAccount::where('user_id', $this->user->id)
+            ->where('account', 'roundtrip@example.com')
+            ->firstOrFail();
+
+        $this->assertSame($encryptedSecret, $account->secret);
+        $this->assertStringNotContainsString('client_encrypted_totp_secret', $account->secret);
+
+        $fetchResponse = $this->actingAs($this->user, 'api-guard')
+            ->getJson("/api/v1/twofaccounts/{$account->id}");
+
+        $fetchResponse->assertStatus(200)
+            ->assertJsonPath('secret', $encryptedSecret);
+    }
+
     /**
      * Test updating an encrypted 2FA account
      */

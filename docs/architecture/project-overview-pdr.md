@@ -37,8 +37,8 @@ High-level project objectives, scope, and design decisions.
 - ✅ Multi-user support with role-based access control
 - ✅ Team management with invitations
 - ✅ Encrypted backup/restore with separate password
-- ✅ Browser extension (Chrome/Firefox)
-- ✅ Progressive Web App with offline support
+- ⚠️ Browser extension (Chrome/Firefox companion; E2EE sync is roadmap work)
+- ⚠️ Progressive Web App with app-shell caching and offline OTP support; background sync is not implemented
 - ✅ Web Push notifications
 
 ### Tier 3: Planned Features (Roadmap)
@@ -180,8 +180,9 @@ Clipboard (TOTP code copied)
 **Implementation:**
 - Service Worker caches essential app shell
 - IndexedDB stores encrypted account data locally
-- Background sync queues server updates for when online
+- Offline OTP generation works from cached encrypted data when the vault key is available
 - Web Push API for notification support
+- Background sync is not implemented yet
 
 **Data Sync:**
 ```
@@ -439,9 +440,9 @@ Supports importing from:
 - ✅ Team management
 - ✅ Encrypted backups
 
-### Phase 2: Extensions (Complete)
-- ✅ Browser extension (Chrome/Firefox)
-- ✅ PWA with offline support
+### Phase 2: Extensions (In Progress)
+- ⚠️ Browser extension exists, but E2EE sync is roadmap work
+- ⚠️ PWA app-shell/offline OTP support exists; background sync is not implemented
 - ✅ Push notifications
 
 ### Phase 3: Polish (Current)

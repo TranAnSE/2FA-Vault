@@ -49,8 +49,8 @@ composer test-coverage-html   # Output to tests/Coverage/
 ### Enterprise Features
 - **End-to-End Encryption (E2EE)**: Client-side only, server never sees plaintext secrets
 - **Multi-User & Team Management**: Role-based access control and secure sharing
-- **Browser Extension**: Chrome/Firefox for seamless OTP access
-- **Progressive Web App (PWA)**: Offline support with background sync
+- **Browser Extension**: Chrome/Firefox companion; E2EE sync is still roadmap work
+- **Progressive Web App (PWA)**: App-shell caching and offline OTP support; background sync is not implemented
 - **Encrypted Backups**: Double-encrypted `.vault` format
 
 ### Tech Stack

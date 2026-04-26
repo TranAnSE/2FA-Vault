@@ -165,56 +165,7 @@ self.addEventListener('message', (event) => {
 
   // Generate TOTP for offline account
   if (event.data && event.data.type === 'GENERATE_TOTP') {
-    const { accountId } = event.data;
-    const account = encryptedAccounts.find(acc => acc.id === accountId);
-
-    if (account && account.secret && vaultKey) {
-      try {
-        // For encrypted accounts, the secret is already in JSON format
-        let secretData;
-
-        if (typeof account.secret === 'string' && account.secret.startsWith('{')) {
-          // Parse encrypted secret JSON
-          secretData = JSON.parse(account.secret);
-
-          // Import decrypt function (will be available from crypto.js)
-          import('./js/services/crypto.js').then(({ CryptoService }) => {
-            const decryptedSecret = CryptoService.decrypt(account.secret, vaultKey);
-            const totp = generateTOTP(decryptedSecret, account);
-
-            event.ports[0].postMessage({
-              type: 'TOTP_RESULT',
-              accountId: accountId,
-              totp: totp,
-              error: null
-            });
-          });
-        } else {
-          // Plaintext secret (should not happen in production with E2EE)
-          const totp = generateTOTP(account.secret, account);
-          event.ports[0].postMessage({
-            type: 'TOTP_RESULT',
-            accountId: accountId,
-            totp: totp,
-            error: null
-          });
-        }
-      } catch (error) {
-        event.ports[0].postMessage({
-          type: 'TOTP_RESULT',
-          accountId: accountId,
-          totp: null,
-          error: error.message
-        });
-      }
-    } else {
-      event.ports[0].postMessage({
-        type: 'TOTP_RESULT',
-        accountId: accountId,
-        totp: null,
-        error: 'Account not found or vault locked'
-      });
-    }
+    event.waitUntil(handleGenerateTotp(event));
   }
 
   // Heartbeat to reset auto-lock timeout
@@ -247,38 +198,128 @@ function notifyClients(type) {
   });
 }
 
-// TOTP Generation Helper (should use otpauth library)
-function generateTOTP(secret, account) {
-  // This would use the otpauth library in production
-  // For now, return a placeholder
-  try {
-    // Convert base32 secret to buffer
-    const key = base32Decode(secret);
-    const epoch = Math.floor(Date.now() / 1000);
-    const time = Math.floor(epoch / (account.period || 30));
-    const counter = Buffer.alloc(8);
-    counter.writeBigUInt64BE(BigInt(time));
+async function handleGenerateTotp(event) {
+  const { accountId } = event.data;
+  const account = encryptedAccounts.find(acc => acc.id === accountId);
+  const port = event.ports[0];
 
-    // HMAC-SHA1 or HMAC-SHA512
-    // Then truncate to 6-8 digits
-
-    // Placeholder return
-    return '000000'; // Replace with actual TOTP generation
-  } catch (error) {
-    console.error('[Service Worker] TOTP generation error:', error);
-    return '------';
+  if (!port) {
+    return;
   }
+
+  if (!account || !account.secret || !vaultKey) {
+    port.postMessage({
+      type: 'TOTP_RESULT',
+      accountId,
+      totp: null,
+      error: 'Account not found or vault locked'
+    });
+    return;
+  }
+
+  try {
+    const secret = await getAccountSecret(account);
+    const totp = await generateTOTP(secret, account);
+
+    port.postMessage({
+      type: 'TOTP_RESULT',
+      accountId,
+      totp,
+      error: null
+    });
+  } catch (error) {
+    port.postMessage({
+      type: 'TOTP_RESULT',
+      accountId,
+      totp: null,
+      error: error.message
+    });
+  }
+}
+
+async function getAccountSecret(account) {
+  if (typeof account.secret !== 'string' || !account.secret.startsWith('{')) {
+    return account.secret;
+  }
+
+  const encryptedData = JSON.parse(account.secret);
+  return decryptSecret(encryptedData, vaultKey);
+}
+
+async function decryptSecret(encryptedData, key) {
+  const ciphertext = base64ToBytes(encryptedData.ciphertext);
+  const iv = base64ToBytes(encryptedData.iv);
+  const authTag = base64ToBytes(encryptedData.authTag);
+  const combined = new Uint8Array(ciphertext.length + authTag.length);
+  combined.set(ciphertext);
+  combined.set(authTag, ciphertext.length);
+
+  const plaintext = await crypto.subtle.decrypt(
+    { name: 'AES-GCM', iv, tagLength: 128 },
+    key,
+    combined
+  );
+
+  return new TextDecoder().decode(plaintext);
+}
+
+async function generateTOTP(secret, account) {
+  const key = base32Decode(secret);
+  const counter = Math.floor(Math.floor(Date.now() / 1000) / (account.period || 30));
+  const counterBytes = counterToBytes(counter);
+  const algorithm = normalizeHashAlgorithm(account.algorithm || 'SHA1');
+  const cryptoKey = await crypto.subtle.importKey(
+    'raw',
+    key,
+    { name: 'HMAC', hash: algorithm },
+    false,
+    ['sign']
+  );
+  const signature = await crypto.subtle.sign({ name: 'HMAC', hash: algorithm }, cryptoKey, counterBytes);
+  const hmac = new Uint8Array(signature);
+  const offset = hmac[hmac.length - 1] & 0x0f;
+  const code = (
+    ((hmac[offset] & 0x7f) << 24) |
+    ((hmac[offset + 1] & 0xff) << 16) |
+    ((hmac[offset + 2] & 0xff) << 8) |
+    (hmac[offset + 3] & 0xff)
+  );
+  const digits = account.digits || 6;
+
+  return (code % (10 ** digits)).toString().padStart(digits, '0');
+}
+
+function normalizeHashAlgorithm(algorithm) {
+  const normalized = algorithm.toUpperCase().replace('SHA', 'SHA-');
+
+  if (!['SHA-1', 'SHA-256', 'SHA-512'].includes(normalized)) {
+    throw new Error(`Unsupported offline TOTP algorithm: ${algorithm}`);
+  }
+
+  return normalized;
+}
+
+function counterToBytes(counter) {
+  const bytes = new Uint8Array(8);
+  let value = BigInt(counter);
+
+  for (let i = 7; i >= 0; i--) {
+    bytes[i] = Number(value & 0xffn);
+    value >>= 8n;
+  }
+
+  return bytes;
 }
 
 function base32Decode(str) {
   const alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567';
+  const normalized = str.toUpperCase().replace(/=+$/g, '').replace(/\s+/g, '');
   let bits = 0;
   let value = 0;
-  const output = new Uint8Array((str.length * 5 / 8) | 0);
+  const output = [];
 
-  for (let i = 0; i < str.length; i++) {
-    const char = str[i].toUpperCase();
-    const val = alphabet.indexOf(char);
+  for (let i = 0; i < normalized.length; i++) {
+    const val = alphabet.indexOf(normalized[i]);
 
     if (val === -1) continue;
 
@@ -286,10 +327,15 @@ function base32Decode(str) {
     bits += 5;
 
     if (bits >= 8) {
-      output[(i * 5 / 8) | 0] |= (value >>> (bits - 8));
+      output.push((value >>> (bits - 8)) & 0xff);
       bits -= 8;
     }
   }
 
-  return output;
+  return new Uint8Array(output);
+}
+
+function base64ToBytes(base64) {
+  const binString = atob(base64);
+  return Uint8Array.from(binString, char => char.charCodeAt(0));
 }
