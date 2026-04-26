@@ -11,6 +11,7 @@ use App\Api\v1\Requests\TwoFAccountIndexRequest;
 use App\Api\v1\Requests\TwoFAccountStoreRequest;
 use App\Api\v1\Requests\TwoFAccountUpdateRequest;
 use App\Api\v1\Requests\TwoFAccountUriRequest;
+use App\Api\v1\Resources\EncryptedTwoFAccountResource;
 use App\Api\v1\Resources\TwoFAccountCollection;
 use App\Api\v1\Resources\TwoFAccountExportCollection;
 use App\Api\v1\Resources\TwoFAccountReadResource;
@@ -62,6 +63,13 @@ class TwoFAccountController extends Controller
         // $iconRes = $twofaccount->icon()->get();
 
         return new TwoFAccountReadResource($twofaccount);
+    }
+
+    public function encrypted(Request $request)
+    {
+        return EncryptedTwoFAccountResource::collection(
+            $request->user()->twofaccounts()->where('encrypted', true)->get()->sortBy('order_column')
+        );
     }
 
     /**

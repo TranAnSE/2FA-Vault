@@ -35,6 +35,7 @@ use Tests\FeatureTestCase;
  * TwoFAccountControllerTest test class
  */
 #[CoversClass(TwoFAccountController::class)]
+#[CoversClass(\App\Api\v1\Resources\EncryptedTwoFAccountResource::class)]
 #[CoversClass(TwoFAccountCollection::class)]
 #[CoversClass(TwoFAccountReadResource::class)]
 #[CoversClass(TwoFAccountStoreResource::class)]
@@ -401,6 +402,46 @@ class TwoFAccountControllerTest extends FeatureTestCase
             ->json('GET', '/api/v1/twofaccounts/' . $this->twofaccountA->id)
             ->assertOk()
             ->assertJsonStructure(self::VALID_RESOURCE_STRUCTURE_WITH_SECRET);
+    }
+
+    #[Test]
+    public function test_encrypted_endpoint_returns_only_user_encrypted_accounts_with_ciphertext()
+    {
+        $encryptedSecret = json_encode([
+            'ciphertext' => base64_encode('client_encrypted_totp_secret'),
+            'iv' => base64_encode(random_bytes(12)),
+            'authTag' => base64_encode(random_bytes(16)),
+        ]);
+
+        $encryptedAccount = TwoFAccount::factory()->for($this->user)->create([
+            'secret' => $encryptedSecret,
+            'encrypted' => true,
+        ]);
+
+        $plainAccount = TwoFAccount::factory()->for($this->user)->create([
+            'secret' => OtpTestData::SECRET,
+            'encrypted' => false,
+        ]);
+
+        $otherUserEncryptedAccount = TwoFAccount::factory()->for($this->anotherUser)->create([
+            'secret' => json_encode([
+                'ciphertext' => base64_encode('other_user_secret'),
+                'iv' => base64_encode(random_bytes(12)),
+                'authTag' => base64_encode(random_bytes(16)),
+            ]),
+            'encrypted' => true,
+        ]);
+
+        $this->actingAs($this->user, 'api-guard')
+            ->json('GET', '/api/v1/twofaccounts/encrypted')
+            ->assertOk()
+            ->assertJsonCount(1)
+            ->assertJsonPath('0.id', $encryptedAccount->id)
+            ->assertJsonPath('0.secret', $encryptedSecret)
+            ->assertJsonPath('0.encrypted', true)
+            ->assertJsonMissing(['id' => $plainAccount->id])
+            ->assertJsonMissing(['id' => $otherUserEncryptedAccount->id])
+            ->assertJsonMissing(['secret' => 'client_encrypted_totp_secret']);
     }
 
     #[Test]
