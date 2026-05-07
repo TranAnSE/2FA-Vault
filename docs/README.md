@@ -22,7 +22,7 @@ Setup instructions, deployment, migration guides, and how-to documentation.
 
 **Best for:** Getting started, deploying, migrating data, contributing to the project
 - [Deployment Guide](guides/deployment-guide.md) — Docker, Kubernetes, and traditional deployment
-- [Migration from 2FAuth](guides/migration-from-2fauth.md) — Upgrade instructions
+- [Migration from 2FA-Vault](guides/migration-from-2fauth.md) — Upgrade instructions
 - [Contributing Guide](guides/contributing.md) — Contribution workflow
 
 ## 📋 [Reference](reference/)
@@ -49,7 +49,7 @@ Roadmap, changelog, API documentation, and project planning documents.
 2. Explore [System Architecture](architecture/system-architecture.md) for data flows
 3. Review [Project Overview](architecture/project-overview-pdr.md) for design rationale
 
-### 📦 I'm Migrating from 2FAuth
+### 📦 I'm Migrating from 2FA-Vault
 1. Follow [Migration Guide](guides/migration-from-2fauth.md) step-by-step
 2. Reference [Security Guidelines](development/security-guidelines.md) for E2EE
 3. Check [Roadmap](reference/roadmap.md) for planned features

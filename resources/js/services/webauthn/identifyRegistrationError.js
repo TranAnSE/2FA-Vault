@@ -1,7 +1,7 @@
 /**
  * MIT License
  *
- * Copyright (c) 2023 Bubka - https://github.com/Bubka/2FAuth
+ * Copyright (c) 2023 Bubka - https://github.com/TranAnSE/2FA-Vault
  * Copyright (c) 2020 Matthew Miller - https://github.com/MasterKale/SimpleWebAuthn
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -117,7 +117,7 @@ export function identifyRegistrationError(error, options) {
             // https://www.w3.org/TR/webauthn-2/#sctn-createCredential (Step 7)
 
             return {
-                phrase: 'error.2fauth_has_not_a_valid_domain',
+                phrase: 'error.twofauth_has_not_a_valid_domain',
                 type: 'is-danger'
             }
 

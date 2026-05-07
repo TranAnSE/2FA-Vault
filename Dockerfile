@@ -88,9 +88,9 @@ RUN nginx -t
 COPY --chown=${UID}:${GID} docker/supervisord.conf /etc/supervisor/supervisord.conf
 
 # Create end user directory
-RUN mkdir -p /2fauth && \
-    chown -R ${UID}:${GID} /2fauth && \
-    chmod 700 /2fauth
+RUN mkdir -p /2FA-Vault && \
+    chown -R ${UID}:${GID} /2FA-Vault && \
+    chmod 700 /2FA-Vault
 
 # Create /srv internal directory
 WORKDIR /srv
@@ -130,7 +130,7 @@ ENV \
     LOG_LEVEL=info \
     DB_CONNECTION=sqlite \
     DB_DATABASE="/srv/database/database.sqlite" \
-    WEBAUTHN_NAME=2FAuth
+    WEBAUTHN_NAME=2FA-Vault
 
 ARG VERSION=unknown
 ARG CREATED="an unknown date"
@@ -144,8 +144,8 @@ LABEL \
     org.opencontainers.image.version=$VERSION \
     org.opencontainers.image.created=$CREATED \
     org.opencontainers.image.revision=$COMMIT \
-    org.opencontainers.image.url="https://github.com/Bubka/2FAuth" \
-    org.opencontainers.image.documentation="https://hub.docker.com/r/2fauth/2fauth" \
-    org.opencontainers.image.source="https://github.com/Bubka/2FAuth" \
-    org.opencontainers.image.title="2fauth" \
+    org.opencontainers.image.url="https://github.com/TranAnSE/2FA-Vault" \
+    org.opencontainers.image.documentation="https://hub.docker.com/r/2FA-Vault/2FA-Vault" \
+    org.opencontainers.image.source="https://github.com/TranAnSE/2FA-Vault" \
+    org.opencontainers.image.title="2FA-Vault" \
     org.opencontainers.image.description="A web app to manage your Two-Factor Authentication (2FA) accounts and generate their security codes"

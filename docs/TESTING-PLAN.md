@@ -11,7 +11,7 @@
 - [x] IconController - Icon management
 - [x] QrCodeController - QR code scanning
 - [x] SettingController - User settings
-- [x] TwoFAccountController - TOTP account management (original 2FAuth features)
+- [x] TwoFAccountController - TOTP account management (original 2FA-Vault features)
 - [x] UserController - User profile management
 
 #### ✅ **Feature Tests** (tests/Feature/)
@@ -27,7 +27,7 @@
 - [x] Migrator tests (Google Auth, Aegis, 2FAS import)
 
 #### 🤖 **E2E Tests** (tests/EndToEnd/)
-- [x] Robot Framework tests for original 2FAuth features
+- [x] Robot Framework tests for original 2FA-Vault features
 - ⚠️ **MISSING: E2E tests for new features (E2EE, Teams, PWA, Extension)**
 
 ---

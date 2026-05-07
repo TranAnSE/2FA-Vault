@@ -111,7 +111,7 @@ class TwoFAccount extends Model implements Sortable
     const FAKE_ID = -2;
 
     /**
-     * List of OTP types supported by 2FAuth
+     * List of OTP types supported by 2FA-Vault
      */
     private array $generatorClassMap = [
         'OTPHP\TOTP' => self::TOTP,
@@ -473,7 +473,7 @@ class TwoFAccount extends Model implements Sortable
         } catch (\Throwable $ex) {
             Log::error('An error occured, OTP generation aborted');
             // Currently a secret issue is the only possible exception thrown by OTPHP for this stack
-            // so it is Ok to send the corresponding 2FAuth exception.
+            // so it is Ok to send the corresponding 2FA-Vault exception.
             // If the generator package change it could be necessary to throw a more generic exception.
             throw new InvalidSecretException($ex->getMessage());
         }

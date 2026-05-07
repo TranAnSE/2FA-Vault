@@ -55,7 +55,7 @@ class Install extends Command
      *
      * @var string
      */
-    protected $description = 'Run 2FAuth installation/update wizard';
+    protected $description = 'Run 2FA-Vault installation/update wizard';
 
     /**
      * Create a new command instance.
@@ -76,7 +76,7 @@ class Install extends Command
     public function handle()
     {
         $this->newLine(2);
-        $this->alert('2FAuth installation');
+        $this->alert('2FA-Vault installation');
 
         if ($this->option('no-interaction')) {
             $this->newLine();
@@ -124,11 +124,11 @@ class Install extends Command
 
         $this->newLine();
         $this->output->success('Installation complete successfully');
-        $this->line('Visit <info>' . config('app.url') . '</info> to start using 2FAuth');
+        $this->line('Visit <info>' . config('app.url') . '</info> to start using 2FA-Vault');
         $this->newLine();
         $this->line('-----------------------------------');
         $this->line('.▀█▀.█▄█.█▀█.█▄.█.█▄▀  █▄█.█▀█.█─█');
-        $this->line('─.█.─█▀█.█▀█.█.▀█.█▀▄  ─█.─█▄█.█▄█ for using 2FAuth');
+        $this->line('─.█.─█▀█.█▀█.█.▀█.█▀▄  ─█.─█▄█.█▄█ for using 2FA-Vault');
         $this->newLine();
         $this->line('Want to support its development?');
         $this->line('You can Buy me a coffee => <info>https://ko-fi.com/bubka</info>');
@@ -175,7 +175,7 @@ class Install extends Command
     protected function setMainEnvVars() : void
     {
         while (true) {
-            $appUrl = trim($this->ask('URL of this 2FAuth instance', config('app.url')), '/');
+            $appUrl = trim($this->ask('URL of this 2FA-Vault instance', config('app.url')), '/');
             if (filter_var($appUrl, FILTER_VALIDATE_URL)) {
                 break;
             } else {
@@ -187,7 +187,7 @@ class Install extends Command
 
         if ($urlPath && $urlPath != '/') {
             $urlPath = trim($urlPath, '/');
-            $this->components->info('2Fauth will be served under subdirectory /' . $urlPath);
+            $this->components->info('2FA-Vault will be served under subdirectory /' . $urlPath);
             $this->dotenvEditor->setKey('APP_SUBDIRECTORY', $urlPath);
         }
 
@@ -224,9 +224,9 @@ class Install extends Command
 
             $config['DB_DATABASE'] = $this->ask('Absolute path to the DB file', $databasePath);
         } else {
-            $defaultName  = $this->dotenvEditor->getValue('DB_DATABASE') ?: '2fauth';
+            $defaultName  = $this->dotenvEditor->getValue('DB_DATABASE') ?: '2FA-Vault';
             $databaseName = $this->dotenvEditor->getValue('DB_CONNECTION') == 'sqlite'
-                ? '2fauth'
+                ? '2FA-Vault'
                 : $defaultName;
 
             $config['DB_HOST']     = $this->ask('Database host', config('database.connections.' . $config['DB_CONNECTION'] . '.host'));

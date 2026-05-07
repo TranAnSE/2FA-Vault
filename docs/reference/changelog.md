@@ -37,7 +37,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Encrypted backup import with password verification
 - Password-protected backups
 - Backup integrity checks (HMAC-SHA256)
-- Migration tool from 2FAuth JSON format
+- Migration tool from 2FA-Vault JSON format
 - Automatic backup encryption on export
 
 **🌐 Browser Extension**
@@ -109,10 +109,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 
 **🔐 Encryption Now Default**
-- Encryption is **ON by default** (was optional in 2FAuth)
+- Encryption is **ON by default** (was optional in 2FA-Vault)
 - Master password required for all accounts
 - Automatic encryption of legacy data on first login
-- Migration script for unencrypted 2FAuth data
+- Migration script for unencrypted 2FA-Vault data
 
 **📊 Database Schema**
 - Multi-user schema (teams, roles, memberships)
@@ -128,11 +128,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 **📦 Backup Format**
 - Changed from `.json` (plaintext) to `.vault` (encrypted)
-- Breaking change: Old 2FAuth backups require migration
+- Breaking change: Old 2FA-Vault backups require migration
 - Migration tool provided (see MIGRATION.md)
 
 **🎯 Project Metadata**
-- Forked from 2FAuth v6.1.3
+- Forked from 2FA-Vault v6.1.3
 - Renamed to 2FA-Vault
 - New branding and logo
 - Updated documentation
@@ -170,7 +170,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Breaking Changes
 
-⚠️ **Migration from 2FAuth required** - see [MIGRATION.md](MIGRATION.md)
+⚠️ **Migration from 2FA-Vault required** - see [MIGRATION.md](MIGRATION.md)
 
 1. **Backup format:** `.json` → `.vault` (encrypted)
 2. **Database schema:** Single-user → Multi-user
@@ -181,14 +181,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Migration Path
 
 ```bash
-# Export from 2FAuth
-Settings → Backup → Export accounts → 2fauth-backup.json
+# Export from 2FA-Vault
+Settings → Backup → Export accounts → 2FA-Vault-backup.json
 
 # Install 2FA-Vault
 docker-compose up -d
 
 # Import to 2FA-Vault
-Settings → Import → Choose "2FAuth JSON" → Upload file
+Settings → Import → Choose "2FA-Vault JSON" → Upload file
 ```
 
 Detailed migration guide: [MIGRATION.md](MIGRATION.md)
@@ -212,12 +212,12 @@ Detailed migration guide: [MIGRATION.md](MIGRATION.md)
 - [ ] Multi-factor recovery (social recovery, Shamir's Secret Sharing)
 - [ ] Encrypted vault export to multiple cloud providers
 
-## [0.x.x] - 2FAuth Versions
+## [0.x.x] - 2FA-Vault Versions
 
-This project is a fork of [2FAuth](https://github.com/Bubka/2FAuth) v6.1.3.
+This project is a fork of [2FA-Vault](https://github.com/TranAnSE/2FA-Vault) v6.1.3.
 
-For 2FAuth changelog history, see:
-https://github.com/Bubka/2FAuth/blob/master/CHANGELOG.md
+For 2FA-Vault changelog history, see:
+https://github.com/TranAnSE/2FA-Vault/blob/master/CHANGELOG.md
 
 ---
 
@@ -236,7 +236,7 @@ https://github.com/Bubka/2FAuth/blob/master/CHANGELOG.md
 
 ## Acknowledgments
 
-- **2FAuth:** Original project by [Bubka](https://github.com/Bubka)
+- **2FA-Vault:** Original project by [Bubka](https://github.com/Bubka)
 - **Laravel:** Backend framework
 - **Vue.js:** Frontend framework
 - **Argon2:** Password hashing by Daniel J. Bernstein et al.

@@ -21,7 +21,7 @@ class ResetDemo extends Command
      *
      * @var string
      */
-    protected $description = 'Reset 2FAuth with a fresh demo content';
+    protected $description = 'Reset 2FA-Vault with a fresh demo content';
 
     /**
      * Indicates whether the command should be shown in the Artisan command list.

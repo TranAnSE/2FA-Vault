@@ -126,7 +126,7 @@ D:\2FA-Vault\README.md
 10. 
 11. ## 🔒 Enhanced Fork with Enterprise Features
 12. 
-13. **2FA-Vault** is an enhanced fork of [2FAuth](https://github.com/Bubka/2FAuth) with additional enterprise-grade features:
+13. **2FA-Vault** is an enhanced fork of [2FA-Vault](https://github.com/TranAnSE/2FA-Vault) with additional enterprise-grade features:
 14. 
 15. - 🔐 **End-to-End Encryption (E2EE)**: Client-side encryption with Web Crypto API, PBKDF2 key derivation, and AES-256-GCM
 16. - 👥 **Multi-User & Team Management**: Role-based access control, team collaboration, and secure sharing
@@ -139,7 +139,7 @@ D:\2FA-Vault\README.md
 23. 
 24. - 🏗️ [**ARCHITECTURE.md**](docs/ARCHITECTURE.md) - Technical architecture and system design
 25. - 🔒 [**SECURITY.md**](docs/SECURITY.md) - Security architecture, threat model, and best practices
-26. - 🔄 [**MIGRATION.md**](docs/MIGRATION.md) - Migration guide from 2FAuth to 2FA-Vault
+26. - 🔄 [**MIGRATION.md**](docs/MIGRATION.md) - Migration guide from 2FA-Vault to 2FA-Vault
 27. - 📝 [**CHANGELOG.md**](docs/CHANGELOG.md) - Version history and breaking changes
 28. - 🗺️ [**ROADMAP.md**](docs/ROADMAP.md) - Development roadmap and planned features
 29. 
@@ -147,7 +147,7 @@ D:\2FA-Vault\README.md
 31. 
 32. ## 📊 Feature Comparison
 33. 
-34. | Feature | 2FAuth | 2FA-Vault |
+34. | Feature | 2FA-Vault | 2FA-Vault |
 35. |---------|--------|-----------|
 36. | TOTP/HOTP Generation | ✅ | ✅ |
 37. | QR Code Import | ✅ | ✅ |
@@ -190,18 +190,18 @@ D:\2FA-Vault\README.md
 74. 
 75. ---
 76. 
-77. ## About 2FAuth
+77. ## About 2FA-Vault
 78. 
 79. A web app to manage your Two-Factor Authentication (2FA) accounts and generate their security codes
 80. 
 81. ![screens](https://user-images.githubusercontent.com/858858/100485897-18c21400-3102-11eb-9c72-ea0b1b46ef2e.png)
 82. 
-83. [**2FAuth Demo**](https://demo.2fauth.app/)  
+83. [**2FA-Vault Demo**](https://demo.2fa-vault.app/)  
 84. Credentials (login - password) : `demo@2fauth.app` - `demo`
 85. 
 86. ## Purpose
 87. 
-88. 2FAuth is a web based self-hosted alternative to One Time Passcode (OTP) generators like Google Authenticator, designed for both mobile and desktop.
+88. 2FA-Vault is a web based self-hosted alternative to One Time Passcode (OTP) generators like Google Authenticator, designed for both mobile and desktop.
 89. 
 90. It aims to ease you perform your 2FA authentication steps whatever the device you handle, with a clean and suitable interface.
 91. 
@@ -220,11 +220,11 @@ D:\2FA-Vault\README.md
 104. * Edit accounts, even the imported ones
 105. * Generate TOTP and HOTP security codes and Steam Guard codes
 106. 
-107. 2FAuth is currently fully localized in English and French. See [Contributing](#contributing) if you want to help on adding more languages.
+107. 2FA-Vault is currently fully localized in English and French. See [Contributing](#contributing) if you want to help on adding more languages.
 108. 
 109. ## Security
 110. 
-111. 2FAuth provides several security mechanisms to protect your 2FA data as best as possible.
+111. 2FA-Vault provides several security mechanisms to protect your 2FA data as best as possible.
 112. 
 113. ### Single user app
 114. 
@@ -232,7 +232,7 @@ D:\2FA-Vault\README.md
 116. 
 117. ### Modern authentication
 118. 
-119. You can sign in 2FAuth using a security key like a Yubikey or a Titan key and disable the traditional login form.
+119. You can sign in 2FA-Vault using a security key like a Yubikey or a Titan key and disable the traditional login form.
 120. 
 121. ### Data encryption
 122. 
@@ -240,11 +240,11 @@ D:\2FA-Vault\README.md
 124. 
 125. ### Auto logout
 126. 
-127. 2FAuth automatically log you out after an inactivity period to prevent long life session. The auto logout can be deactivated or triggered when a security code is copied.
+127. 2FA-Vault automatically log you out after an inactivity period to prevent long life session. The auto logout can be deactivated or triggered when a security code is copied.
 128. 
 129. ### RFC compliance
 130. 
-131. 2FAuth generates OTP according to RFC 4226 (HOTP Algorithm) and RFC 6238 (TOTP Algorithm) thanks to [Spomky-Labs/OTPHP](https://github.com/Spomky-Labs/otphp) php library.
+131. 2FA-Vault generates OTP according to RFC 4226 (HOTP Algorithm) and RFC 6238 (TOTP Algorithm) thanks to [Spomky-Labs/OTPHP](https://github.com/Spomky-Labs/otphp) php library.
 132. 
 133. ## Requirements
 134. 
@@ -322,7 +322,7 @@ D:\2FA-Vault\README.md
 206. php artisan serve
 207. ```
 208. 
-209. For production deployment with Nginx/Apache, see [Deployment Guide](https://docs.2fauth.app/getting-started/installation/self-hosted-server/).
+209. For production deployment with Nginx/Apache, see [Deployment Guide](https://docs.2fa-vault.app/getting-started/installation/self-hosted-server/).
 210. 
 211. ---
 212. 
@@ -374,13 +374,13 @@ D:\2FA-Vault\README.md
 258. 
 259. ---
 260. 
-261. ## 📈 Upgrading from 2FAuth
+261. ## 📈 Upgrading from 2FA-Vault
 262. 
 263. ### Migration Steps
 264. 
 265. 1. **Backup Your Data**
 266.    ```bash
-267.    # Export from 2FAuth
+267.    # Export from 2FA-Vault
 268.    # Go to Settings → Backup → Export all accounts
 269.    # Save the JSON file
 270.    ```
@@ -392,7 +392,7 @@ D:\2FA-Vault\README.md
 276.    ```bash
 277.    # Login to 2FA-Vault
 278.    # Go to Settings → Import
-279.    # Upload your 2FAuth JSON backup
+279.    # Upload your 2FA-Vault JSON backup
 280.    # Choose "Merge" mode to keep existing data
 281.    ```
 282. 
@@ -417,7 +417,7 @@ D:\2FA-Vault\README.md
 301. 
 302. ## 🖼️ Screenshots
 303. 
-304. > 📸 Screenshots coming soon! See [2FAuth Demo](https://demo.2fauth.app/) for UI preview.
+304. > 📸 Screenshots coming soon! See [2FA-Vault Demo](https://demo.2fa-vault.app/) for UI preview.
 305. 
 306. **New Features Preview:**
 307. - 🔐 E2EE Encryption Dashboard
@@ -430,13 +430,13 @@ D:\2FA-Vault\README.md
 314. 
 315. ## Upgrading
 316. 
-317. * [Upgrade guide](https://docs.2fauth.app/getting-started/upgrade/)
+317. * [Upgrade guide](https://docs.2fa-vault.app/getting-started/upgrade/)
 318. 
 319. ## Migration
 320. 
-321. 2FAuth supports importing from the following formats: 2FAuth (JSON), Google Auth (QR code), Aegis Auth (JSON, plain text), 2FAS Auth (JSON)
+321. 2FA-Vault supports importing from the following formats: 2FA-Vault (JSON), Google Auth (QR code), Aegis Auth (JSON, plain text), 2FAS Auth (JSON)
 322. 
-323. * [Import guide](https://docs.2fauth.app/getting-started/usage/import/)
+323. * [Import guide](https://docs.2fa-vault.app/getting-started/usage/import/)
 324. 
 325. ## Contributing
 326. 
@@ -445,7 +445,7 @@ D:\2FA-Vault\README.md
 329. * 🐛 **Bug Reports:** [Submit issues](https://github.com/yourusername/2FA-Vault/issues/new?template=bug_report.md) with detailed reproduction steps
 330. * ✨ **Feature Requests:** [Suggest enhancements](https://github.com/yourusername/2FA-Vault/issues/new?template=feature_request.md) that align with our security-first approach
 331. * 🔧 **Pull Requests:** Submit fixes or features on the `develop` branch (see [CONTRIBUTING.md](docs/CONTRIBUTING.md))
-332. * 🌍 **Translations:** Help translate 2FA-Vault on [Crowdin](https://crowdin.com/project/2fauth)
+332. * 🌍 **Translations:** Help translate 2FA-Vault on [Crowdin](https://crowdin.com/project/2FA-Vault)
 333. * 🔒 **Security:** Report vulnerabilities responsibly (see [SECURITY.md](docs/SECURITY.md))
 334. 
 335. **Development Setup:**
@@ -465,7 +465,7 @@ D:\2FA-Vault\README.md
 349. 
 350. ## 📄 License
 351. 
-352. [AGPL-3.0](https://www.gnu.org/licenses/agpl-3.0.html) - Same as original 2FAuth
+352. [AGPL-3.0](https://www.gnu.org/licenses/agpl-3.0.html) - Same as original 2FA-Vault
 353. 
 354. **Key Points:**
 355. - ✅ Free to use, modify, and distribute
@@ -477,7 +477,7 @@ D:\2FA-Vault\README.md
 361. 
 362. ## 🙏 Acknowledgments
 363. 
-364. - **Original 2FAuth:** [Bubka/2FAuth](https://github.com/Bubka/2FAuth) - Thank you for the solid foundation!
+364. - **Original 2FA-Vault:** [Bubka/2FA-Vault](https://github.com/TranAnSE/2FA-Vault) - Thank you for the solid foundation!
 365. - **Laravel Framework:** [Laravel](https://laravel.com/)
 366. - **Vue.js:** [Vue.js](https://vuejs.org/)
 367. - **OTPHP:** [Spomky-Labs/OTPHP](https://github.com/Spomky-Labs/otphp) for RFC-compliant OTP generation
@@ -498,12 +498,12 @@ D:\2FA-Vault\README.md
 382. - **Version:** 1.0.0
 383. - **Release Date:** April 2026
 384. - **Development Time:** 6 Phases (Design → E2EE → Multi-User → Backups → Extensions → Polish)
-385. - **Total Features:** 15+ major features beyond original 2FAuth
+385. - **Total Features:** 15+ major features beyond original 2FA-Vault
 386. - **Lines of Code:** ~50,000+ (estimate)
 387. 
 388. ---
 389. 
-390. Made with ❤️ by the 2FA-Vault team | Forked from [2FAuth](https://github.com/Bubka/2FAuth) by Bubka
+390. Made with ❤️ by the 2FA-Vault team | Forked from [2FA-Vault](https://github.com/TranAnSE/2FA-Vault) by Bubka
 391.
 ````
 
@@ -765,11 +765,11 @@ D:\2FA-Vault\composer.json
 
 ```
 1. {
-2.     "name": "bubka/2fauth",
+2.     "name": "bubka/2FA-Vault",
 3.     "type": "project",
 4.     "description": "Two-Factor authentication generator",
 5.     "keywords": [
-6.         "2fauth",
+6.         "2FA-Vault",
 7.         "two-factor authentication"
 8.     ],
 9.     "license": "MIT",
@@ -916,10 +916,10 @@ D:\2FA-Vault\package.json
 7.         "rebuild": "vite build --watch"
 8.     },
 9.     "devDependencies": {
-10.         "@2fauth/formcontrols": "file:../2FAuth-Components/packages/formcontrols",
-11.         "@2fauth/stores": "file:../2FAuth-Components/packages/stores",
-12.         "@2fauth/styles": "file:../2FAuth-Components/packages/styles",
-13.         "@2fauth/ui": "file:../2FAuth-Components/packages/ui",
+10.         "@2fauth/formcontrols": "file:../2FA-Vault-Components/packages/formcontrols",
+11.         "@2fauth/stores": "file:../2FA-Vault-Components/packages/stores",
+12.         "@2fauth/styles": "file:../2FA-Vault-Components/packages/styles",
+13.         "@2fauth/ui": "file:../2FA-Vault-Components/packages/ui",
 14.         "@eslint/js": "^9.23.0",
 15.         "@intlify/unplugin-vue-i18n": "^11.0.3",
 16.         "@kyvg/vue3-notification": "^3.4.2",
@@ -1377,7 +1377,7 @@ D:\2FA-Vault\.github\CONTRIBUTING.md
 ```
 1. # Contributing
 2. 
-3. 2FAuth is an Open Source project, that means everybody can participate, in many differents ways.  
+3. 2FA-Vault is an Open Source project, that means everybody can participate, in many differents ways.  
 4. If Open Source is new to you, the following guide should be a good starting point:
 5. 
 6. 🔗 [How to Contribute to Open Source](https://opensource.guide/how-to-contribute/)
@@ -1386,15 +1386,15 @@ D:\2FA-Vault\.github\CONTRIBUTING.md
 9. 
 10. Feel free to request some enhancements or new features. Not every request will be accepted but it can always be discussed.
 11. 
-12. Also please have a look to the 2FAuth development project, maybe your idea is already there.
+12. Also please have a look to the 2FA-Vault development project, maybe your idea is already there.
 13. 
-14. 💡 [2FAuth Backlog project on GitHub](https://github.com/users/Bubka/projects/1)
+14. 💡 [2FA-Vault Backlog project on GitHub](https://github.com/orgs/TranAnSE/projects)
 15. 
-16. 💬 [2FAuth discussion on GitHub](https://github.com/Bubka/2FAuth/discussions)
+16. 💬 [2FA-Vault discussion on GitHub](https://github.com/TranAnSE/2FA-Vault/discussions)
 17. 
 18. ## Development
 19. 
-20. 2FAuth is made with the following technologies:
+20. 2FA-Vault is made with the following technologies:
 21. 
 22. - PHP
 23. - Javascript
@@ -1407,11 +1407,11 @@ D:\2FA-Vault\.github\CONTRIBUTING.md
 30. 
 31. ## Translation
 32. 
-33. 2FAuth is localized in several languages. You can contribute by correcting or completing translations in a language you speak, using the Crowdin platform.
+33. 2FA-Vault is localized in several languages. You can contribute by correcting or completing translations in a language you speak, using the Crowdin platform.
 34. 
 35. Ask for your language if this does not yet exist.
 36. 
-37. 🔗 [2FAuth translations on Crowdin](https://crowdin.com/project/2fauth)
+37. 🔗 [2FA-Vault translations on Crowdin](https://crowdin.com/project/2FA-Vault)
 38.
 ```
 
@@ -1432,13 +1432,13 @@ D:\2FA-Vault\docs\ARCHITECTURE.md (lines 1-100)
 <summary>100 lines</summary>
 
 ````
-1. # 2FAuth Architecture Documentation
+1. # 2FA-Vault Architecture Documentation
 2. 
 3. ## End-to-End Encryption (E2EE) - Zero-Knowledge Architecture
 4. 
 5. ### Overview
 6. 
-7. 2FAuth implements **zero-knowledge end-to-end encryption** to ensure that OTP secrets are never exposed to the server in plaintext. All encryption and decryption happens client-side in the user's browser.
+7. 2FA-Vault implements **zero-knowledge end-to-end encryption** to ensure that OTP secrets are never exposed to the server in plaintext. All encryption and decryption happens client-side in the user's browser.
 8. 
 9. ### Security Principles
 10. 
@@ -1841,7 +1841,7 @@ D:\2FA-Vault\docs\ARCHITECTURE.md (lines 100-250)
 247. 
 248. ### Backward Compatibility
 249. 
-250. 2FAuth supports mixed mode:
+250. 2FA-Vault supports mixed mode:
 ````
 
 </details>
@@ -2135,7 +2135,7 @@ D:\2FA-Vault\vite.config.js
 98.         // sourcemap: true,
 99.         rollupOptions: {
 100.             output: {
-101.                 banner: '/*! 2FAuth version ' + version + ' - Copyright (c) 2025 Bubka - https://github.com/Bubka/2FAuth */',
+101.                 banner: '/*! 2FA-Vault version ' + version + ' - Copyright (c) 2025 Bubka - https://github.com/TranAnSE/2FA-Vault */',
 102.             },
 103.         },
 104.     },
@@ -2412,7 +2412,7 @@ Created a detailed Copilot instructions file covering:
 - **Backend structure:** API routes, services layer, authentication guards
 - **Frontend architecture:** Pinia stores, auto-imports, services layer
 - **Browser extension:** Manifest v3 structure
-- **Teams & Multi-User:** Key difference from original 2FAuth
+- **Teams & Multi-User:** Key difference from original 2FA-Vault
 
 ### ✅ Key Conventions
 - **Service layer pattern** (business logic in services, not controllers)
@@ -2493,7 +2493,7 @@ fe9cd2c0 Chore: organize docs into docs/ folder, update README links
 218687e1 Fix CI: resolve test failures - fix routes and test assertions
 546fc41a Fix CI: disable frontend build (uses pre-built assets), fix duplicate migration, disable broken workflows
 08ba2ebb CI: add workflow_dispatch trigger
-555e963d Fix CI: simplify workflow, disable unavailable jobs, add 2FAuth-Components checkout
+555e963d Fix CI: simplify workflow, disable unavailable jobs, add 2FA-Vault-Components checkout
 067822c4 Phase 6: Documentation, tests, production config, and final polish
 1ed59b77 (tag: v1.0.0) Merge branch 'feature/polish-testing-docs'
 bf9114d4 Merge branch 'feature/pwa'
@@ -2559,8 +2559,8 @@ D:\2FA-Vault\docker-compose.dev.yml
 ```
 1. services:
 2.   app:
-3.     image: 2fauth/2fauth:latest
-4.     container_name: 2fauth-dev
+3.     image: 2FA-Vault/2FA-Vault:latest
+4.     container_name: 2FA-Vault-dev
 5.     ports:
 6.       - "8000:8000/tcp"
 7.     volumes:
@@ -2574,13 +2574,13 @@ D:\2FA-Vault\docker-compose.dev.yml
 15.       DB_DATABASE: "/srv/database/database.sqlite"
 16.       LOG_LEVEL: debug
 17.     networks:
-18.       - 2fauth-dev
+18.       - 2FA-Vault-dev
 19. 
 20. volumes:
 21.   db_data:
 22. 
 23. networks:
-24.   2fauth-dev:
+24.   2FA-Vault-dev:
 25.     driver: bridge
 26.
 ```
@@ -2688,9 +2688,9 @@ D:\2FA-Vault\Dockerfile
 84. COPY --chown=${UID}:${GID} docker/supervisord.conf /etc/supervisor/supervisord.conf
 85. 
 86. # Create end user directory
-87. RUN mkdir -p /2fauth && \
-88.     chown -R ${UID}:${GID} /2fauth && \
-89.     chmod 700 /2fauth
+87. RUN mkdir -p /2FA-Vault && \
+88.     chown -R ${UID}:${GID} /2FA-Vault && \
+89.     chmod 700 /2FA-Vault
 90. 
 91. # Create /srv internal directory
 92. WORKDIR /srv
@@ -2717,7 +2717,7 @@ D:\2FA-Vault\Dockerfile
 113.     LOG_LEVEL=info \
 114.     DB_CONNECTION=sqlite \
 115.     DB_DATABASE="/srv/database/database.sqlite" \
-116.     WEBAUTHN_NAME=2FAuth
+116.     WEBAUTHN_NAME=2FA-Vault
 117. 
 118. ARG VERSION=unknown
 119. ARG CREATED="an unknown date"
@@ -2731,10 +2731,10 @@ D:\2FA-Vault\Dockerfile
 127.     org.opencontainers.image.version=$VERSION \
 128.     org.opencontainers.image.created=$CREATED \
 129.     org.opencontainers.image.revision=$COMMIT \
-130.     org.opencontainers.image.url="https://github.com/Bubka/2FAuth" \
-131.     org.opencontainers.image.documentation="https://hub.docker.com/r/2fauth/2fauth" \
-132.     org.opencontainers.image.source="https://github.com/Bubka/2FAuth" \
-133.     org.opencontainers.image.title="2fauth" \
+130.     org.opencontainers.image.url="https://github.com/TranAnSE/2FA-Vault" \
+131.     org.opencontainers.image.documentation="https://hub.docker.com/r/2FA-Vault/2FA-Vault" \
+132.     org.opencontainers.image.source="https://github.com/TranAnSE/2FA-Vault" \
+133.     org.opencontainers.image.title="2FA-Vault" \
 134.     org.opencontainers.image.description="A web app to manage your Two-Factor Authentication (2FA) accounts and generate their security codes"
 135.
 ```
@@ -3615,25 +3615,25 @@ D:\2FA-Vault\docker\entrypoint.sh
 68.     fi
 69.   else
 70.     echo "DB_DATABASE sets with default path, we will use a symlink"
-71.     echo "Actual db file will be /2fauth/database.sqlite"
-72.     if [ ! -f /2fauth/database.sqlite ]; then
-73.       echo "/2fauth/database.sqlite does not exist, we create it"
-74.       touch /2fauth/database.sqlite
+71.     echo "Actual db file will be /2FA-Vault/database.sqlite"
+72.     if [ ! -f /2FA-Vault/database.sqlite ]; then
+73.       echo "/2FA-Vault/database.sqlite does not exist, we create it"
+74.       touch /2FA-Vault/database.sqlite
 75.     fi
 76.     rm -f /srv/database/database.sqlite
-77.     ln -s /2fauth/database.sqlite /srv/database/database.sqlite
-78.     echo "/srv/database/database.sqlite is now a symlink to /2fauth/database.sqlite"
+77.     ln -s /2FA-Vault/database.sqlite /srv/database/database.sqlite
+78.     echo "/srv/database/database.sqlite is now a symlink to /2FA-Vault/database.sqlite"
 79.   fi
 80. fi
 81. 
-82. # Inject storage in /2fauth and use it with a symlink
-83. if [ ! -d /2fauth/storage ]; then
-84.   mv /srv/storage /2fauth/storage
+82. # Inject storage in /2FA-Vault and use it with a symlink
+83. if [ ! -d /2FA-Vault/storage ]; then
+84.   mv /srv/storage /2FA-Vault/storage
 85. else
 86.   rm -r /srv/storage
 87. fi
-88. ln -s /2fauth/storage /srv/storage
-89. echo "/srv/storage is now a symlink to /2fauth/storage"
+88. ln -s /2FA-Vault/storage /srv/storage
+89. echo "/srv/storage is now a symlink to /2FA-Vault/storage"
 90. 
 91. # validate a bunch of environment variables and warn the user:
 92. for v in APP_KEY; do
@@ -3644,8 +3644,8 @@ D:\2FA-Vault\docker\entrypoint.sh
 97. done
 98. 
 99. # Note: ${COMMIT} is set by the CI
-100. if [ -f /2fauth/installed ]; then
-101.   INSTALLED_COMMIT="$(cat /2fauth/installed)"
+100. if [ -f /2FA-Vault/installed ]; then
+101.   INSTALLED_COMMIT="$(cat /2FA-Vault/installed)"
 102.   if [ "${INSTALLED_COMMIT}" != "${COMMIT}" ]; then
 103.     echo "Installed commit ${INSTALLED_COMMIT} is different from program commit ${COMMIT}, we are migrating..."
 104.     php artisan cache:clear
@@ -3657,7 +3657,7 @@ D:\2FA-Vault\docker\entrypoint.sh
 110.   php artisan passport:install --no-interaction
 111. fi
 112. 
-113. echo "${COMMIT}" > /2fauth/installed
+113. echo "${COMMIT}" > /2FA-Vault/installed
 114. php artisan storage:link --quiet
 115. 
 116. # Clearing compiled, cache has already been cleared

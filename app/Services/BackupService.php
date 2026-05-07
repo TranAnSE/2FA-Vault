@@ -126,7 +126,7 @@ class BackupService
      * Restore encrypted backup
      *
      * @param array $backupData Decrypted backup data from client
-     * @param string $format Backup format ('vault', '2fauth', 'aegis', etc.)
+     * @param string $format Backup format ('vault', '2FA-Vault', 'aegis', etc.)
      */
     public function restoreEncryptedBackup(
         User $user,
@@ -352,7 +352,7 @@ class BackupService
     private function resolveExternalMigrator(string $format): Migrator
     {
         return match ($this->normalizeImportFormat($format)) {
-            '2fauth' => $this->twoFAuthMigrator,
+            '2fa-vault' => $this->twoFAuthMigrator,
             '2fas' => $this->twoFASMigrator,
             'aegis' => $this->aegisMigrator,
             'bitwarden' => $this->bitwardenMigrator,
@@ -384,8 +384,8 @@ class BackupService
 
     public function detectImportFormat(array $backupData): string
     {
-        if (isset($backupData['app']) && $backupData['app'] === '2FAuth') {
-            return '2fauth';
+        if (isset($backupData['app']) && $backupData['app'] === '2FA-Vault') {
+            return '2FA-Vault';
         }
 
         if (isset($backupData['format']) && $backupData['format'] === '2FA-Vault') {
@@ -415,7 +415,7 @@ class BackupService
 
     public function supportedImportFormats(): array
     {
-        return ['2fauth', '2fas', 'vault', 'aegis', 'bitwarden', 'googleauth'];
+        return ['2FA-Vault', '2fa-vault', '2fas', 'vault', 'aegis', 'bitwarden', 'googleauth'];
     }
 
     public function backupFormatValidationRule(): string
@@ -430,7 +430,11 @@ class BackupService
 
     public function isImportFormatSupported(string $format): bool
     {
-        return in_array($this->normalizeImportFormat($format), $this->supportedImportFormats(), true);
+        return in_array(
+            $this->normalizeImportFormat($format),
+            array_map(fn (string $supportedFormat) => $this->normalizeImportFormat($supportedFormat), $this->supportedImportFormats()),
+            true
+        );
     }
 
     public function passwordRequiredForFormat(string $format): bool

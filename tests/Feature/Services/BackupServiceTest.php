@@ -186,12 +186,12 @@ class BackupServiceTest extends TestCase
     }
 
     /**
-     * Test restoring backup from 2fauth format
+     * Test restoring backup from 2FA-Vault format
      */
-    public function test_restore_backup_from_2fauth_format(): void
+    public function test_restore_backup_from_2fa_vault_format(): void
     {
         $backupData = [
-            'app' => '2FAuth',
+            'app' => '2FA-Vault',
             'version' => '6.1.3',
             'accounts' => [
                 [
@@ -205,7 +205,7 @@ class BackupServiceTest extends TestCase
         $result = $this->backupService->restoreEncryptedBackup(
             $this->user,
             $backupData,
-            '2fauth'
+            '2FA-Vault'
         );
 
         $this->assertEquals(1, $result['imported']);
@@ -673,6 +673,6 @@ class BackupServiceTest extends TestCase
             ],
         ];
 
-        $this->assertTrue($this->backupService->validateImportPayload($externalPayload, '2fauth'));
+        $this->assertTrue($this->backupService->validateImportPayload($externalPayload, '2FA-Vault'));
     }
 }

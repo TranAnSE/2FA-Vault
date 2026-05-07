@@ -61,15 +61,15 @@ return [
     */
 
     'version' => '6.1.3',
-    'repository' => 'https://github.com/Bubka/2FAuth',
-    'latestReleaseUrl' => 'https://api.github.com/repos/Bubka/2FAuth/releases/latest',
-    'installDocUrl' => 'https://docs.2fauth.app/getting-started/installation/self-hosted-server/',
-    'ssoDocUrl' => 'https://docs.2fauth.app/security/authentication/sso/',
-    'exportSchemaUrl' => 'https://docs.2fauth.app/usage/migration/#export-schema',
+    'repository' => 'https://github.com/TranAnSE/2FA-Vault',
+    'latestReleaseUrl' => 'https://api.github.com/repos/TranAnSE/2FA-Vault/releases/latest',
+    'installDocUrl' => 'https://docs.2fa-vault.app/getting-started/installation/self-hosted-server/',
+    'ssoDocUrl' => 'https://docs.2fa-vault.app/security/authentication/sso/',
+    'exportSchemaUrl' => 'https://docs.2fa-vault.app/usage/migration/#export-schema',
 
     /*
     |--------------------------------------------------------------------------
-    | 2FAuth config
+    | 2FA-Vault config
     |--------------------------------------------------------------------------
     |
     */
@@ -99,7 +99,7 @@ return [
 
     /*
     |--------------------------------------------------------------------------
-    | 2FAuth API config
+    | 2FA-Vault API config
     |--------------------------------------------------------------------------
     |
     */
@@ -111,7 +111,7 @@ return [
 
     /*
     |--------------------------------------------------------------------------
-    | 2FAuth available translations
+    | 2FA-Vault available translations
     |--------------------------------------------------------------------------
     |
     */

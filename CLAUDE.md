@@ -44,7 +44,7 @@ composer test-coverage-html   # Output to tests/Coverage/
 
 ## Project Overview
 
-**2FA-Vault** is an enhanced fork of [2FAuth](https://github.com/Bubka/2FAuth) — a Laravel 12 + Vue 3 web app for managing two-factor authentication accounts.
+**2FA-Vault** is an enhanced fork of [2FA-Vault](https://github.com/TranAnSE/2FA-Vault) — a Laravel 12 + Vue 3 web app for managing two-factor authentication accounts.
 
 ### Enterprise Features
 - **End-to-End Encryption (E2EE)**: Client-side only, server never sees plaintext secrets
@@ -291,7 +291,7 @@ To check whether embeddings exist, inspect `.gitnexus/meta.json` — the `stats.
 - [docs/architecture/project-overview-pdr.md](docs/architecture/project-overview-pdr.md) — Vision, design principles, technology choices
 - [docs/development/code-standards.md](docs/development/code-standards.md) — Backend/frontend/testing conventions
 - [docs/development/security-guidelines.md](docs/development/security-guidelines.md) — Security model and threat analysis
-- [docs/guides/migration-from-2fauth.md](docs/guides/migration-from-2fauth.md) — Migration guide from 2FAuth
+- [docs/guides/migration-from-2fauth.md](docs/guides/migration-from-2fauth.md) — Migration guide from 2FA-Vault
 - [README.md](README.md) — Feature overview and installation guides
 
 ## Commit Standards
@@ -318,7 +318,7 @@ docs: Update architecture documentation
 <!-- gitnexus:start -->
 # GitNexus — Code Intelligence
 
-This project is indexed by GitNexus as **2FA-Vault** (4799 symbols, 13061 relationships, 204 execution flows). Use the GitNexus MCP tools to understand code, assess impact, and navigate safely.
+This project is indexed by GitNexus as **2FA-Vault** (4778 symbols, 12821 relationships, 210 execution flows). Use the GitNexus MCP tools to understand code, assess impact, and navigate safely.
 
 > If any GitNexus tool warns the index is stale, run `npx gitnexus analyze` in terminal first.
 

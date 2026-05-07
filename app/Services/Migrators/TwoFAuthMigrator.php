@@ -13,7 +13,7 @@ use Illuminate\Support\Facades\Log;
 class TwoFAuthMigrator extends Migrator
 {
     // {
-    //     "app": "2fauth_v3.4.1",
+    //     "app": "twofauth_v3.4.1",
     //     "schema": 1,
     //     "datetime": "2022-12-14T14:53:06.173939Z",
     //     "data":
@@ -46,8 +46,8 @@ class TwoFAuthMigrator extends Migrator
         $json        = json_decode(htmlspecialchars_decode($migrationPayload), true);
 
         if (is_null($json)) {
-            Log::error('2FAuth JSON migration data cannot be read');
-            throw new InvalidMigrationDataException('2FAuth');
+            Log::error('2FA-Vault JSON migration data cannot be read');
+            throw new InvalidMigrationDataException('2FA-Vault');
         }
 
         /**

@@ -4,7 +4,7 @@ High-level project objectives, scope, and design decisions.
 
 ## Project Vision
 
-**2FA-Vault** is an enterprise-grade, self-hosted 2FA (Two-Factor Authentication) manager built as an enhanced fork of [2FAuth](https://github.com/Bubka/2FAuth). It provides secure, encrypted, and collaborative management of TOTP/HOTP authentication accounts with zero-knowledge architecture.
+**2FA-Vault** is an enterprise-grade, self-hosted 2FA (Two-Factor Authentication) manager built as an enhanced fork of [2FA-Vault](https://github.com/TranAnSE/2FA-Vault). It provides secure, encrypted, and collaborative management of TOTP/HOTP authentication accounts with zero-knowledge architecture.
 
 ### Problem Statement
 
@@ -25,7 +25,7 @@ High-level project objectives, scope, and design decisions.
 
 ## Core Features
 
-### Tier 1: MVP (2FAuth Baseline)
+### Tier 1: MVP (2FA-Vault Baseline)
 - ✅ TOTP/HOTP generation (RFC 4226, RFC 6238)
 - ✅ QR code scanning and import
 - ✅ Account organization via groups
@@ -211,7 +211,7 @@ When online → Sync queue with server
 **Principle:** App works with non-encrypted accounts for backward compatibility.
 
 **Scenario:**
-- User migrates from 2FAuth (no encryption)
+- User migrates from 2FA-Vault (no encryption)
 - Existing accounts remain plaintext initially
 - User enables E2EE → progressively encrypts new accounts
 - Old accounts still accessible (with `encrypted = false` flag)
@@ -354,11 +354,11 @@ if ($account->encrypted) {
 - **Real-time sync:** PWA offline queue not suitable for high-frequency updates
 - **WebAuthn:** Requires credential registration (not auto-scalable)
 
-## Migration Path: 2FAuth → 2FA-Vault
+## Migration Path: 2FA-Vault → 2FA-Vault
 
 ### Import Compatibility
 Supports importing from:
-- 2FAuth (JSON)
+- 2FA-Vault (JSON)
 - Google Authenticator (QR code export)
 - Aegis (JSON, plaintext)
 - 2FAS (JSON)
@@ -371,12 +371,12 @@ Supports importing from:
 - Secrets extracted and re-encrypted
 
 ### Backwards Compatibility
-- Non-encrypted accounts readable by 2FAuth
-- Encrypted accounts unreadable by 2FAuth (can't decrypt without E2EE key)
+- Non-encrypted accounts readable by 2FA-Vault
+- Encrypted accounts unreadable by 2FA-Vault (can't decrypt without E2EE key)
 - Original backup format supported for import
 
 ### One-Way Migration
-- Easy to migrate FROM 2FAuth TO 2FA-Vault
+- Easy to migrate FROM 2FA-Vault TO 2FA-Vault
 - Difficult to migrate back (encryption barrier)
 - Encrypted backups not importable by other apps
 

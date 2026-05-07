@@ -21,7 +21,7 @@ class ResetTesting extends Command
      *
      * @var string
      */
-    protected $description = 'Reset 2FAuth with a fresh testing content';
+    protected $description = 'Reset 2FA-Vault with a fresh testing content';
 
     /**
      * Indicates whether the command should be shown in the Artisan command list.

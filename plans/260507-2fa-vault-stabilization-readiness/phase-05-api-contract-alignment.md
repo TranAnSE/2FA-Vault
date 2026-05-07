@@ -37,7 +37,7 @@ OpenAPI is the source for external clients. It must reflect JSON resources in `2
 3. Document auth requirements: session, PAT, Passport bearer token.
 4. Add examples for encrypted account list and encryption status.
 5. Add or explicitly exclude team endpoints based on implementation maturity.
-6. Update API README from upstream 2FAuth wording to fork-aware wording.
+6. Update API README from upstream 2FA-Vault wording to fork-aware wording.
 7. Run OpenAPI validation and rapidoc render check.
 
 ## Success Criteria

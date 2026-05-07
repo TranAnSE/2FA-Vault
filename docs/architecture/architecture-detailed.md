@@ -1,10 +1,10 @@
-# 2FAuth Architecture Documentation
+# 2FA-Vault Architecture Documentation
 
 ## End-to-End Encryption (E2EE) - Zero-Knowledge Architecture
 
 ### Overview
 
-2FAuth implements **zero-knowledge end-to-end encryption** to ensure that OTP secrets are never exposed to the server in plaintext. All encryption and decryption happens client-side in the user's browser.
+2FA-Vault implements **zero-knowledge end-to-end encryption** to ensure that OTP secrets are never exposed to the server in plaintext. All encryption and decryption happens client-side in the user's browser.
 
 ### Security Principles
 
@@ -247,7 +247,7 @@ Stored in database as JSON string in the `secret` field.
 
 ### Backward Compatibility
 
-2FAuth supports mixed mode:
+2FA-Vault supports mixed mode:
 - Users without E2EE continue to work normally
 - Secrets stored without encryption are handled separately
 - Users can enable E2EE at any time

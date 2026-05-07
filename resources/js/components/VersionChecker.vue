@@ -32,7 +32,7 @@
         </div>
         <div class="column has-text-grey">
             <span v-if="appSettings.latestRelease" class="mt-2 has-text-warning">
-                <span class="release-flag"></span>{{ $t('message.x_is_available', { version: appSettings.latestRelease }) }}&nbsp;<a class="is-size-7 is-link" href="https://github.com/Bubka/2FAuth/releases">{{ $t('link.view_on_github') }}</a>
+                <span class="release-flag"></span>{{ $t('message.x_is_available', { version: appSettings.latestRelease }) }}&nbsp;<a class="is-size-7 is-link" href="https://github.com/TranAnSE/2FA-Vault/releases">{{ $t('link.view_on_github') }}</a>
             </span>
             <span v-if="isUpToDate">
                 <LucideCheck v-if="isUpToDate" class="mr-1 has-text-success inline" />{{ $t('message.you_are_up_to_date') }}

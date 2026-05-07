@@ -203,7 +203,7 @@ Background Script ←→ Service API (E2EE)
 - [ ] Performance optimization
 - [ ] Security audit
 - [ ] Complete documentation
-- [ ] Migration guide for 2FAuth users
+- [ ] Migration guide for 2FA-Vault users
 - [ ] Release notes
 - [ ] User tutorials
 

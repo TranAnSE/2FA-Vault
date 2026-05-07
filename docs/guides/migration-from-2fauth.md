@@ -1,10 +1,10 @@
-# Migration Guide: 2FAuth → 2FA-Vault
+# Migration Guide: 2FA-Vault → 2FA-Vault
 
-This guide helps you migrate from the original **2FAuth** to **2FA-Vault** (the zero-knowledge E2EE fork).
+This guide helps you migrate from the original **2FA-Vault** to **2FA-Vault** (the zero-knowledge E2EE fork).
 
 ## 🔄 Overview
 
-**2FA-Vault** is a hard fork of 2FAuth v6.1.3 with significant architectural changes:
+**2FA-Vault** is a hard fork of 2FA-Vault v6.1.3 with significant architectural changes:
 
 - **E2EE encryption** (zero-knowledge, client-side encryption)
 - **Multi-user support** (teams, roles, invites)
@@ -15,7 +15,7 @@ This guide helps you migrate from the original **2FAuth** to **2FA-Vault** (the 
 
 ## ⚠️ Breaking Changes
 
-| Feature | 2FAuth | 2FA-Vault | Impact |
+| Feature | 2FA-Vault | 2FA-Vault | Impact |
 |---------|--------|-----------|--------|
 | **Encryption** | Optional | **Mandatory** | All data encrypted by default |
 | **Backup format** | `.json` | `.vault` (encrypted) | Old backups incompatible |
@@ -30,10 +30,10 @@ This guide helps you migrate from the original **2FAuth** to **2FA-Vault** (the 
 
 **Best for:** Small number of accounts (&lt;20), prefer clean start
 
-1. **Export from 2FAuth:**
-   - Log into 2FAuth
+1. **Export from 2FA-Vault:**
+   - Log into 2FA-Vault
    - Settings → Backup → Export accounts
-   - Save `2fauth-backup-YYYY-MM-DD.json`
+   - Save `2FA-Vault-backup-YYYY-MM-DD.json`
 
 2. **Install 2FA-Vault:**
    ```bash
@@ -49,8 +49,8 @@ This guide helps you migrate from the original **2FAuth** to **2FA-Vault** (the 
 
 4. **Import accounts:**
    - Settings → Import
-   - Choose "2FAuth JSON format"
-   - Upload `2fauth-backup-YYYY-MM-DD.json`
+   - Choose "2FA-Vault JSON format"
+   - Upload `2FA-Vault-backup-YYYY-MM-DD.json`
    - Accounts will be encrypted automatically
 
 5. **Verify:**
@@ -58,9 +58,9 @@ This guide helps you migrate from the original **2FAuth** to **2FA-Vault** (the 
    - Test TOTP code generation
    - Export encrypted backup (.vault)
 
-6. **Decommission old 2FAuth:**
+6. **Decommission old 2FA-Vault:**
    ```bash
-   cd /path/to/old-2fauth
+   cd /path/to/old-2FA-Vault
    docker-compose down
    # Keep backup file in safe place!
    ```
@@ -71,18 +71,18 @@ This guide helps you migrate from the original **2FAuth** to **2FA-Vault** (the 
 
 **⚠️ WARNING:** This modifies your existing database. **Backup first!**
 
-1. **Backup 2FAuth database:**
+1. **Backup 2FA-Vault database:**
    ```bash
-   docker exec 2fauth-mysql mysqldump -u root -p 2fauth > 2fauth-backup.sql
+   docker exec 2FA-Vault-mysql mysqldump -u root -p 2FA-Vault > 2FA-Vault-backup.sql
    ```
 
 2. **Export accounts:**
    ```bash
-   # From 2FAuth UI
+   # From 2FA-Vault UI
    Settings → Backup → Export all accounts
    ```
 
-3. **Stop 2FAuth:**
+3. **Stop 2FA-Vault:**
    ```bash
    docker-compose down
    ```
@@ -95,7 +95,7 @@ This guide helps you migrate from the original **2FAuth** to **2FA-Vault** (the 
 
 5. **Copy environment:**
    ```bash
-   cp /path/to/old-2fauth/.env .env
+   cp /path/to/old-2FA-Vault/.env .env
    # Edit .env to add new variables (see .env.example)
    ```
 
@@ -103,7 +103,7 @@ This guide helps you migrate from the original **2FAuth** to **2FA-Vault** (the 
    ```bash
    # This script transforms single-user DB to multi-user schema
    docker-compose up -d mysql
-   docker-compose exec app php artisan migrate:2fauth
+   docker-compose exec app php artisan migrate:2FA-Vault
    ```
 
    **The migration script will:**
@@ -215,14 +215,14 @@ ALTER TABLE users ADD COLUMN encryption_enabled BOOLEAN DEFAULT TRUE AFTER encry
 
 ### Migration Script
 
-The `php artisan migrate:2fauth` command runs:
+The `php artisan migrate:2FA-Vault` command runs:
 
 ```php
-// database/migrations/2026_04_04_000000_migrate_from_2fauth.php
+// database/migrations/2026_04_04_000000_migrate_from_2FA-Vault.php
 
 public function up()
 {
-    // 1. Get existing user (2FAuth is single-user)
+    // 1. Get existing user (2FA-Vault is single-user)
     $user = User::first();
     
     if ($user) {
@@ -242,7 +242,7 @@ public function up()
     
     // 5. Create audit log entry
     AuditLog::create([
-        'action' => 'migration_from_2fauth',
+        'action' => 'migration_from_2FA-Vault',
         'ip_address' => request()->ip(),
     ]);
 }
@@ -252,7 +252,7 @@ public function up()
 
 ### Unencrypted → Encrypted
 
-If your 2FAuth accounts were **not encrypted**:
+If your 2FA-Vault accounts were **not encrypted**:
 
 1. **First login to 2FA-Vault:**
    - System detects unencrypted accounts
@@ -277,24 +277,24 @@ If your 2FAuth accounts were **not encrypted**:
    Migration complete! All data now encrypted.
    ```
 
-### 2FAuth Encrypted → 2FA-Vault Encrypted
+### 2FA-Vault Encrypted → 2FA-Vault Encrypted
 
-If your 2FAuth accounts were **already encrypted** (with old encryption):
+If your 2FA-Vault accounts were **already encrypted** (with old encryption):
 
-1. **Export from 2FAuth** (decrypts during export)
+1. **Export from 2FA-Vault** (decrypts during export)
 2. **Import to 2FA-Vault** (re-encrypts with stronger Argon2id)
 
 **Why re-encrypt?**
-- 2FAuth used Laravel's built-in encryption (simpler)
+- 2FA-Vault used Laravel's built-in encryption (simpler)
 - 2FA-Vault uses Argon2id + AES-256-GCM (stronger, zero-knowledge)
 
 ## 📦 Backup Format Migration
 
-### Old Format (2FAuth JSON)
+### Old Format (2FA-Vault JSON)
 
 ```json
 {
-  "app": "2FAuth",
+  "app": "2FA-Vault",
   "version": "6.1.3",
   "datetime": "2026-04-04T10:30:00Z",
   "accounts": [
@@ -332,22 +332,22 @@ If your 2FAuth accounts were **already encrypted** (with old encryption):
 ```
 
 **Import compatibility:**
-- ✅ 2FA-Vault can import 2FAuth JSON (auto-encrypts)
-- ❌ 2FAuth cannot import 2FA-Vault .vault files
+- ✅ 2FA-Vault can import 2FA-Vault JSON (auto-encrypts)
+- ❌ 2FA-Vault cannot import 2FA-Vault .vault files
 
 ## 🐳 Docker Configuration
 
-### Old docker-compose.yml (2FAuth)
+### Old docker-compose.yml (2FA-Vault)
 
 ```yaml
 version: '3.8'
 services:
   app:
-    image: 2fauth/2fauth:6.1.3
+    image: 2FA-Vault/2FA-Vault:6.1.3
     ports:
       - "8000:8000"
     volumes:
-      - ./data:/2fauth
+      - ./data:/2FA-Vault
 ```
 
 ### New docker-compose.yml (2FA-Vault)
@@ -430,8 +430,8 @@ web-push generate-vapid-keys
 - [ ] Browser extension installed (optional)
 - [ ] PWA installed on mobile (optional)
 - [ ] Biometric unlock configured (optional)
-- [ ] Old 2FAuth backup secured
-- [ ] Old 2FAuth instance decommissioned
+- [ ] Old 2FA-Vault backup secured
+- [ ] Old 2FA-Vault instance decommissioned
 - [ ] Team members invited (if multi-user)
 
 ## 🆘 Troubleshooting
@@ -452,7 +452,7 @@ docker-compose exec app php artisan encrypt:reset
 # Rollback migration
 docker-compose exec app php artisan migrate:rollback
 # Re-run migration
-docker-compose exec app php artisan migrate:2fauth
+docker-compose exec app php artisan migrate:2FA-Vault
 ```
 
 ### "Push notifications not working"
@@ -489,7 +489,7 @@ docker-compose restart app
 - [2FA-Vault Documentation](https://docs.2fa-vault.example.com)
 - [Security Architecture](SECURITY.md)
 - [Changelog](CHANGELOG.md)
-- [Original 2FAuth](https://github.com/Bubka/2FAuth)
+- [Original 2FA-Vault](https://github.com/TranAnSE/2FA-Vault)
 
 ---
 

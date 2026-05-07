@@ -432,7 +432,7 @@ npm install argon2-browser --save
 
 1. **Password recovery is IMPOSSIBLE by design** - If user forgets master password, data is lost forever. This is clearly communicated in the UI.
 
-2. **Backward compatibility** - Users who don't enable E2EE can continue using 2FAuth normally. Mixed mode is supported.
+2. **Backward compatibility** - Users who don't enable E2EE can continue using 2FA-Vault normally. Mixed mode is supported.
 
 3. **Browser security is critical** - E2EE security depends on the browser not being compromised. Users should use updated browsers and HTTPS.
 
@@ -469,7 +469,7 @@ Phase 1 E2EE implementation is **95% complete**!
 Phase 1: E2EE zero-knowledge encryption implementation
 
 This commit implements end-to-end encryption (E2EE) with zero-knowledge
-architecture for 2FAuth. Server NEVER sees plaintext OTP secrets.
+architecture for 2FA-Vault. Server NEVER sees plaintext OTP secrets.
 
 Frontend:
 - Crypto module with Argon2id + AES-256-GCM (crypto.js)

@@ -11,7 +11,7 @@ dependencies: [2]
 
 ## Overview
 
-Make docs honest and useful for the actual fork state. Separate upstream 2FAuth capability from 2FA-Vault experimental capability.
+Make docs honest and useful for the actual fork state. Separate upstream 2FA-Vault capability from 2FA-Vault experimental capability.
 
 ## Requirements
 
@@ -42,7 +42,7 @@ Internal docs guide contributors. Public docs guide users/admins.
 3. Update E2EE docs with real client/server responsibilities and recovery limitations.
 4. Update extension docs with setup, lock/unlock, local OTP behavior, browser compatibility.
 5. Update API docs links to fork API spec.
-6. Update migration docs from upstream 2FAuth to 2FA-Vault.
+6. Update migration docs from upstream 2FA-Vault to 2FA-Vault.
 7. Run docs build and link checks.
 
 ## Success Criteria

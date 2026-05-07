@@ -110,7 +110,7 @@ Use this when you don't have a QR code:
 ### Import from Other Apps
 
 **Supported formats:**
-- 2FAuth (JSON)
+- 2FA-Vault (JSON)
 - Google Authenticator (QR code)
 - Aegis (JSON, plain text)
 - 2FAS Auth (JSON)

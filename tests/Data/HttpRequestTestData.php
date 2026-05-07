@@ -66,10 +66,10 @@ class HttpRequestTestData
 
     const LATEST_RELEASE_BODY_NO_NEW_RELEASE = '
     {
-        "url": "https://api.github.com/repos/Bubka/2FAuth/releases/84186611",
-        "assets_url": "https://api.github.com/repos/Bubka/2FAuth/releases/84186611/assets",
-        "upload_url": "https://uploads.github.com/repos/Bubka/2FAuth/releases/84186611/assets{?name,label}",
-        "html_url": "https://github.com/Bubka/2FAuth/releases/tag/' . self::TAG_NAME . '",
+        "url": "https://api.github.com/repos/TranAnSE/2FA-Vault/releases/84186611",
+        "assets_url": "https://api.github.com/repos/TranAnSE/2FA-Vault/releases/84186611/assets",
+        "upload_url": "https://uploads.github.com/repos/TranAnSE/2FA-Vault/releases/84186611/assets{?name,label}",
+        "html_url": "https://github.com/TranAnSE/2FA-Vault/releases/tag/' . self::TAG_NAME . '",
         "id": 84186611,
         "author": {
             "login": "Bubka",
@@ -102,17 +102,17 @@ class HttpRequestTestData
         "assets": [
 
         ],
-        "tarball_url": "https://api.github.com/repos/Bubka/2FAuth/tarball/' . self::TAG_NAME . '",
-        "zipball_url": "https://api.github.com/repos/Bubka/2FAuth/zipball/' . self::TAG_NAME . '",
-        "body": "### Fixed\r\n\r\n- [issue #140](https://github.com/Bubka/2FAuth/issues/140) Bad regex for Period field (advanced form)\r\n- [issue #141](https://github.com/Bubka/2FAuth/issues/141) Digits field is missing in advanced form"
+        "tarball_url": "https://api.github.com/repos/TranAnSE/2FA-Vault/tarball/' . self::TAG_NAME . '",
+        "zipball_url": "https://api.github.com/repos/TranAnSE/2FA-Vault/zipball/' . self::TAG_NAME . '",
+        "body": "### Fixed\r\n\r\n- [issue #140](https://github.com/TranAnSE/2FA-Vault/issues/140) Bad regex for Period field (advanced form)\r\n- [issue #141](https://github.com/TranAnSE/2FA-Vault/issues/141) Digits field is missing in advanced form"
     }';
 
     const LATEST_RELEASE_BODY_NEW_RELEASE = '
     {
-        "url": "https://api.github.com/repos/Bubka/2FAuth/releases/84186611",
-        "assets_url": "https://api.github.com/repos/Bubka/2FAuth/releases/84186611/assets",
-        "upload_url": "https://uploads.github.com/repos/Bubka/2FAuth/releases/84186611/assets{?name,label}",
-        "html_url": "https://github.com/Bubka/2FAuth/releases/tag/' . self::NEW_TAG_NAME . '",
+        "url": "https://api.github.com/repos/TranAnSE/2FA-Vault/releases/84186611",
+        "assets_url": "https://api.github.com/repos/TranAnSE/2FA-Vault/releases/84186611/assets",
+        "upload_url": "https://uploads.github.com/repos/TranAnSE/2FA-Vault/releases/84186611/assets{?name,label}",
+        "html_url": "https://github.com/TranAnSE/2FA-Vault/releases/tag/' . self::NEW_TAG_NAME . '",
         "id": 84186611,
         "author": {
             "login": "Bubka",
@@ -145,9 +145,9 @@ class HttpRequestTestData
         "assets": [
 
         ],
-        "tarball_url": "https://api.github.com/repos/Bubka/2FAuth/tarball/' . self::NEW_TAG_NAME . '",
-        "zipball_url": "https://api.github.com/repos/Bubka/2FAuth/zipball/' . self::NEW_TAG_NAME . '",
-        "body": "### Fixed\r\n\r\n- [issue #140](https://github.com/Bubka/2FAuth/issues/140) Bad regex for Period field (advanced form)\r\n- [issue #141](https://github.com/Bubka/2FAuth/issues/141) Digits field is missing in advanced form"
+        "tarball_url": "https://api.github.com/repos/TranAnSE/2FA-Vault/tarball/' . self::NEW_TAG_NAME . '",
+        "zipball_url": "https://api.github.com/repos/TranAnSE/2FA-Vault/zipball/' . self::NEW_TAG_NAME . '",
+        "body": "### Fixed\r\n\r\n- [issue #140](https://github.com/TranAnSE/2FA-Vault/issues/140) Bad regex for Period field (advanced form)\r\n- [issue #141](https://github.com/TranAnSE/2FA-Vault/issues/141) Digits field is missing in advanced form"
     }';
 
     const ICON_PNG = 'iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAIAAACQkWg2AAAAsUlEQVR4AWN44aVBEhoCGl4GGLzND/nYW/Fpdsf7urTX8Q74NLwtjf7z+vl/VPDzwvFX4eYIDUhm6//99AGi6PfDOz9OH4Tr+TSrHYuG1/GOn+f3AtGnOV0vvLXeZPr8+/IJouHbthU4nJQfAtQANBuuFJ+GDx2F///9g6gAMn5dOfP34zt8Gr7tWQ838n1DBlDk973r+DS8Sff+snQKBL2KsQOKfJzSAOFC9EPQcEhLAD5LqIU3S31+AAAAAElFTkSuQmCC';

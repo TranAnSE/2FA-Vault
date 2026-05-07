@@ -248,7 +248,7 @@ docker-compose -f docker-compose.dev.yml exec app tail -f storage/logs/laravel.l
 ## 🔍 Test Coverage Summary
 
 ### Current State (124 tests)
-- ✅ **Original 2FAuth features:** ~80% coverage
+- ✅ **Original 2FA-Vault features:** ~80% coverage
 - ⚠️ **E2EE:** ~30% coverage (PARTIAL)
 - ⚠️ **Teams:** ~20% coverage (PARTIAL)
 - ⚠️ **Backups:** ~25% coverage (PARTIAL)

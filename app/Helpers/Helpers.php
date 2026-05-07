@@ -52,7 +52,7 @@ class Helpers
 
     /**
      * Defines preferences locked for change.
-     * This helper is only intended to be called from the 2FAuth config file.
+     * This helper is only intended to be called from the 2FA-Vault config file.
      */
     public static function lockedPreferences(array $preferences) : array
     {

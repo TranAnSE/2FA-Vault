@@ -40,7 +40,7 @@ class RouteTest extends FeatureTestCase
                 // Using $route->middleware() fetches middlewares from action only.
                 // Route::gatherRouteMiddleware($route) would have fetch middlewares from
                 // both action & controllers but the "Route is not bound" exception is thrown then.
-                // $route->middleware() is acceptable as no middleware is set from controllers in 2FAuth.
+                // $route->middleware() is acceptable as no middleware is set from controllers in 2FA-Vault.
                 $this->assertEquals(self::API_ROUTE_PREFIX, $route->getPrefix());
                 $this->assertTrue(in_array(self::API_MIDDLEWARE, $route->middleware()));
             }

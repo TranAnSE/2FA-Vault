@@ -1,8 +1,8 @@
 {
-    "name": "2FAuth",
+    "name": "2FA-Vault",
     "description": "A Web app to manage your Two-Factor Authentication (2FA) accounts and generate their security codes",
     "keywords": [
-      "2fauth",
+      "2FA-Vault",
       "2fa",
       "2factor",
       "Two-factor",
@@ -11,8 +11,8 @@
       "totp",
       "hotp"
     ],
-    "website": "https://docs.2fauth.app",
-    "repository": "https://github.com/Bubka/2FAuth",
+    "website": "https://docs.2fa-vault.app",
+    "repository": "https://github.com/TranAnSE/2FA-Vault",
     "success_url": "/register",
     "scripts": {
       "postdeploy": "php artisan passport:install --no-interaction;php artisan storage:link"
@@ -21,7 +21,7 @@
         "APP_KEY": {
             "generator": "secret"
         },
-        "APP_NAME": "2FAuth",
+        "APP_NAME": "2FA-Vault",
         "APP_ENV": "review",
         "APP_DEBUG": "false",
         "LOG_CHANNEL": "stderr",
@@ -56,7 +56,7 @@
           "required": false
         },
         "MAIL_FROM_NAME": {
-          "value": "2FAuth",
+          "value": "2FA-Vault",
           "required": false
         },
         "MAIL_FROM_ADDRESS": {

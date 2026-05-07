@@ -308,10 +308,10 @@ class BackupControllerTest extends TestCase
             ->assertJsonStructure(['message', 'errors']);
     }
 
-    public function test_import_2fauth_legacy_format_without_password(): void
+    public function test_import_2fa_vault_legacy_format_without_password(): void
     {
-        $file = $this->createUploadedBackupFile('2fauth-backup.json', [
-            'app' => '2FAuth',
+        $file = $this->createUploadedBackupFile('2FA-Vault-backup.json', [
+            'app' => '2FA-Vault',
             'version' => '6.1.3',
             'accounts' => [
                 [
@@ -328,7 +328,7 @@ class BackupControllerTest extends TestCase
         $response = $this->actingAs($this->user, 'api-guard')
             ->postJson('/api/v1/backups/import', [
                 'backup_file' => $file,
-                'format' => '2fauth',
+                'format' => '2FA-Vault',
             ]);
 
         $response->assertOk()

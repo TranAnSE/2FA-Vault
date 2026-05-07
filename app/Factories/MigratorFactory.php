@@ -78,7 +78,7 @@ class MigratorFactory implements MigratorFactoryInterface
     }
 
     /**
-     * Determine if a payload comes from 2FAuth in JSON format
+     * Determine if a payload comes from 2FA-Vault in JSON format
      *
      * @param  string  $migrationPayload  The payload to analyse
      */

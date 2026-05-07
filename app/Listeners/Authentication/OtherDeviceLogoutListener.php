@@ -31,7 +31,7 @@ use TypeError;
 /**
  * @codeCoverageIgnore
  *
- * Excluded from test coverage as long as 2FAuth does not offer a logout Other Devices feature
+ * Excluded from test coverage as long as 2FA-Vault does not offer a logout Other Devices feature
  * See \Illuminate\Auth\SessionGuard::logoutOtherDevices when the time comes
  */
 class OtherDeviceLogoutListener extends AbstractAccessListener

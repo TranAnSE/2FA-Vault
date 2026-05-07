@@ -98,9 +98,9 @@ class SettingController extends Controller
         $defaultAppSettings = config('2fauth.settings');
 
         // When deleting a setting, it may be an original or an additional one:
-        // - Additional settings are created by administrators to extend 2FAuth, they are not registered in the laravel config object.
+        // - Additional settings are created by administrators to extend 2FA-Vault, they are not registered in the laravel config object.
         //   They are not nullable so empty string is not allowed.They only exist in the Options table, so it is possible to delete them.
-        // - Original settings are part of 2FAuth, they are registered in the laravel config object with their default value.
+        // - Original settings are part of 2FA-Vault, they are registered in the laravel config object with their default value.
         //   When set by an admin, their custom value is stored in the Options table too. Deleting a custom value in the Options table from here
         //   won't delete the setting at all, so we reject all requests that ask for.
         //   But there is an exception with the restrictRule and restrictList settings:

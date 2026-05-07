@@ -42,7 +42,7 @@
     }))
     const showTwofaccountInModal = ref(false)
     const supportedSources = [
-        {app: '2FAuth', format: 'JSON'},
+        {app: '2FA-Vault', format: 'JSON'},
         {app: 'Google Auth', format: t('label.qr_code')},
         {app: 'Aegis Auth', format: 'JSON'},
         {app: 'Aegis Auth', format: t('label.plain_text')},
@@ -397,7 +397,7 @@
                                 <td></td>
                             </tr>
                             <tr>
-                                <th>2FAuth</th>
+                                <th>2FA-Vault</th>
                                 <td></td>
                                 <td></td>
                                 <td><LucideCheck stroke-width="3" class="icon-size-1" /></td>

@@ -1,7 +1,7 @@
 /**
  * MIT License
  *
- * Copyright (c) 2023 Bubka - https://github.com/Bubka/2FAuth
+ * Copyright (c) 2023 Bubka - https://github.com/TranAnSE/2FA-Vault
  * Copyright (c) Italo Israel Baeza Cabrera - https://github.com/Laragear/WebAuthn
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy

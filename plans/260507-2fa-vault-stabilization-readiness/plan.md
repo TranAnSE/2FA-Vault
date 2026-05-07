@@ -35,7 +35,7 @@ This plan turns the previous readiness assessment into an executable stabilizati
 - `D:/2FA-Vault/2FA-Vault-Docs`
 - `D:/2FA-Vault/2FA-Vault-WebExtension`
 
-Current baseline: main app build passes, backend PHPUnit passes, extension build passes, E2E smoke has one test-harness failure, components typecheck cannot run because workspace dependencies are incomplete, API/docs still look mostly upstream 2FAuth.
+Current baseline: main app build passes, backend PHPUnit passes, extension build passes, E2E smoke has one test-harness failure, components typecheck cannot run because workspace dependencies are incomplete, API/docs still look mostly upstream 2FA-Vault.
 
 Goal: make the fork shippable as a clear beta/1.0 candidate with honest docs, repeatable CI, stable E2EE contract, and clean cross-repo boundaries.
 
@@ -87,7 +87,7 @@ Conflict rule: one phase owns a file. If a cross-repo contract requires touching
 - Main E2E smoke fails because `tests/e2e/encryption.spec.ts` references missing page object field `passwordInputs`.
 - Components typecheck fails because package-local dependencies are not installed/resolved.
 - API README/changelog still upstream-oriented and does not fully document Vault endpoints.
-- Docs still largely describe 2FAuth, not the fork's real feature state.
+- Docs still largely describe 2FA-Vault, not the fork's real feature state.
 - Extension build passes with warnings: duplicate `toRef`, deprecated Sass imports, browser-externalized `path/fs` via `argon2-browser`.
 - Main app build passes with chunk-size and Sass deprecation warnings.
 - Runtime status of E2EE, teams, backup, and extension sync needs end-to-end confirmation.

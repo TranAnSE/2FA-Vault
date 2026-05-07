@@ -19,7 +19,7 @@ class CheckDbConnection extends Command
      *
      * @var string
      */
-    protected $description = 'Check if 2FAuth is connected to a database';
+    protected $description = 'Check if 2FA-Vault is connected to a database';
 
     /**
      * Create a new command instance.

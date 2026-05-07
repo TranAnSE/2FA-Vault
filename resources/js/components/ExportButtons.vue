@@ -21,7 +21,7 @@
                 {{ $t('link.twofauth_export_schema') }}
             </a>
         </p>
-        <button type="button" id="btnExport2FAuth" class="button is-link is-rounded is-focus my-3" @click="$emit('export-twofauth-format')" :title="$t('tooltip.twofauth_export_format_sub')">
+        <button type="button" id="btnExport2FA-Vault" class="button is-link is-rounded is-focus my-3" @click="$emit('export-twofauth-format')" :title="$t('tooltip.twofauth_export_format_sub')">
             {{ $t('label.twofauth_export_format') }}
         </button>
     </div>
