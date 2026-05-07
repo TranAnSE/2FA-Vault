@@ -3,7 +3,7 @@ name: Roadmap implementation
 status: active
 created: 2026-04-26
 updated: 2026-04-26
-blockedBy: []
+blockedBy: [260507-2fa-vault-stabilization-readiness]
 blocks: []
 source: docs/reference/roadmap.md
 ---

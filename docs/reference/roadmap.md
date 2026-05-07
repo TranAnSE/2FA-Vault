@@ -1,270 +1,136 @@
-# 2FA-Vault - Roadmap
+# 2FA-Vault — Roadmap
 
-> Zero-knowledge 2FA manager with E2EE, multi-user, browser extension, and PWA support
+> Honest, focused roadmap for reaching a self-hostable, trustable 1.0. Scoped for an OSS self-host tool — **not** a SaaS product. See [Non-goals](#non-goals) for what we deliberately skip.
 
----
-
-## 🎯 Overview
-
-This roadmap outlines the development phases for 2FA-Vault, a secure, zero-knowledge 2FA manager forked from [2FAuth](https://github.com/Bubka/2FAuth) with significant enhancements.
+Last updated: 2026-05-07
 
 ---
 
-## 🚧 Current Status
+## Current state
 
-| Phase | Title | Status | Target | Completion |
-|-------|-------|--------|--------|------------|
-| 0 | Setup & Infrastructure | 🔄 In Progress | 2026-04-05 | - |
-| 1 | E2EE (Zero-Knowledge) | ⏳ Not Started | 2026-04-25 | - |
-| 2 | Multi-User / Teams | ⏳ Not Started | 2026-05-15 | - |
-| 3 | Encryption Default + Backup/Restore | ⏳ Not Started | 2026-05-30 | - |
-| 4 | Browser Extension | ⏳ Not Started | 2026-06-15 | - |
-| 5 | PWA - Multi-Platform | ⏳ Not Started | 2026-06-30 | - |
-| 6 | Polish + Testing + Docs | ⏳ Not Started | 2026-07-15 | - |
+- ✅ E2EE (client-side Argon2id + AES-256-GCM) — implemented
+- ✅ Multi-user + teams — implemented
+- ✅ Encrypted backup format — implemented
+- ⚠️ PWA — `manifest.json` + `sw.js` present, cache strategies work, **but offline OTP generation is a stub** (`public/sw.js:250-271` returns hardcoded `"000000"`). Service worker also has a broken `import()` call at line 181 that will fail at runtime. No background sync despite the claim in older docs.
+- ⚠️ Browser extension — forked from upstream. E2EE unlock and local TOTP/HOTP generation now work against encrypted vault fixtures, but the extension still needs broader runtime coverage, autofill hardening, and release-warning cleanup.
+- ❌ Everything below
 
 ---
 
-## Phase 0: Setup & Infrastructure 🚧
+## Phase 0 — Fix existing stubs (do first, small)
 
-**Target:** 2026-04-05
+> Things that claim to work but don't. Cheap to fix, embarrassing to ship.
 
-### Tasks
-- [x] Fork repository to `github.com/vibecoder11200/2FA-Vault`
-- [x] Push to public repository
-- [x] Create project documentation (PROJ-PLAN.md, ARCHITECTURE.md, ROADMAP.md, CONTRIBUTING.md)
-- [ ] Setup GitHub Actions CI pipeline
-- [ ] Create development branches
-- [ ] Update README.md with new features
+- [x] Replace `generateTOTP()` stub in `public/sw.js:250-271` with real TOTP (port OTPHP logic or inline otplib)
+- [x] Fix the dynamic `import()` of `crypto.js` in `public/sw.js:181` — use `importScripts()` or inline the needed functions
+- [x] Add E2EE endpoint round-trip tests (setup key → encrypt secret → fetch → decrypt client-side). Currently only `FixServiceFieldEncryptionTest` covers the console command, not the HTTP flow.
+- [x] Update `CLAUDE.md` lines 52-53 to stop claiming "background sync" and "seamless OTP access" (neither is implemented yet)
 
-### Deliverables
-- ✅ Public repository
-- 🔄 Documentation structure
-- ⏳ CI/CD pipeline
-- ⏳ Development workflow
+## Phase 1 — Extension ↔ E2EE sync
 
----
+> Without this, the extension cannot read any account from a vault with E2EE enabled. This is blocking before anything else.
 
-## Phase 1: E2EE (Zero-Knowledge) 🔐
+Target repo: `2FA-Vault-WebExtension` (with supporting changes in `2FA-Vault` API layer)
 
-**Target:** 2026-04-25
+- [x] Replace extension's PBKDF2 derivation with Argon2id (via `argon2-browser` or equivalent), bit-compatible with main app's `resources/js/services/crypto.js`
+- [x] Verify ciphertext/iv/authTag JSON shape against deterministic encrypted E2E fixtures
+- [x] Master password unlock flow in extension popup
+- [x] Store derived key in `chrome.storage.session` (auto-clears on browser close)
+- [x] Auto-lock after N minutes of idle
+- [x] New API endpoint `/api/v1/twofaccounts/encrypted` returning raw ciphertext (no server-side decryption)
+- [x] Client-side OTP generation in the extension for encrypted TOTP/HOTP fixtures, including HOTP counter-sync error handling
+- [ ] Session handoff from main app tab → extension (postMessage) so users don't re-enter master password when both are open
+- [x] Extension E2E test: unlock → list accounts → generate OTP, all with server holding only ciphertext
 
-### Goal
-Server never sees OTP secrets - client-side encryption only
+## Phase 2 — Extension as a daily driver
 
-### Key Features
-- Master password derivation (Argon2id)
-- AES-256-GCM client-side encryption
-- Web Crypto API integration
-- Encrypted secrets storage
-- Zero-knowledge proof
-- Secure password recovery
+> Upgrade from "copy/paste helper" to "autofill like a password manager".
 
-### Technical Milestones
-1. Week 1: Encryption module design
-2. Week 2: Client-side implementation
-3. Week 3: API updates + testing
+- [ ] Content script: detect OTP input fields on login pages
+- [ ] Domain matching: suggest account whose issuer/label matches current domain
+- [ ] One-click autofill into detected field
+- [ ] Quick-add flow: detect QR codes on the current page → add account without leaving the site
+- [ ] WebAuthn platform authenticator unlock (biometric / OS PIN) as alternative to master password
+- [ ] Keyboard shortcut to open/unlock popup
 
-### Acceptance Criteria
-- All secrets encrypted before leaving browser
-- Server cannot decrypt any secret
-- Encryption passes security audit
-- 100% test coverage for encryption flows
+## Phase 3 — Don't lose user data
 
----
+> E2EE is useless if losing the master password means losing everything. Also the basics of self-host security.
 
-## Phase 2: Multi-User / Teams 👥
+- [ ] **Shamir secret sharing recovery**: split recovery key into N shares, require K to restore
+- [ ] Printable recovery codes (PDF) as the baseline fallback
+- [ ] CLI: `php artisan vault:backup` — exports encrypted archive to disk with clear restore instructions
+- [ ] CLI: `php artisan vault:restore <file>`
+- [ ] Rate limiting on login + account lockout after N failed attempts
+- [ ] Security headers: strict CSP, HSTS, X-Frame-Options, Referrer-Policy (one middleware, ship once)
+- [ ] Email verification on signup
+- [ ] Password reset flow (reviewed against OWASP ASVS)
+- [ ] Dependabot enabled + security advisories monitored
 
-**Target:** 2026-05-15
+## Phase 4 — Account hygiene
 
-### Goal
-Support multiple users, teams, and shared vaults
+> Features that make users *actually use* 2FA-Vault beyond "place to store OTPs".
 
-### Key Features
-- Multi-user registration/login
-- Team/Organization model
-- Role-based access control
-- Shared vaults with per-user encryption
-- Team management UI
-- Audit logs
+- [ ] Secret health dashboard: flag weak issuers, duplicates, stale entries (not used in 6 months)
+- [ ] Have I Been Pwned integration: alert when any account's email has been in a breach
+- [ ] Import: Authy, Microsoft Authenticator, Bitwarden, 1Password, Aegis (already supported upstream)
+- [ ] Bulk operations: multi-select delete, move to group, export
+- [ ] Search + filter when list has 100+ accounts
 
-### Technical Milestones
-1. Week 1: Database schema + migrations
-2. Week 2: API + authentication updates
-3. Week 3: UI + testing
+## Phase 5 — Teams that work
 
-### Acceptance Criteria
-- Multiple users can register
-- Team creation and management works
-- Shared vaults accessible with correct permissions
-- Audit logs track all actions
+> The differentiator vs. 1Password/Bitwarden for the TOTP-only use case.
 
----
+- [ ] Just-in-time team access: grant view for N minutes, auto-revoke
+- [ ] Secret access request workflow (member requests → admin approves)
+- [ ] Passkey storage alongside TOTP (credentials vault, not just OTP app)
+- [ ] Audit log UI: who accessed / modified / shared what, when. Exportable as CSV
+- [ ] Role-based access: admin / editor / viewer within a team
 
-## Phase 3: Encryption Default + Backup/Restore 💾
+## Phase 6 — Polish & contributor-ready
 
-**Target:** 2026-05-30
+> The boring stuff that decides whether someone trusts your repo enough to self-host it.
 
-### Goal
-Encryption ON by default, secure backup & restore
-
-### Key Features
-- Encryption enabled by default
-- Encrypted backup export
-- Secure restore flow
-- Backup versioning
-- Import from other 2FA apps
-- Backup scheduling
-
-### Technical Milestones
-1. Week 1: Backup encryption module
-2. Week 2: Import/export UI
-3. Week 3: Scheduling + migration
-
-### Acceptance Criteria
-- New users have encryption enabled by default
-- Backups are password-protected
-- Import from Google Auth, Aegis, 2FAS works
-- Existing users can migrate seamlessly
+- [ ] Dark / light / auto theme
+- [ ] Mobile responsive pass on real devices (iOS Safari, Android Chrome)
+- [ ] Keyboard navigation + basic a11y (labeled inputs, focus rings, ARIA where needed)
+- [ ] Soft delete with 7-day trash + undo for destructive actions
+- [ ] i18n: EN + VI shipped, framework in place for community PRs
+- [ ] GDPR basics: self-service account export (JSON) + delete account
+- [ ] `CONTRIBUTING.md`, `SECURITY.md`, `CODE_OF_CONDUCT.md`
+- [ ] Issue + PR templates
+- [ ] Pre-commit hooks: pint, phpstan, eslint
+- [ ] Conventional commits + auto-generated `CHANGELOG.md`
+- [ ] Docker Compose that runs with a single command + a README section that verifies install in under 5 minutes
 
 ---
 
-## Phase 4: Browser Extension 🧩
+## Non-goals (deliberately skipped)
 
-**Target:** 2026-06-15
+For clarity, these are **not** on the path to 1.0. They belong to SaaS, not self-host OSS:
 
-### Goal
-Chrome/Edge/Firefox extension with autofill
+- External pen test, SOC 2, SBOM, sigstore-signed releases
+- Sentry / Prometheus / structured JSON logging (self-hosters run their own stack)
+- Load testing, chaos testing, visual regression suites
+- Feature flags, blue/green, canary deploys
+- Landing page, demo instance, docs site, blog
+- Helm chart, Codespaces devcontainer
+- Full WCAG 2.1 AA audit (basic a11y is enough)
+- First-run setup wizard, admin impersonation (CLI + README is enough)
+- SSO / SAML / SCIM (post-1.0 enterprise if ever)
+- CLI as a first-class product, desktop app, mobile apps, Apple Watch companion
+- Billing / pricing tiers / usage limits
 
-### Key Features
-- Chrome/Edge support (Manifest V3)
-- Firefox support (WebExtensions)
-- Autofill OTP into fields
-- Quick view popup
-- Context menu integration
-- Add account from QR/clipboard
-- Sync with self-hosted server
-- E2EE on extension
-
-### Technical Milestones
-1. Week 1: Extension architecture + API integration
-2. Week 2: UI implementation
-3. Week 3: Testing + publishing
-
-### Acceptance Criteria
-- Extension installs on Chrome, Edge, Firefox
-- Autofill works on login pages
-- E2EE matches web app
-- Sync works reliably
+If any of these matter later, they get promoted out of this list. Until then they are noise.
 
 ---
 
-## Phase 5: PWA - Multi-Platform 📱
+## How to read this roadmap
 
-**Target:** 2026-06-30
+- Phases are roughly sequential, but within a phase items can parallelize.
+- Tick a box only when the change is **merged, tested, and works end-to-end across all affected repos** (see [Cross-repo coordination](../../CLAUDE.md#cross-repo-coordination) in CLAUDE.md).
+- When a phase completes, update the "Current state" section at the top.
 
-### Goal
-Installable PWA with offline support
+## Estimate
 
-### Key Features
-- Service Worker (offline-first)
-- Web App Manifest
-- Installable on all platforms
-- Push notifications
-- Biometric unlock
-- Offline OTP generation
-- Background sync
-
-### Technical Milestones
-1. Week 1: Service Worker + manifest
-2. Week 2: Offline support
-3. Week 3: Biometrics + notifications
-
-### Acceptance Criteria
-- PWA installs on Windows, macOS, Linux, Android, iOS
-- Works offline for OTP generation
-- Push notifications delivered
-- Biometric unlock works
-
----
-
-## Phase 6: Polish + Testing + Docs ✨
-
-**Target:** 2026-07-15
-
-### Goal
-Production-ready release
-
-### Key Features
-- Comprehensive testing
-- Performance optimization
-- Security audit
-- Complete documentation
-- Migration guide
-- Release notes
-
-### Technical Milestones
-1. Week 1: Testing suite completion
-2. Week 2: Performance + security audit
-3. Week 3: Documentation + release
-
-### Acceptance Criteria
-- 90%+ test coverage
-- Security audit passed
-- Performance targets met
-- Complete user documentation
-- v1.0.0 released
-
----
-
-## 📅 Release Schedule
-
-| Version | Date | Features |
-|---------|------|----------|
-| **v0.1.0** | 2026-04-05 | Phase 0 complete - repo setup |
-| **v0.5.0** | 2026-04-25 | Phase 1 complete - E2EE |
-| **v0.6.0** | 2026-05-15 | Phase 2 complete - Multi-user |
-| **v0.7.0** | 2026-05-30 | Phase 3 complete - Backup/Restore |
-| **v0.8.0** | 2026-06-15 | Phase 4 complete - Browser Extension |
-| **v0.9.0** | 2026-06-30 | Phase 5 complete - PWA |
-| **v1.0.0** | 2026-07-15 | Phase 6 complete - Production Release |
-
----
-
-## 🎯 Future Enhancements (Post v1.0)
-
-- Mobile native apps (iOS, Android)
-- Hardware key integration (YubiKey, FIDO2)
-- Advanced audit trails
-- Enterprise SSO (SAML, OIDC)
-- API for third-party integrations
-- Advanced biometrics (Face ID, Touch ID)
-- Cloud backup options
-- Advanced team features
-- Custom branding for teams
-
----
-
-## 🤝 Contribution
-
-Want to help? See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
-
-**Looking for contributors in:**
-- Frontend (Vue.js, PWA)
-- Backend (Laravel, PHP)
-- Browser Extensions (Manifest V3)
-- Security auditing
-- Documentation
-- Testing
-- Internationalization
-
----
-
-## 📞 Support
-
-- **Issues:** [GitHub Issues](https://github.com/vibecoder11200/2FA-Vault/issues)
-- **Discussions:** [GitHub Discussions](https://github.com/vibecoder11200/2FA-Vault/discussions)
-- **Roadmap feedback:** Open a discussion or issue
-
----
-
-*Last Updated: 2026-04-04*
+~3-4 months part-time to close Phases 1-6 honestly. If it starts slipping to 6+ months, something on the list is over-scoped — cut, don't stretch.

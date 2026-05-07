@@ -128,9 +128,54 @@ resources/js/
 
 For detailed conventions and security guidelines, see [DEVELOPMENT.md](DEVELOPMENT.md).
 
+## Cross-repo coordination
+
+2FA-Vault is **not a single repo** — it's 5 repos that must stay in sync. Before finishing any feature, you MUST verify none of the sibling repos are left stale.
+
+### The ecosystem
+
+All siblings live next to this repo on disk:
+
+| Repo (local path) | Role | When it's affected |
+|-------------------|------|-------------------|
+| `D:\2FA-Vault\2FA-Vault` (this repo) | Backend + web frontend | Always |
+| `D:\2FA-Vault\2FA-Vault-WebExtension` | Chrome/Firefox extension | Any API change, crypto change, or auth flow change |
+| `D:\2FA-Vault\2FA-Vault-Components` | Shared Vue component library (`@2fauth/ui`, `formcontrols`, `stores`, `styles`) consumed via `file:../2FA-Vault-Components/packages/*` | Any shared UI component, store contract, or design-token change |
+| `D:\2FA-Vault\2FA-Vault-Docs` | User-facing documentation site | Any user-visible feature, config option, or CLI command |
+| `D:\2FA-Vault\2FA-Vault-API` | OpenAPI / API reference spec | Any change to route signatures, request/response shapes, error codes |
+
+### Mandatory check after each feature
+
+When a task/feature is complete in this repo, **before declaring it done**:
+
+1. **Identify affected siblings.** For each sibling above, answer: "did my change touch the contract this sibling depends on?"
+2. **Read the relevant part of each affected sibling** (don't guess — open the files).
+3. **Apply the corresponding changes** in that sibling with a matching commit.
+4. **Report to the user** which siblings you updated, which you checked-and-skipped, and why.
+
+### Heuristics for what lands where
+
+- **Added/changed API route or response shape** → update `2FA-Vault-API` (OpenAPI) + `2FA-Vault-WebExtension` (if the extension uses that endpoint) + `2FA-Vault-Docs` (if user-visible)
+- **Added/changed crypto behavior (key derivation, ciphertext format, auth flow)** → update `2FA-Vault-WebExtension` to stay bit-compatible; flag breaking changes loudly
+- **Added/changed a shared Vue component or store** → update `2FA-Vault-Components` and rebuild its `dist/` bundles (the main app consumes built `.mjs` from `packages/*/dist`)
+- **Added user-visible feature, setting, or CLI command** → update `2FA-Vault-Docs`
+- **Pure backend refactor with no API surface change** → only this repo, but note it in the commit
+
+### Commit + push discipline
+
+- Each sibling gets its **own commit** in its own repo — do not smuggle changes via submodules or bulk pushes.
+- Use the same feature name / identifier in every commit message across repos so a reader can grep and find all pieces (e.g. `[extension-e2ee-unlock]` in all commit bodies).
+- When in doubt, open the sibling's `README.md` and recent `git log --oneline -20` first to match its conventions.
+
+### Do NOT
+
+- Do not silently finish a task that touches the API, crypto, or shared components without checking every sibling.
+- Do not update a sibling's files through this repo via relative paths. `cd` into the sibling and treat it as its own project.
+- Do not rely on memory of "what the extension looks like" — re-read before editing.
+
 ## GitNexus — Code Intelligence
 
-This project is indexed by GitNexus as **2FA-Vault** (4261 symbols, 11127 relationships, 185 execution flows). Use the GitNexus MCP tools to understand code, assess impact, and navigate safely.
+This project is indexed by GitNexus as **2FA-Vault** (4799 symbols, 13061 relationships, 204 execution flows). Use the GitNexus MCP tools to understand code, assess impact, and navigate safely.
 
 > If any GitNexus tool warns the index is stale, run `npx gitnexus analyze` in terminal first.
 
@@ -273,7 +318,7 @@ docs: Update architecture documentation
 <!-- gitnexus:start -->
 # GitNexus — Code Intelligence
 
-This project is indexed by GitNexus as **2FA-Vault** (4626 symbols, 12354 relationships, 202 execution flows). Use the GitNexus MCP tools to understand code, assess impact, and navigate safely.
+This project is indexed by GitNexus as **2FA-Vault** (4799 symbols, 13061 relationships, 204 execution flows). Use the GitNexus MCP tools to understand code, assess impact, and navigate safely.
 
 > If any GitNexus tool warns the index is stale, run `npx gitnexus analyze` in terminal first.
 
