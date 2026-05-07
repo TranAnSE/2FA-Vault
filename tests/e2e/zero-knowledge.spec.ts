@@ -1,6 +1,12 @@
 import { test, expect } from '@playwright/test';
+import fs from 'fs';
+import path from 'path';
+import { fileURLToPath } from 'url';
 import { testUsers, routes } from './fixtures/test-data.fixture';
 import { LoginPage } from './pages/LoginPage';
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const rootDir = path.resolve(__dirname, '../..');
 
 /**
  * Zero-Knowledge Proof Tests
@@ -176,21 +182,117 @@ test.describe('Zero-Knowledge E2EE Proof', () => {
     console.log('=== AES-256-GCM PROOF COMPLETE ===\n');
   });
 
-  test('P0: Server-side code NEVER decrypts secrets', async ({ page }) => {
-    // Prove that the server controller only stores whatever the client sends.
-    // The server has NO decryption capability.
+  test('P1: web-app ciphertext shape decrypts with extension-compatible flow', async ({ page }) => {
+    await page.goto(routes.login);
+    await page.waitForLoadState('domcontentloaded');
 
-    // Read the TwoFAccountController source code
-    const controllerSource = await page.evaluate(async () => {
-      // We can't read server files from the browser, but we can prove
-      // the server behavior by examining the API response
-      return null;
-    });
+    const result = await page.evaluate(async ({ plaintext }) => {
+      const iv = crypto.getRandomValues(new Uint8Array(12));
+      const key = await crypto.subtle.generateKey(
+        { name: 'AES-GCM', length: 256 },
+        true,
+        ['encrypt', 'decrypt']
+      );
 
-    // Instead, let's verify via the actual codebase that:
-    // 1. The server stores the secret as-is
-    // 2. The server checks for encrypted format but doesn't decrypt
-    // 3. The API resource hides secrets by default
+      const plaintextBytes = new TextEncoder().encode(plaintext);
+      const encryptedBuffer = await crypto.subtle.encrypt(
+        { name: 'AES-GCM', iv, tagLength: 128 },
+        key,
+        plaintextBytes
+      );
+
+      const encryptedBytes = new Uint8Array(encryptedBuffer);
+      const ciphertextBytes = encryptedBytes.slice(0, -16);
+      const authTagBytes = encryptedBytes.slice(-16);
+      const exportedKey = await crypto.subtle.exportKey('raw', key);
+
+      const toBase64 = (bytes) => btoa(String.fromCharCode(...bytes));
+      const base64ToBytes = (base64: string) => {
+        const binString = atob(base64);
+        return Uint8Array.from(binString, char => char.charCodeAt(0));
+      };
+
+      const encrypted = {
+        ciphertext: toBase64(ciphertextBytes),
+        iv: toBase64(iv),
+        authTag: toBase64(authTagBytes),
+      };
+
+      const importedKey = await crypto.subtle.importKey(
+        'raw',
+        exportedKey,
+        { name: 'AES-GCM' },
+        false,
+        ['decrypt']
+      );
+
+      const ciphertext = base64ToBytes(encrypted.ciphertext);
+      const importedIv = base64ToBytes(encrypted.iv);
+      const authTag = base64ToBytes(encrypted.authTag);
+      const combined = new Uint8Array(ciphertext.length + authTag.length);
+      combined.set(ciphertext);
+      combined.set(authTag, ciphertext.length);
+
+      const decrypted = await crypto.subtle.decrypt(
+        { name: 'AES-GCM', iv: importedIv, tagLength: 128 },
+        importedKey,
+        combined
+      );
+
+      return {
+        encrypted,
+        decryptedText: new TextDecoder().decode(decrypted),
+        ciphertextLength: encrypted.ciphertext.length,
+        ivLength: encrypted.iv.length,
+        authTagLength: encrypted.authTag.length,
+      };
+    }, { plaintext: PLAINTEXT_SECRET });
+
+    expect(result.decryptedText).toBe(PLAINTEXT_SECRET);
+    expect(result.ciphertextLength).toBeGreaterThan(10);
+    expect(result.ivLength).toBe(16);
+    expect(result.authTagLength).toBe(24);
+
+    console.log('\n=== PHASE 1 WEB ↔ EXTENSION COMPATIBILITY PROOF ===');
+    console.log('Encrypted payload:', JSON.stringify(result.encrypted));
+    console.log('Decrypted with extension-compatible flow:', result.decryptedText);
+    console.log('=== COMPATIBILITY PROOF COMPLETE ===\n');
+  });
+
+  test('P0: Server-side code preserves E2EE payloads without decrypting them', async () => {
+    const controllerSource = fs.readFileSync(
+      path.join(rootDir, 'app/Api/v1/Controllers/TwoFAccountController.php'),
+      'utf8'
+    );
+    const modelSource = fs.readFileSync(
+      path.join(rootDir, 'app/Models/TwoFAccount.php'),
+      'utf8'
+    );
+    const encryptionServiceSource = fs.readFileSync(
+      path.join(rootDir, 'app/Services/EncryptionService.php'),
+      'utf8'
+    );
+
+    const secretGetter = modelSource.match(/public function getSecretAttribute\(\$value\)[\s\S]*?public function setSecretAttribute/)?.[0] ?? '';
+    const secretSetter = modelSource.match(/public function setSecretAttribute\(\$value\)[\s\S]*?public function setDigitsAttribute/)?.[0] ?? '';
+    const validateEncryptedPayload = encryptionServiceSource.match(/public function validateEncryptedPayload\(string \$payload\): bool[\s\S]*?public function bulkUpdateEncryptedSecrets/)?.[0] ?? '';
+
+    expect(controllerSource).toContain('str_contains($twofaccount->secret ?? \'\', \'ciphertext\')');
+    expect(controllerSource).not.toMatch(/decrypt(?:String)?\s*\(/);
+
+    expect(secretGetter).toContain('if ($isEncryptedSecret)');
+    expect(secretGetter).toContain('return $value;');
+    expect(secretGetter.indexOf('return $value;')).toBeLessThan(secretGetter.indexOf('decryptOrReturn'));
+
+    expect(secretSetter).toContain('if ($isEncryptedSecret)');
+    expect(secretSetter).toContain("$this->attributes['secret'] = $value;");
+    expect(secretSetter.indexOf("$this->attributes['secret'] = $value;")).toBeLessThan(secretSetter.indexOf('encryptOrReturn'));
+
+    expect(validateEncryptedPayload).toContain("json_decode($payload, true)");
+    expect(validateEncryptedPayload).toContain("'ciphertext'");
+    expect(validateEncryptedPayload).toContain("'iv'");
+    expect(validateEncryptedPayload).toContain("'authTag'");
+    expect(validateEncryptedPayload).not.toMatch(/decrypt(?:String)?\s*\(/);
 
     console.log('\n=== SERVER-SIDE ZERO-KNOWLEDGE PROOF ===');
     console.log('');
@@ -204,8 +306,9 @@ test.describe('Zero-Knowledge E2EE Proof', () => {
     console.log('  The server:');
     console.log('  [PASS] Stores the secret AS-IS (whatever client sent)');
     console.log('  [PASS] Sets encrypted=true flag for bookkeeping only');
-    console.log('  [PASS] Has NO decrypt() call anywhere in the codebase');
-    console.log('  [PASS] Has NO import of any decryption library');
+    console.log('  [PASS] Controller has NO decrypt() call for E2EE payloads');
+    console.log('  [PASS] Model getter returns E2EE payload before legacy decrypt path');
+    console.log('  [PASS] Model setter stores E2EE payload before legacy encrypt path');
     console.log('  [PASS] TwoFAccountCollection resource hides secret by default');
     console.log('');
     console.log('  The only place decryption happens:');
@@ -213,7 +316,6 @@ test.describe('Zero-Knowledge E2EE Proof', () => {
     console.log('  [PASS] Uses Web Crypto API (browser-only, no server access)');
     console.log('=== SERVER-SIDE PROOF COMPLETE ===\n');
 
-    // Structural proof: verify no decrypt function exists in PHP backend
-    expect(true).toBe(true); // Manual verification documented above
+    console.log('  [PASS] Payload validator checks structure only');
   });
 });

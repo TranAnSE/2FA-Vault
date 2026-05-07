@@ -1,16 +1,22 @@
-import { Page, Locator } from '@playwright/test';
+import { expect, Locator, Page } from '@playwright/test';
 import { routes } from '../fixtures/test-data.fixture';
 
 export class SetupEncryptionPage {
   readonly page: Page;
   readonly passwordInputs: Locator;
   readonly checkbox: Locator;
+  readonly masterPasswordInput: Locator;
+  readonly confirmPasswordInput: Locator;
+  readonly understoodCheckbox: Locator;
   readonly submitButton: Locator;
 
   constructor(page: Page) {
     this.page = page;
     this.passwordInputs = page.locator('input[type="password"]');
     this.checkbox = page.locator('input[type="checkbox"]');
+    this.masterPasswordInput = page.locator('#pwdMasterpassword');
+    this.confirmPasswordInput = page.locator('#pwdMasterpassword_confirmation');
+    this.understoodCheckbox = page.locator('input[type="checkbox"][name="understood"]');
     this.submitButton = page.locator('button[type="submit"]');
   }
 
@@ -20,23 +26,14 @@ export class SetupEncryptionPage {
   }
 
   async fillMasterPassword(password: string) {
-    const inputs = this.passwordInputs;
-    const count = await inputs.count();
-    if (count >= 1) await inputs.nth(0).fill(password);
-    if (count >= 2) await inputs.nth(1).fill(password);
+    await this.masterPasswordInput.fill(password);
+    await this.confirmPasswordInput.fill(password);
   }
 
   async acknowledgeRisk() {
-    const label = this.page.locator('label', { hasText: 'I understand' });
-    if (await label.isVisible().catch(() => false)) {
-      await label.click();
-      return;
-    }
-
-    const cb = this.checkbox;
-    if (!(await cb.isChecked())) {
-      await cb.check();
-    }
+    await this.understoodCheckbox.check();
+    await expect(this.understoodCheckbox).toBeChecked();
+    await expect(this.submitButton).toBeEnabled();
   }
 
   async submit() {

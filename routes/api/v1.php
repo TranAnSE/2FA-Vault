@@ -47,6 +47,7 @@ Route::group(['middleware' => ['auth:api-guard', 'enforceMandatoryEncryption']],
     Route::get('twofaccounts/{twofaccount}/qrcode', [QrCodeController::class, 'show'])->name('twofaccounts.show.qrcode');
     Route::get('twofaccounts/count', [TwoFAccountController::class, 'count'])->name('twofaccounts.count');
     Route::get('twofaccounts/{id}/otp', [TwoFAccountController::class, 'otp'])->where('id', '[0-9]+')->name('twofaccounts.show.otp');
+    Route::patch('twofaccounts/{twofaccount}/counter', [TwoFAccountController::class, 'updateCounter'])->name('twofaccounts.update.counter');
     Route::post('twofaccounts/otp', [TwoFAccountController::class, 'otp'])->name('twofaccounts.otp');
     Route::apiResource('twofaccounts', TwoFAccountController::class);
 

@@ -68,9 +68,9 @@ class E2eSeeder extends Seeder
         ]);
 
         TwoFAccount::factory()->forUser($encryptedUser)->encrypted(json_encode([
-            'ciphertext' => base64_encode(random_bytes(32)),
-            'iv' => base64_encode(random_bytes(12)),
-            'authTag' => base64_encode(random_bytes(16)),
+            'ciphertext' => 'SA3R9pIyZpN0ydrzFeaB4A==',
+            'iv' => 'GvEMEUkculo2MBve',
+            'authTag' => '0agrIDSrTO9OWTbOpvT8gg==',
         ]))->inGroup($encryptedGroup)->create([
             'service' => 'VaultDrive',
             'account' => 'secure@vault.test',
@@ -80,13 +80,31 @@ class E2eSeeder extends Seeder
             'period' => 30,
         ]);
 
-        TwoFAccount::factory()->forUser($encryptedUser)->encrypted()->create([
+        TwoFAccount::factory()->forUser($encryptedUser)->encrypted(json_encode([
+            'ciphertext' => 'SA3R9pIyZpN0ydrzFeaB4A==',
+            'iv' => 'GvEMEUkculo2MBve',
+            'authTag' => '0agrIDSrTO9OWTbOpvT8gg==',
+        ]))->create([
             'service' => 'Banking',
             'account' => 'banking@vault.test',
             'otp_type' => 'totp',
             'algorithm' => 'sha1',
             'digits' => 6,
             'period' => 30,
+        ]);
+
+        TwoFAccount::factory()->forUser($encryptedUser)->encrypted(json_encode([
+            'ciphertext' => 'SA3R9pIyZpN0ydrzFeaB4A==',
+            'iv' => 'GvEMEUkculo2MBve',
+            'authTag' => '0agrIDSrTO9OWTbOpvT8gg==',
+        ]))->create([
+            'service' => 'VaultHOTP',
+            'account' => 'hotp@vault.test',
+            'otp_type' => 'hotp',
+            'algorithm' => 'sha1',
+            'digits' => 6,
+            'period' => null,
+            'counter' => 7,
         ]);
 
         // Conflict user: duplicate key pairs for backup conflict-resolution scenarios

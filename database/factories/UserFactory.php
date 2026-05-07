@@ -121,6 +121,12 @@ class UserFactory extends Factory
             return [
                 'name' => 'E2E Encrypted',
                 'email' => 'e2eencrypted@2fauth.app',
+                'encryption_salt' => 'FYZWmoAq3pv+3nQjXhcp7MadT/EM7YrEFIgS4ruhSOo=',
+                'encryption_test_value' => json_encode([
+                    'ciphertext' => 'KpveS0LDzB0eyCKPUvgOho11UMLXmQsUnA==',
+                    'iv' => '4bPwBqSoDVVKf6cS',
+                    'authTag' => 'RI3BY2ePEbqDVI8S1Z4qoQ==',
+                ]),
             ];
         });
     }

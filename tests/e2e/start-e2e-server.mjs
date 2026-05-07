@@ -9,6 +9,8 @@ import { fileURLToPath } from 'url';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(__dirname, '../..');
+const EXT_ROOT = path.resolve(ROOT, '../2FA-Vault-WebExtension');
+const EXT_DIST_MANIFEST = path.resolve(EXT_ROOT, 'dist/chrome-mv3/manifest.json');
 const DB_PATH = path.resolve(ROOT, 'database/database_e2e.sqlite');
 const IS_CI = process.env.CI === 'true' || process.env.CI === '1';
 const E2E_ORIGIN = 'http://127.0.0.1:8001';
@@ -34,8 +36,8 @@ const E2E_ENV = {
 function runCommand(command, label, options = {}) {
   try {
     return execSync(command, {
-      cwd: ROOT,
-      env: E2E_ENV,
+      cwd: options.cwd ?? ROOT,
+      env: options.env ?? E2E_ENV,
       stdio: options.stdio ?? 'pipe',
       timeout: options.timeout,
     });
@@ -49,17 +51,34 @@ function runCommand(command, label, options = {}) {
   }
 }
 
-// Remove stale Vite hot file (forces @vite() to use production build)
-const hotFile = path.resolve(ROOT, 'public/hot');
-if (fs.existsSync(hotFile)) {
-  fs.unlinkSync(hotFile);
-  console.log('[E2E Server] Removed stale Vite hot file.');
+function removeFileWithRetry(filePath, label) {
+  if (!fs.existsSync(filePath)) {
+    return;
+  }
+
+  for (let attempt = 1; attempt <= 5; attempt += 1) {
+    try {
+      fs.rmSync(filePath, { force: true });
+      console.log(`[E2E Server] Removed ${label}.`);
+      return;
+    } catch (error) {
+      if (attempt === 5) {
+        throw error;
+      }
+
+      Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 250);
+    }
+  }
 }
 
-// Ensure database file exists
-if (!fs.existsSync(DB_PATH)) {
-  fs.writeFileSync(DB_PATH, '');
-}
+// Remove stale Vite hot file (forces @vite() to use production build)
+const hotFile = path.resolve(ROOT, 'public/hot');
+removeFileWithRetry(hotFile, 'stale Vite hot file');
+
+// Recreate the E2E SQLite file on every run. `migrate:fresh` cannot recover
+// from a malformed SQLite file because Laravel opens it before dropping tables.
+removeFileWithRetry(DB_PATH, 'stale E2E SQLite database');
+fs.writeFileSync(DB_PATH, '');
 
 // Run migrations and seed
 console.log('[E2E Server] Running migrations...');
@@ -68,6 +87,8 @@ runCommand('php artisan route:clear', 'route:clear');
 runCommand('php artisan migrate:fresh --env=e2e --force', 'migrate:fresh');
 console.log('[E2E Server] Seeding database...');
 runCommand('php artisan db:seed --class=E2eSeeder --env=e2e --force', 'db:seed');
+console.log('[E2E Server] Ensuring Passport personal access client...');
+runCommand('php artisan passport:client --personal --name="E2E Personal Access Client" --env=e2e --no-interaction', 'passport:client');
 
 // Build frontend deterministically in CI, otherwise reuse existing build if present.
 const buildManifest = path.resolve(ROOT, 'public/build/manifest.json');
@@ -80,6 +101,20 @@ if (IS_CI || !fs.existsSync(buildManifest)) {
   runCommand('npm run build', 'npm run build', { timeout: 120000 });
 } else {
   console.log('[E2E Server] Using existing build assets.');
+}
+
+if (IS_CI || !fs.existsSync(EXT_DIST_MANIFEST)) {
+  if (IS_CI) {
+    console.log('[E2E Server] CI detected - rebuilding extension assets for popup E2E runtime...');
+  } else {
+    console.log('[E2E Server] Building extension assets...');
+  }
+  runCommand('npm run build', 'extension npm run build', {
+    cwd: EXT_ROOT,
+    timeout: 120000,
+  });
+} else {
+  console.log('[E2E Server] Using existing extension build assets.');
 }
 
 const manifestJson = JSON.parse(fs.readFileSync(buildManifest, 'utf8'));

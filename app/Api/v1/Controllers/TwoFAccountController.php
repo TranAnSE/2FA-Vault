@@ -25,6 +25,7 @@ use App\Models\User;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Http\Request;
 use Illuminate\Support\Arr;
+use Illuminate\Validation\ValidationException;
 
 class TwoFAccountController extends Controller
 {
@@ -146,6 +147,52 @@ class TwoFAccountController extends Controller
             $twofaccount->refresh();
         }
 
+        return (new TwoFAccountReadResource($twofaccount))
+            ->response()
+            ->setStatusCode(200);
+    }
+
+    /**
+     * Update a HOTP counter without revalidating or touching the encrypted secret.
+     *
+     * @return \Illuminate\Http\JsonResponse
+     */
+    public function updateCounter(Request $request, TwoFAccount $twofaccount)
+    {
+        $this->authorize('update', $twofaccount);
+
+        $validated = $request->validate([
+            'counter' => 'required|integer|min:0',
+        ]);
+
+        if ($twofaccount->otp_type !== TwoFAccount::HOTP) {
+            throw ValidationException::withMessages([
+                'counter' => 'Only HOTP accounts can update a counter.',
+            ]);
+        }
+
+        $currentCounter = (int) ($twofaccount->counter ?? TwoFAccount::DEFAULT_COUNTER);
+        if ((int) $validated['counter'] <= $currentCounter) {
+            throw ValidationException::withMessages([
+                'counter' => 'The counter must be greater than the current HOTP counter.',
+            ]);
+        }
+
+        $updated = $request->user()->twofaccounts()
+            ->whereKey($twofaccount->getKey())
+            ->where(function ($query) use ($validated) {
+                $query->whereNull('counter')
+                    ->orWhere('counter', '<', $validated['counter']);
+            })
+            ->update(['counter' => $validated['counter']]);
+
+        if ($updated === 0) {
+            throw ValidationException::withMessages([
+                'counter' => 'The counter must be greater than the current HOTP counter.',
+            ]);
+        }
+
+        $twofaccount->refresh();
         return (new TwoFAccountReadResource($twofaccount))
             ->response()
             ->setStatusCode(200);

@@ -445,6 +445,146 @@ class TwoFAccountControllerTest extends FeatureTestCase
     }
 
     #[Test]
+    public function test_update_counter_updates_hotp_counter_without_touching_encrypted_secret()
+    {
+        $encryptedSecret = json_encode([
+            'ciphertext' => base64_encode('client_encrypted_hotp_secret'),
+            'iv' => base64_encode(random_bytes(12)),
+            'authTag' => base64_encode(random_bytes(16)),
+        ]);
+
+        $encryptedHotpAccount = TwoFAccount::factory()->for($this->user)->create([
+            'otp_type' => TwoFAccount::HOTP,
+            'secret' => $encryptedSecret,
+            'encrypted' => true,
+            'counter' => 7,
+        ]);
+
+        $this->actingAs($this->user, 'api-guard')
+            ->json('PATCH', '/api/v1/twofaccounts/' . $encryptedHotpAccount->id . '/counter', [
+                'counter' => 8,
+            ])
+            ->assertOk()
+            ->assertJsonPath('counter', 8)
+            ->assertJsonPath('secret', $encryptedSecret);
+
+        $this->assertDatabaseHas('twofaccounts', [
+            'id' => $encryptedHotpAccount->id,
+            'secret' => $encryptedSecret,
+            'counter' => 8,
+        ]);
+    }
+
+    #[Test]
+    public function test_update_counter_rejects_totp_accounts()
+    {
+        $this->actingAs($this->user, 'api-guard')
+            ->json('PATCH', '/api/v1/twofaccounts/' . $this->twofaccountA->id . '/counter', [
+                'counter' => 8,
+            ])
+            ->assertStatus(422)
+            ->assertJsonValidationErrorFor('counter');
+    }
+
+    #[Test]
+    public function test_update_counter_rejects_stale_or_replayed_hotp_counter()
+    {
+        $encryptedHotpAccount = TwoFAccount::factory()->for($this->user)->create([
+            'otp_type' => TwoFAccount::HOTP,
+            'secret' => json_encode([
+                'ciphertext' => base64_encode('client_encrypted_hotp_secret'),
+                'iv' => base64_encode(random_bytes(12)),
+                'authTag' => base64_encode(random_bytes(16)),
+            ]),
+            'encrypted' => true,
+            'counter' => 7,
+        ]);
+
+        $this->actingAs($this->user, 'api-guard')
+            ->json('PATCH', '/api/v1/twofaccounts/' . $encryptedHotpAccount->id . '/counter', [
+                'counter' => 7,
+            ])
+            ->assertStatus(422)
+            ->assertJsonValidationErrorFor('counter');
+
+        $this->actingAs($this->user, 'api-guard')
+            ->json('PATCH', '/api/v1/twofaccounts/' . $encryptedHotpAccount->id . '/counter', [
+                'counter' => 6,
+            ])
+            ->assertStatus(422)
+            ->assertJsonValidationErrorFor('counter');
+
+        $this->assertDatabaseHas('twofaccounts', [
+            'id' => $encryptedHotpAccount->id,
+            'counter' => 7,
+        ]);
+    }
+
+    #[Test]
+    public function test_update_counter_rejects_duplicate_next_counter_from_concurrent_clients()
+    {
+        $encryptedHotpAccount = TwoFAccount::factory()->for($this->user)->create([
+            'otp_type' => TwoFAccount::HOTP,
+            'secret' => json_encode([
+                'ciphertext' => base64_encode('client_encrypted_hotp_secret'),
+                'iv' => base64_encode(random_bytes(12)),
+                'authTag' => base64_encode(random_bytes(16)),
+            ]),
+            'encrypted' => true,
+            'counter' => 7,
+        ]);
+
+        $this->actingAs($this->user, 'api-guard')
+            ->json('PATCH', '/api/v1/twofaccounts/' . $encryptedHotpAccount->id . '/counter', [
+                'counter' => 8,
+            ])
+            ->assertOk()
+            ->assertJsonPath('counter', 8);
+
+        $this->actingAs($this->user, 'api-guard')
+            ->json('PATCH', '/api/v1/twofaccounts/' . $encryptedHotpAccount->id . '/counter', [
+                'counter' => 8,
+            ])
+            ->assertStatus(422)
+            ->assertJsonValidationErrorFor('counter');
+
+        $this->assertDatabaseHas('twofaccounts', [
+            'id' => $encryptedHotpAccount->id,
+            'counter' => 8,
+        ]);
+    }
+
+    #[Test]
+    public function test_update_counter_accepts_null_hotp_counter_as_default_counter()
+    {
+        $encryptedHotpAccount = TwoFAccount::factory()->for($this->user)->create([
+            'otp_type' => TwoFAccount::HOTP,
+            'secret' => json_encode([
+                'ciphertext' => base64_encode('client_encrypted_hotp_secret'),
+                'iv' => base64_encode(random_bytes(12)),
+                'authTag' => base64_encode(random_bytes(16)),
+            ]),
+            'encrypted' => true,
+            'counter' => 1,
+        ]);
+        DB::table('twofaccounts')
+            ->where('id', $encryptedHotpAccount->id)
+            ->update(['counter' => null]);
+
+        $this->actingAs($this->user, 'api-guard')
+            ->json('PATCH', '/api/v1/twofaccounts/' . $encryptedHotpAccount->id . '/counter', [
+                'counter' => 1,
+            ])
+            ->assertOk()
+            ->assertJsonPath('counter', 1);
+
+        $this->assertDatabaseHas('twofaccounts', [
+            'id' => $encryptedHotpAccount->id,
+            'counter' => 1,
+        ]);
+    }
+
+    #[Test]
     public function test_show_returns_twofaccount_resource_without_secret()
     {
         $response = $this->actingAs($this->user, 'api-guard')

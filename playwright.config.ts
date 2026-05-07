@@ -27,6 +27,17 @@ export default defineConfig({
           executablePath: process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH || undefined,
         },
       },
+      testIgnore: ['tests/e2e/webextension/**/*.spec.ts'],
+    },
+    {
+      name: 'webextension-popup',
+      use: {
+        ...devices['Desktop Chrome'],
+        launchOptions: {
+          executablePath: process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH || undefined,
+        },
+      },
+      testMatch: ['tests/e2e/webextension/**/*.spec.ts'],
     },
   ],
   webServer: {

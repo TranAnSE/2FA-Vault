@@ -12,7 +12,8 @@
         "ci:e2e": "npm run test:e2e:smoke",
         "test:e2e:ui": "npx playwright test --ui",
         "test:e2e:headed": "npx playwright test --headed",
-        "test:e2e:debug": "npx playwright test --debug"
+        "test:e2e:debug": "npx playwright test --debug",
+        "test:e2e:webextension": "npx playwright test --project=webextension-popup tests/e2e/webextension/popup-encrypted-local-otp.spec.ts"
     },
     "devDependencies": {
         "@2fauth/formcontrols": "file:../2FA-Vault-Components/packages/formcontrols",
