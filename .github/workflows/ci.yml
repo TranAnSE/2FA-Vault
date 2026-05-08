@@ -3,6 +3,8 @@ name: CI
 env:
   COMPONENTS_REPOSITORY: TranAnSE/2FA-Vault-Components
   COMPONENTS_REF: main
+  WEBEXT_REPOSITORY: TranAnSE/2FA-Vault-WebExtension
+  WEBEXT_REF: main
 
 on:
   push:
@@ -106,6 +108,13 @@ jobs:
           ref: ${{ env.COMPONENTS_REF }}
           path: 2FA-Vault-Components
 
+      - name: Checkout 2FA-Vault-WebExtension
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ env.WEBEXT_REPOSITORY }}
+          ref: ${{ env.WEBEXT_REF }}
+          path: 2FA-Vault-WebExtension
+
       - name: Setup PHP
         uses: shivammathur/setup-php@v2
         with:
@@ -146,9 +155,14 @@ jobs:
           test -d ../2FA-Vault-Components/packages/formcontrols
           test -d ../2FA-Vault-Components/packages/styles
           test -d ../2FA-Vault-Components/packages/stores
+          test -d ../2FA-Vault-WebExtension
 
       - name: Install frontend dependencies
         working-directory: ./2FA-Vault
+        run: npm ci --no-audit
+
+      - name: Install extension dependencies
+        working-directory: ./2FA-Vault-WebExtension
         run: npm ci --no-audit
 
       - name: Install Playwright browser
