@@ -2,8 +2,6 @@
 
 return [
 
-    'user_verification' => envUnlessEmpty('WEBAUTHN_USER_VERIFICATION', 'preferred'), // TODO: Should be removed? no longer in laragear/webauthn config file
-
     /*
     |--------------------------------------------------------------------------
     | Relying Party

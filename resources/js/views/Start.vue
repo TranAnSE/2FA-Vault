@@ -93,7 +93,7 @@
         if( user.preferences.useDirectCapture && user.preferences.defaultCaptureMode === 'upload' ) {
             qrcodeInputLabel.value.click()
         }
-        console.log('mounting', handlePaste);
+        if (import.meta.env.DEV) console.log('mounting', handlePaste);
         document.addEventListener('paste', handlePaste);
     })
 

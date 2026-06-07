@@ -12,6 +12,7 @@ use App\Http\Controllers\Controller;
 use App\Models\TwoFAccount;
 use Exception;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Arr;
 
@@ -33,7 +34,8 @@ class IconController extends Controller
                     $name     = Helpers::getRandomFilename($icon->extension());
                     $isStored = IconStore::store($name, $content);
                 }
-            } catch (Exception) {
+            } catch (Exception $e) {
+                Log::error('Icon upload failed', ['error' => $e->getMessage(), 'user_id' => $request->user()->id]);
             }
         }
 

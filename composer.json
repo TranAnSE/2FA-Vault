@@ -33,6 +33,7 @@
         "laravel/socialite": "^5.24.3",
         "laravel/tinker": "^2.11.0",
         "laravel/ui": "^4.2",
+        "minishlink/web-push": "^10.1",
         "paragonie/constant_time_encoding": "^3.0",
         "socialiteproviders/manager": "^4.8.1",
         "spatie/eloquent-sortable": "^5.0",

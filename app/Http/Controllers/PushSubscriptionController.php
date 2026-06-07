@@ -41,7 +41,7 @@ class PushSubscriptionController extends Controller
             $subscription->update([
                 'p256dh' => $validated['p256dh'],
                 'auth' => $validated['auth'],
-                'content_encoding' => $validated['content_encoding'] ?? 'aesgcm',
+                'content_encoding' => $validated['content_encoding'] ?? 'aes128gcm',
             ]);
         } else {
             // Create new subscription
@@ -50,7 +50,7 @@ class PushSubscriptionController extends Controller
                 'endpoint' => $validated['endpoint'],
                 'p256dh' => $validated['p256dh'],
                 'auth' => $validated['auth'],
-                'content_encoding' => $validated['content_encoding'] ?? 'aesgcm',
+                'content_encoding' => $validated['content_encoding'] ?? 'aes128gcm',
             ]);
         }
 

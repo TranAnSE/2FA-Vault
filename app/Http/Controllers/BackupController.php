@@ -101,7 +101,7 @@ class BackupController extends Controller
             ]);
 
             return response()->json([
-                'message' => 'Failed to export backup: ' . $e->getMessage()
+                'message' => __('error.backup_export_failed')
             ], 500);
         }
     }
@@ -227,8 +227,8 @@ class BackupController extends Controller
             ]);
 
             return response()->json([
-                'message' => 'Failed to import backup: ' . $e->getMessage(),
-                'errors' => ['backup_file' => [$e->getMessage()]]
+                'message' => __('error.backup_import_failed'),
+                'errors' => ['backup_file' => [__('error.backup_import_failed')]]
             ], 422);
         }
     }
@@ -267,7 +267,7 @@ class BackupController extends Controller
             ]);
 
             return response()->json([
-                'message' => 'Failed to read backup metadata: ' . $e->getMessage()
+                'message' => __('error.backup_metadata_failed')
             ], 400);
         }
     }

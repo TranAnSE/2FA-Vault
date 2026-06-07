@@ -88,7 +88,7 @@ class BiometricService {
       await offlineDb.saveSetting('biometric_credential_id', this.credentialId);
       await offlineDb.saveSetting('biometric_username', username);
 
-      console.log('[Biometric] Credential registered successfully');
+      if (import.meta.env.DEV) console.log('[Biometric] Credential registered successfully');
 
       return {
         credentialId: this.credentialId,
@@ -142,7 +142,7 @@ class BiometricService {
         throw new Error('Authentication failed');
       }
 
-      console.log('[Biometric] Authentication successful');
+      if (import.meta.env.DEV) console.log('[Biometric] Authentication successful');
 
       // Get stored username
       const username = await offlineDb.getSetting('biometric_username');
@@ -167,7 +167,7 @@ class BiometricService {
       await offlineDb.saveSetting('biometric_username', null);
       this.credentialId = null;
 
-      console.log('[Biometric] Credential removed');
+      if (import.meta.env.DEV) console.log('[Biometric] Credential removed');
       return true;
     } catch (error) {
       console.error('[Biometric] Failed to remove credential:', error);

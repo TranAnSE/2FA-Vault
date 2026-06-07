@@ -19,12 +19,12 @@ class OfflineTotpService {
   setupNetworkListener() {
     window.addEventListener('online', () => {
       this.isOfflineMode = false;
-      console.log('[OfflineTotp] Online mode');
+      if (import.meta.env.DEV) console.log('[OfflineTotp] Online mode');
     });
 
     window.addEventListener('offline', () => {
       this.isOfflineMode = true;
-      console.log('[OfflineTotp] Offline mode');
+      if (import.meta.env.DEV) console.log('[OfflineTotp] Offline mode');
     });
   }
 
@@ -34,7 +34,7 @@ class OfflineTotpService {
    */
   unlockVault(password) {
     this.masterPassword = password;
-    console.log('[OfflineTotp] Vault unlocked');
+    if (import.meta.env.DEV) console.log('[OfflineTotp] Vault unlocked');
   }
 
   /**
@@ -42,7 +42,7 @@ class OfflineTotpService {
    */
   lockVault() {
     this.masterPassword = null;
-    console.log('[OfflineTotp] Vault locked');
+    if (import.meta.env.DEV) console.log('[OfflineTotp] Vault locked');
   }
 
   /**

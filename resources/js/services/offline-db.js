@@ -35,12 +35,12 @@ class OfflineDb {
       request.onsuccess = () => {
         this.db = request.result;
         this.isReady = true;
-        console.log('[OfflineDB] Database opened successfully');
+        if (import.meta.env.DEV) console.log('[OfflineDB] Database opened successfully');
         resolve(this.db);
       };
 
       request.onupgradeneeded = (event) => {
-        console.log('[OfflineDB] Upgrading database...');
+        if (import.meta.env.DEV) console.log('[OfflineDB] Upgrading database...');
         const db = event.target.result;
 
         // Create accounts store
@@ -50,13 +50,13 @@ class OfflineDb {
           });
           accountsStore.createIndex('service', 'service', { unique: false });
           accountsStore.createIndex('updatedAt', 'updatedAt', { unique: false });
-          console.log('[OfflineDB] Created accounts store');
+          if (import.meta.env.DEV) console.log('[OfflineDB] Created accounts store');
         }
 
         // Create settings store
         if (!db.objectStoreNames.contains(STORES.SETTINGS)) {
           db.createObjectStore(STORES.SETTINGS, { keyPath: 'key' });
-          console.log('[OfflineDB] Created settings store');
+          if (import.meta.env.DEV) console.log('[OfflineDB] Created settings store');
         }
 
         // Create sync queue store
@@ -66,7 +66,7 @@ class OfflineDb {
             autoIncrement: true 
           });
           syncStore.createIndex('timestamp', 'timestamp', { unique: false });
-          console.log('[OfflineDB] Created sync queue store');
+          if (import.meta.env.DEV) console.log('[OfflineDB] Created sync queue store');
         }
       };
     });
@@ -105,7 +105,7 @@ class OfflineDb {
       });
 
       transaction.oncomplete = () => {
-        console.log('[OfflineDB] Saved', accounts.length, 'accounts');
+        if (import.meta.env.DEV) console.log('[OfflineDB] Saved', accounts.length, 'accounts');
         resolve();
       };
 
@@ -128,7 +128,7 @@ class OfflineDb {
       const request = store.getAll();
 
       request.onsuccess = () => {
-        console.log('[OfflineDB] Retrieved', request.result.length, 'accounts');
+        if (import.meta.env.DEV) console.log('[OfflineDB] Retrieved', request.result.length, 'accounts');
         resolve(request.result);
       };
 
@@ -173,7 +173,7 @@ class OfflineDb {
       const request = store.put({ key, value, updatedAt: Date.now() });
 
       request.onsuccess = () => {
-        console.log('[OfflineDB] Saved setting:', key);
+        if (import.meta.env.DEV) console.log('[OfflineDB] Saved setting:', key);
         resolve();
       };
 
@@ -249,7 +249,7 @@ class OfflineDb {
       });
 
       request.onsuccess = () => {
-        console.log('[OfflineDB] Queued sync action:', action);
+        if (import.meta.env.DEV) console.log('[OfflineDB] Queued sync action:', action);
         resolve(request.result);
       };
 
@@ -294,7 +294,7 @@ class OfflineDb {
       const request = store.clear();
 
       request.onsuccess = () => {
-        console.log('[OfflineDB] Sync queue cleared');
+        if (import.meta.env.DEV) console.log('[OfflineDB] Sync queue cleared');
         resolve();
       };
 
@@ -322,7 +322,7 @@ class OfflineDb {
       transaction.objectStore(STORES.SYNC_QUEUE).clear();
 
       transaction.oncomplete = () => {
-        console.log('[OfflineDB] All data cleared');
+        if (import.meta.env.DEV) console.log('[OfflineDB] All data cleared');
         resolve();
       };
 
@@ -362,7 +362,7 @@ class OfflineDb {
       this.db.close();
       this.db = null;
       this.isReady = false;
-      console.log('[OfflineDB] Database closed');
+      if (import.meta.env.DEV) console.log('[OfflineDB] Database closed');
     }
   }
 }

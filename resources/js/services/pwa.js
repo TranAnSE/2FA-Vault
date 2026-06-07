@@ -4,6 +4,7 @@ class PWAService {
   constructor() {
     this.deferredPrompt = null;
     this.registration = null;
+    this._hasUpdate = false;
   }
 
   /**
@@ -11,13 +12,13 @@ class PWAService {
    */
   async register() {
     if (!('serviceWorker' in navigator)) {
-      console.warn('Service Worker not supported');
+      if (import.meta.env.DEV) console.warn('Service Worker not supported');
       return false;
     }
 
     try {
       this.registration = await navigator.serviceWorker.register('/sw.js');
-      console.log('Service Worker registered:', this.registration);
+      if (import.meta.env.DEV) console.log('Service Worker registered:', this.registration);
 
       // Check for updates
       this.registration.addEventListener('updatefound', () => {
@@ -49,8 +50,20 @@ class PWAService {
    * Notify user about available update
    */
   notifyUpdate() {
-    const updateAvailable = new CustomEvent('pwa-update-available');
+    this._hasUpdate = true;
+    const updateAvailable = new CustomEvent('pwa:updateAvailable');
     window.dispatchEvent(updateAvailable);
+  }
+
+  /**
+   * Get current PWA status
+   */
+  getStatus() {
+    return {
+      hasUpdate: this._hasUpdate,
+      isInstalled: this.isInstalled(),
+      isOnline: navigator.onLine,
+    };
   }
 
   /**
@@ -80,7 +93,7 @@ class PWAService {
 
     // Handle successful installation
     window.addEventListener('appinstalled', () => {
-      console.log('PWA installed successfully');
+      if (import.meta.env.DEV) console.log('PWA installed successfully');
       this.deferredPrompt = null;
       
       const installed = new CustomEvent('pwa-installed');
@@ -101,7 +114,7 @@ class PWAService {
     
     // Wait for user choice
     const { outcome } = await this.deferredPrompt.userChoice;
-    console.log(`Install prompt outcome: ${outcome}`);
+    if (import.meta.env.DEV) console.log(`Install prompt outcome: ${outcome}`);
     
     // Clear the deferred prompt
     this.deferredPrompt = null;

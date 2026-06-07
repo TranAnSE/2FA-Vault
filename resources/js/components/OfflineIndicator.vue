@@ -14,10 +14,10 @@
         <div class="indicator-text">
           <strong>{{ statusText }}</strong>
           <span v-if="!isOnline && cachedAccounts > 0">
-            {{ cachedAccounts }} accounts cached
+            {{ $t('pwa.accounts_cached', cachedAccounts) }}
           </span>
           <span v-if="syncing">
-            Syncing...
+            {{ $t('pwa.syncing') }}
           </span>
         </div>
 
@@ -50,6 +50,7 @@ export default {
   },
 
   setup(props) {
+    const { t } = useI18n();
     const show = ref(false);
     const isOnline = ref(navigator.onLine);
     const syncing = ref(false);
@@ -64,9 +65,9 @@ export default {
     // Status text
     const statusText = computed(() => {
       if (isOnline.value) {
-        return syncing.value ? 'Back online - Syncing' : 'Back online';
+        return syncing.value ? t('pwa.back_online_syncing') : t('pwa.back_online');
       }
-      return 'You are offline';
+      return t('pwa.you_are_offline');
     });
 
     // Load cached accounts count

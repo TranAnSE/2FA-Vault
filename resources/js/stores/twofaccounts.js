@@ -5,6 +5,7 @@ import { useCryptoStore } from '@/stores/crypto'
 import cryptoService from '@/services/crypto'
 import { useNotify } from '@2fauth/ui'
 import twofaccountService from '@/services/twofaccountService'
+import userService from '@/services/userService'
 import { saveAs } from 'file-saver'
 
 export const useTwofaccounts = defineStore('twofaccounts', {
@@ -118,7 +119,10 @@ export const useTwofaccounts = defineStore('twofaccounts', {
                         for (let account of response.data) {
                             if (account.secret) {
                                 try {
-                                    account.secret = await cryptoService.decryptSecret(account.secret)
+                                    const secretData = typeof account.secret === 'string'
+                                        ? JSON.parse(account.secret)
+                                        : account.secret
+                                    account.secret = await cryptoService.decryptSecret(secretData)
                                 } catch (error) {
                                     console.error('Failed to decrypt secret for account:', account.id, error)
                                 }

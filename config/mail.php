@@ -39,7 +39,7 @@ return [
         
         'smtp' => [
             'transport' => 'smtp',
-            // 'scheme' => env('MAIL_SCHEME'), TODO: Fixme issue with symfony/mailer
+            'scheme' => env('MAIL_SCHEME', null),
             'url' => env('MAIL_URL'),
             'host' => env('MAIL_HOST', 'smtp.mailgun.org'),
             'port' => env('MAIL_PORT', 587),

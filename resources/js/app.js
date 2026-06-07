@@ -78,13 +78,11 @@ app
     .component('FormButtons', FormButtons)
 
 // Global error handling
-// import { useNotify } from '@2fauth/ui'
-// if (process.env.NODE_ENV != 'development') {
-//     app.config.errorHandler = (err) => {
-//         useNotify().parse(err)
-//         router.push({ name: 'genericError' })
-//     }
-// }
+app.config.errorHandler = (err, instance, info) => {
+    if (import.meta.env.DEV) {
+        console.error('[2FA-Vault] Unhandled error:', err, info)
+    }
+}
 
 // Helpers
 // app.config.globalProperties.$helpers = helpers

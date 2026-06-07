@@ -25,6 +25,7 @@ use App\Models\User;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Http\Request;
 use Illuminate\Support\Arr;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Validation\ValidationException;
 
 class TwoFAccountController extends Controller
@@ -108,8 +109,10 @@ class TwoFAccountController extends Controller
         try {
             Groups::assign($twofaccount->id, $request->user(), Arr::get($validated, 'group_id', null));
         } catch (\Throwable $th) {
-            // The group association might fail but we don't want the twofaccount
-            // creation to be reverted so we do nothing here.
+            Log::warning('Group assignment failed after account creation', [
+                'account_id' => $twofaccount->id,
+                'error'      => $th->getMessage(),
+            ]);
         }
 
         return (new TwoFAccountReadResource($twofaccount->refresh()))

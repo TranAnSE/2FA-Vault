@@ -140,5 +140,5 @@ Route::group(['middleware' => ['auth:api-guard', 'admin']], function () {
 });
 
 Route::get('/{any}', function () {
-    abort(404, 'unknowkn endpoint');
+    abort(404, 'unknown endpoint');
 })->where('any', '.*');

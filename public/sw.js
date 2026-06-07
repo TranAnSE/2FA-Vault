@@ -186,7 +186,7 @@ function resetAutoLockTimeout() {
     vaultKey = null;
     encryptedAccounts = [];
     console.log('[Service Worker] Vault auto-locked after 5 minutes of inactivity');
-    notifyClients('VAUT_LOCKED');
+    notifyClients('VAULT_LOCKED');
   }, 5 * 60 * 1000); // 5 minutes
 }
 

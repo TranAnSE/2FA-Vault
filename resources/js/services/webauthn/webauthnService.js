@@ -77,6 +77,11 @@ class WebauthnService {
 
 
     async authenticate(email) {
+        let err = {
+            webauthn: true,
+            type: 'is-danger',
+            message: ''
+        }
 
         // Check https context
         if (!window.isSecureContext) {
@@ -221,7 +226,7 @@ class WebauthnService {
      *
      * @returns {boolean}
      */
-    static supportsWebAuthn() {
+    static get supportsWebAuthn() {
         return (window?.PublicKeyCredential !== undefined && typeof window.PublicKeyCredential === 'function');
     }
     

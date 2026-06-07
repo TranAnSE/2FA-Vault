@@ -9,16 +9,16 @@
         </div>
         
         <div class="prompt-text">
-          <h3>Update Available</h3>
-          <p>A new version of 2FA-Vault is ready to install</p>
+          <h3>{{ $t('pwa.update_available') }}</h3>
+          <p>{{ $t('pwa.new_version_ready') }}</p>
         </div>
 
         <div class="prompt-actions">
           <button @click="update" class="btn-update" :disabled="updating">
-            {{ updating ? 'Updating...' : 'Update Now' }}
+            {{ updating ? $t('pwa.updating') : $t('pwa.update_now') }}
           </button>
           <button @click="dismiss" class="btn-dismiss">
-            Later
+            {{ $t('pwa.later') }}
           </button>
         </div>
       </div>
