@@ -369,6 +369,52 @@ class TeamService
     }
 
     /**
+     * Share an account with per-member encrypted keys (E2EE).
+     * Each entry in $memberKeys is ['member_id' => int, 'wrapped_key' => string].
+     * The wrapped_key is the account secret encrypted with the member's public key.
+     *
+     * @param  array<array{member_id: int, wrapped_key: string}>  $memberKeys
+     */
+    public function shareEncryptedWithMembers(TwoFAccount $account, Team $team, User $sharer, string $accessLevel, array $memberKeys): void
+    {
+        if ($account->user_id !== $sharer->id) {
+            throw new \Exception('You can only share accounts you own.');
+        }
+
+        if (!$team->hasMember($sharer->id)) {
+            throw new \Exception('You must be a member of the team to share accounts with it.');
+        }
+
+        // Remove existing encrypted shares for this account in this team
+        \App\Models\SharedAccount::where('team_id', $team->id)
+            ->where('twofaccount_id', $account->id)
+            ->whereNotNull('member_id')
+            ->delete();
+
+        foreach ($memberKeys as $entry) {
+            if (!$team->hasMember($entry['member_id'])) {
+                continue; // skip non-members silently
+            }
+
+            \App\Models\SharedAccount::create([
+                'team_id'        => $team->id,
+                'twofaccount_id' => $account->id,
+                'shared_by'      => $sharer->id,
+                'access_level'   => $accessLevel,
+                'member_id'      => $entry['member_id'],
+                'wrapped_key'    => $entry['wrapped_key'],
+            ]);
+        }
+
+        Log::info('Account shared with encrypted keys', [
+            'account_id'     => $account->id,
+            'team_id'        => $team->id,
+            'shared_by'      => $sharer->id,
+            'member_count'   => count($memberKeys),
+        ]);
+    }
+
+    /**
      * Check if user can update team
      */
     private function canUpdateTeam(Team $team, User $user): bool

@@ -91,6 +91,7 @@ class User extends Authenticatable implements HasLocalePreference, WebAuthnAuthe
     protected $fillable = [
         'name', 'email', 'password', 'oauth_id', 'oauth_provider', 'is_admin', 'is_active',
         'encryption_salt', 'encryption_test_value', 'encryption_version', 'vault_locked', 'last_backup_at',
+        'public_key',
     ];
 
     /**
@@ -277,6 +278,30 @@ class User extends Authenticatable implements HasLocalePreference, WebAuthnAuthe
     public function groups()
     {
         return $this->hasMany(\App\Models\Group::class);
+    }
+
+    /**
+     * Get the tags for the user.
+     */
+    public function tags()
+    {
+        return $this->hasMany(\App\Models\Tag::class);
+    }
+
+    /**
+     * Get the vaults for the user.
+     */
+    public function vaults()
+    {
+        return $this->hasMany(\App\Models\Vault::class);
+    }
+
+    /**
+     * Get the webhooks for the user.
+     */
+    public function webhooks()
+    {
+        return $this->hasMany(\App\Models\Webhook::class);
     }
 
     /**

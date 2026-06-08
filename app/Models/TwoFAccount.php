@@ -162,8 +162,9 @@ class TwoFAccount extends Model implements Sortable
      * @var array<string, string>
      */
     protected $casts = [
-        'user_id'   => 'integer',
-        'encrypted' => 'boolean',
+        'user_id'      => 'integer',
+        'encrypted'    => 'boolean',
+        'last_used_at' => 'datetime',
     ];
 
     /**
@@ -251,6 +252,14 @@ class TwoFAccount extends Model implements Sortable
     public function iconResource() : HasOne
     {
         return $this->hasOne(Icon::class, 'name', 'icon');
+    }
+
+    /**
+     * Get the tags assigned to this account.
+     */
+    public function tags()
+    {
+        return $this->belongsToMany(\App\Models\Tag::class, 'account_tag', 'twofaccount_id', 'tag_id');
     }
 
     /**

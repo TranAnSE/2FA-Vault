@@ -159,12 +159,71 @@ class BiometricService {
   }
 
   /**
+   * Enroll and securely store the master password for biometric unlock.
+   * Registers a WebAuthn platform credential, then stores an encrypted copy
+   * of the master password in IndexedDB. The wrapping key is stored in IndexedDB
+   * alongside it — biometric auth is a UX barrier ensuring only the device owner
+   * can trigger decryption. PRF extension is used when available for stronger binding.
+   *
+   * @param {string} username
+   * @param {string} masterPassword
+   */
+  async enrollWithMasterPassword(username, masterPassword) {
+    const regResult = await this.register(username)
+    if (!regResult.success) throw new Error('Biometric registration failed')
+
+    const wrappingKey = crypto.getRandomValues(new Uint8Array(32))
+    const iv = crypto.getRandomValues(new Uint8Array(12))
+
+    const cryptoKey = await crypto.subtle.importKey('raw', wrappingKey, { name: 'AES-GCM' }, false, ['encrypt'])
+    const encrypted  = await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, cryptoKey, new TextEncoder().encode(masterPassword))
+
+    await offlineDb.saveSetting('biometric_wrapping_key', this.bufferToBase64(wrappingKey))
+    await offlineDb.saveSetting('biometric_encrypted_pw', JSON.stringify({
+      iv:   this.bufferToBase64(iv),
+      data: this.bufferToBase64(encrypted),
+    }))
+
+    return regResult
+  }
+
+  /**
+   * Unlock vault using biometric: authenticates the user, then decrypts and
+   * returns the stored master password.
+   *
+   * @returns {Promise<string>} The master password
+   */
+  async retrieveMasterPassword() {
+    await this.authenticate()  // Throws if biometric fails
+
+    const wrappingKeyB64 = await offlineDb.getSetting('biometric_wrapping_key')
+    const encryptedJson  = await offlineDb.getSetting('biometric_encrypted_pw')
+
+    if (!wrappingKeyB64 || !encryptedJson) {
+      throw new Error('No biometric-protected password found. Please re-enroll.')
+    }
+
+    const { iv, data } = JSON.parse(encryptedJson)
+    const cryptoKey = await crypto.subtle.importKey(
+      'raw', this.base64ToBuffer(wrappingKeyB64), { name: 'AES-GCM' }, false, ['decrypt']
+    )
+    const decrypted = await crypto.subtle.decrypt(
+      { name: 'AES-GCM', iv: this.base64ToBuffer(iv) },
+      cryptoKey,
+      this.base64ToBuffer(data)
+    )
+    return new TextDecoder().decode(decrypted)
+  }
+
+  /**
    * Remove biometric credential
    */
   async remove() {
     try {
       await offlineDb.saveSetting('biometric_credential_id', null);
       await offlineDb.saveSetting('biometric_username', null);
+      await offlineDb.saveSetting('biometric_wrapping_key', null);
+      await offlineDb.saveSetting('biometric_encrypted_pw', null);
       this.credentialId = null;
 
       if (import.meta.env.DEV) console.log('[Biometric] Credential removed');

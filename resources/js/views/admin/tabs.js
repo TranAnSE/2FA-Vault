@@ -14,4 +14,14 @@ export default [
         'view' : 'admin.users',
         'id'   : 'lnkTabUsers'
     },
+    {
+        'name' : 'label.vault_health',
+        'view' : 'admin.health',
+        'id'   : 'lnkTabHealth'
+    },
+    {
+        'name' : 'label.rate_limits',
+        'view' : 'admin.rateLimits',
+        'id'   : 'lnkTabRateLimits'
+    },
 ]

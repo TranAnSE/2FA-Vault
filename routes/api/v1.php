@@ -2,6 +2,7 @@
 
 use App\Api\v1\Controllers\FeatureFlagController;
 use App\Api\v1\Controllers\GroupController;
+use App\Api\v1\Controllers\TagController;
 use App\Api\v1\Controllers\IconController;
 use App\Api\v1\Controllers\QrCodeController;
 use App\Api\v1\Controllers\SettingController;
@@ -10,6 +11,11 @@ use App\Api\v1\Controllers\UserController;
 use App\Api\v1\Controllers\UserManagerController;
 use App\Http\Controllers\Admin\UserManagementController;
 use App\Http\Controllers\EncryptionController;
+use App\Http\Controllers\Admin\RateLimitDashboardController;
+use App\Http\Controllers\WebhookController;
+use App\Http\Controllers\EmergencyAccessController;
+use App\Http\Controllers\VaultController;
+use App\Http\Controllers\TeamActivityController;
 use App\Http\Controllers\TeamController;
 use Illuminate\Support\Facades\Date;
 use Illuminate\Support\Facades\Route;
@@ -55,6 +61,10 @@ Route::group(['middleware' => ['auth:api-guard', 'enforceMandatoryEncryption']],
     Route::post('groups/{group}/assign', [GroupController::class, 'assignAccounts'])->name('groups.assign.twofaccounts');
     Route::post('groups/reorder', [GroupController::class, 'reorder'])->name('groups.reorder');
     Route::apiResource('groups', GroupController::class);
+
+    // Tags
+    Route::apiResource('tags', TagController::class)->only(['index', 'store', 'update', 'destroy']);
+    Route::post('twofaccounts/{accountId}/tags', [TagController::class, 'syncAccountTags'])->name('twofaccounts.tags.sync');
 
     Route::post('qrcode/decode', [QrCodeController::class, 'decode'])->name('qrcode.decode');
 
@@ -112,7 +122,39 @@ Route::group(['middleware' => ['auth:api-guard', 'enforceMandatoryEncryption']],
     Route::put('teams/{id}/members/{userId}/role', [TeamController::class, 'updateMemberRole'])->name('teams.members.updateRole');
     Route::get('teams/{id}/shared-accounts', [TeamController::class, 'sharedAccounts'])->name('teams.sharedAccounts.index');
     Route::post('teams/{id}/share', [TeamController::class, 'shareAccount'])->name('teams.shareAccount');
+    Route::post('teams/{id}/share-encrypted', [TeamController::class, 'shareEncrypted'])->name('teams.shareEncrypted');
     Route::delete('teams/{id}/share/{accountId}', [TeamController::class, 'unshareAccount'])->name('teams.unshareAccount');
+    Route::get('teams/{id}/members/{userId}/public-key', [TeamController::class, 'memberPublicKey'])->name('teams.members.publicKey');
+    Route::post('user/public-key', [TeamController::class, 'registerPublicKey'])->name('user.publicKey.register');
+    Route::get('teams/{id}/activity', [TeamActivityController::class, 'index'])->name('teams.activity.index');
+    Route::get('teams/{id}/activity/export', [TeamActivityController::class, 'export'])->name('teams.activity.export');
+
+    // Webhooks
+    Route::get('webhooks/events',          [WebhookController::class, 'availableEvents'])->name('webhooks.events');
+    Route::get('webhooks',                 [WebhookController::class, 'index'])->name('webhooks.index');
+    Route::post('webhooks',                [WebhookController::class, 'store'])->name('webhooks.store');
+    Route::put('webhooks/{id}',            [WebhookController::class, 'update'])->name('webhooks.update');
+    Route::delete('webhooks/{id}',         [WebhookController::class, 'destroy'])->name('webhooks.destroy');
+    Route::post('webhooks/{id}/test',      [WebhookController::class, 'test'])->name('webhooks.test');
+    Route::get('webhooks/{id}/deliveries', [WebhookController::class, 'deliveries'])->name('webhooks.deliveries');
+
+    // Emergency Access
+    Route::get('emergency-contacts',                      [EmergencyAccessController::class, 'index'])->name('emergency.index');
+    Route::post('emergency-contacts',                     [EmergencyAccessController::class, 'store'])->name('emergency.store');
+    Route::delete('emergency-contacts/{id}',              [EmergencyAccessController::class, 'destroy'])->name('emergency.destroy');
+    Route::get('emergency-contacts/for-me',               [EmergencyAccessController::class, 'contactsForMe'])->name('emergency.forMe');
+    Route::get('emergency-requests/pending',              [EmergencyAccessController::class, 'pendingRequests'])->name('emergency.pending');
+    Route::post('emergency-contacts/{contactId}/request', [EmergencyAccessController::class, 'requestAccess'])->name('emergency.request');
+    Route::post('emergency-requests/{requestId}/approve', [EmergencyAccessController::class, 'approve'])->name('emergency.approve');
+    Route::post('emergency-requests/{requestId}/deny',    [EmergencyAccessController::class, 'deny'])->name('emergency.deny');
+
+    // Vaults
+    Route::get('vaults',                              [VaultController::class, 'index'])->name('vaults.index');
+    Route::post('vaults',                             [VaultController::class, 'store'])->name('vaults.store');
+    Route::put('vaults/{id}',                         [VaultController::class, 'update'])->name('vaults.update');
+    Route::delete('vaults/{id}',                      [VaultController::class, 'destroy'])->name('vaults.destroy');
+    Route::post('vaults/{id}/lock',                   [VaultController::class, 'lock'])->name('vaults.lock');
+    Route::post('vaults/{id}/encryption',             [VaultController::class, 'setupEncryption'])->name('vaults.encryption');
 });
 
 /**
@@ -137,6 +179,9 @@ Route::group(['middleware' => ['auth:api-guard', 'admin']], function () {
     Route::get('admin/users/{id}', [UserManagementController::class, 'show'])->name('admin.users.show');
     Route::put('admin/users/{id}', [UserManagementController::class, 'update'])->name('admin.users.update');
     Route::delete('admin/users/{id}', [UserManagementController::class, 'destroy'])->name('admin.users.destroy');
+
+    // Admin: Rate Limit Dashboard
+    Route::get('admin/rate-limits', [RateLimitDashboardController::class, 'index'])->name('admin.rateLimits.index');
 });
 
 Route::get('/{any}', function () {

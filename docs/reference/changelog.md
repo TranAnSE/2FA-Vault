@@ -5,6 +5,107 @@ All notable changes to 2FA-Vault will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.1.0] - 2026-06-07
+
+### Added
+
+**🔌 Browser Auto-Fill OTP (Phase 6)**
+- Extension content script (`auto-fill.content.js`) detects 2FA input fields on web pages
+- Domain-to-account matching with confidence scoring; fills OTP automatically
+- OTP cleared from DOM after 30 seconds; default OFF (user must enable in extension settings)
+- Auto-fill toggle in extension Options settings page
+
+**📊 Vault Health Dashboard (Phase 7)**
+- Admin dashboard at `/admin/health` showing overall vault health score (0-100)
+- Duplicate secret detection, unused account detection (90-day threshold), secret strength analysis
+- Health gauge component with color-coded score; export report as JSON
+- `last_used_at` field added to `twofaccounts` table, updated on every OTP generation
+
+**🔑 Encrypted Key Sharing (Phase 8)**
+- RSA-OAEP key pair generation per user, public key stored on server
+- Per-member wrapped key storage in `shared_accounts.wrapped_key`
+- Team owner can share accounts with E2EE key wrapping — server never sees plaintext secret
+- New endpoints: `POST /teams/{id}/share-encrypted`, `GET /teams/{id}/members/{userId}/public-key`, `POST /user/public-key`
+
+**👆 Biometric Unlock (Phase 9)**
+- WebAuthn platform authenticator enrollment for fingerprint/Face ID unlock
+- Encrypted master key storage in IndexedDB; biometric auth triggers decryption
+- Available in both main app (UnlockVault.vue, Encryption.vue) and extension popup
+- Biometric enrollment/management in Settings → Encryption
+
+**🔄 Background Sync PWA (Phase 10)**
+- Background Sync API handler in service worker (`sw.js`)
+- Offline operation queue in IndexedDB; auto-syncs on network restoration
+- `syncService.js` coordinates Background Sync registration with SW fallback
+- `OfflineIndicator.vue` now shows pending/failed operation counts
+
+**🏷️ Account Tags & Labels (Phase 11)**
+- Full tags CRUD: `GET/POST/PUT/DELETE /api/v1/tags`
+- Many-to-many `account_tag` pivot; up to 10 tags per account
+- `TagBadge.vue` and `TagInput.vue` components; Tags management page at `/tags`
+- `TwoFAccountController::index` supports `tags`, `tag_mode` filter params
+
+**🔍 Advanced Search & Filter (Phase 12)**
+- Client-side full-text search engine (`searchService.js`) for encrypted vaults
+- Server-side filtering by `q`, `types`, `algorithms`, `digits`, `group_id`, `tags`, `encrypted`, `last_used_from/to`, `sort`
+- `FilterPanel.vue` collapsible filter UI with saved presets (localStorage)
+
+**📋 Team Activity Log (Phase 13)**
+- `team_activity_logs` table with indexed queries; 90-day auto-prune
+- `TeamActivityLogger` service injects into `TeamController` for fire-and-forget logging
+- Activity log view at `/teams/:id/activity` with pagination and JSON export
+- Logged actions: team created/updated, member joined/left/removed, role changed, account shared/unshared
+
+**🆘 Emergency Access / Dead Man's Switch (Phase 14)**
+- Designate up to 5 trusted contacts with configurable wait periods (7–90 days)
+- Trusted contact requests access; owner has wait_days to approve/deny before auto-grant
+- Dead man's switch: if owner is inactive for `wait_days`, access is auto-granted
+- Scheduled command `emergency:process` runs daily at 03:00
+- Settings page at `/settings/emergency`
+
+**🗃️ Multiple Vaults / Sub-Vaults (Phase 15)**
+- `vaults` table with per-vault encryption keys; `vault_id` FK on `twofaccounts`, `groups`, `tags`
+- Up to 10 vaults per user; default vault auto-created; non-default vaults deletable
+- `VaultService` for vault lifecycle management
+- Settings page at `/settings/vaults`
+
+**🎯 Extension Form Detection & Badge (Phase 16)**
+- `detector.content.js` runs on all pages, detects login/2FA forms
+- Background updates extension badge count with matching account count
+- `domainMappingService.js` persists user-confirmed domain→account mappings
+- Page context stored in session storage for popup to read on open
+
+**⚡ Admin Rate Limit Dashboard (Phase 17)**
+- `rate_limit_logs` table with indexed queries
+- `RateLimitMonitorService` with fire-and-forget logging after response
+- Admin dashboard at `/admin/rate-limits` showing total requests, limited requests, top consumers, top endpoints
+- Supports 24h/7d/30d time windows
+
+**🔔 Webhook / Event System (Phase 18)**
+- `webhooks` and `webhook_deliveries` tables
+- `WebhookEvent` enum with 13 event types (account, team, auth, vault events)
+- `WebhookDeliveryJob` queued job with 3 retry attempts and HMAC-SHA256 signature
+- Webhook CRUD + test endpoint + delivery history at `/settings/webhooks`
+- `WebhookService::dispatch()` for fire-and-forget event delivery
+
+### Changed
+- `TwoFAccount` responses now include `last_used_at` and `tags[]` fields
+- Admin tabs expanded with Vault Health and Rate Limits sections
+- `shared_accounts` table gained `member_id` and `wrapped_key` columns
+- `users` table gained `public_key` column
+- Service worker `sw.js` now handles `sync` events and `PROCESS_SYNC_QUEUE` messages
+
+### Database Migrations (2026-06-07)
+- `add_last_used_at_to_twofaccounts_table`
+- `add_public_key_to_users_table`
+- `add_member_key_to_shared_accounts_table`
+- `create_tags_table` (+ `account_tag` pivot)
+- `create_team_activity_logs_table`
+- `create_emergency_access_tables`
+- `create_vaults_table` (+ `vault_id` on twofaccounts/groups/tags)
+- `create_rate_limit_tables`
+- `create_webhooks_table`
+
 ## [1.0.0] - 2026-04-04
 
 ### Added

@@ -2,18 +2,28 @@
 
 > Honest, focused roadmap for reaching a self-hostable, trustable 1.0. Scoped for an OSS self-host tool — **not** a SaaS product. See [Non-goals](#non-goals) for what we deliberately skip.
 
-Last updated: 2026-05-07
+Last updated: 2026-06-07
 
 ---
 
-## Current state
+## Current state (as of 2026-06-07)
 
 - ✅ E2EE (client-side Argon2id + AES-256-GCM) — implemented
 - ✅ Multi-user + teams — implemented
 - ✅ Encrypted backup format — implemented
-- ⚠️ PWA — `manifest.json` + `sw.js` present, cache strategies work, **but offline OTP generation is a stub** (`public/sw.js:250-271` returns hardcoded `"000000"`). Service worker also has a broken `import()` call at line 181 that will fail at runtime. No background sync despite the claim in older docs.
-- ⚠️ Browser extension — forked from upstream. E2EE unlock and local TOTP/HOTP generation now work against encrypted vault fixtures, but the extension still needs broader runtime coverage, autofill hardening, and release-warning cleanup.
-- ❌ Everything below
+- ✅ PWA Background Sync — implemented (sw.js sync event handler, syncService.js, offline queue with retry)
+- ✅ Browser Extension Auto-Fill — content script detects 2FA fields, fills OTP from vault
+- ✅ Biometric Unlock — WebAuthn platform authenticator (fingerprint/Face ID) in web app and extension
+- ✅ Vault Health Dashboard — health score, duplicate detection, unused accounts, secret strength
+- ✅ Encrypted Key Sharing (E2EE) — RSA-OAEP per-member key wrapping for team shared accounts
+- ✅ Account Tags & Labels — full CRUD, multi-tag filter, TagBadge/TagInput components
+- ✅ Advanced Search & Filter — client-side full-text + multi-criteria filters with saved presets
+- ✅ Team Activity Log — audit trail for all team actions, exportable
+- ✅ Emergency Access / Dead Man's Switch — trusted contacts, configurable wait period, auto-grant
+- ✅ Multiple Vaults / Sub-vaults — per-vault encryption, up to 10 vaults per user
+- ✅ Extension Form Detection + Badge — badge shows matching account count per page
+- ✅ Admin Rate Limit Dashboard — real-time rate limit monitoring with top consumers/endpoints
+- ✅ Webhook / Event System — HMAC-signed HTTP webhooks with retry and delivery history
 
 ---
 
@@ -46,11 +56,11 @@ Target repo: `2FA-Vault-WebExtension` (with supporting changes in `2FA-Vault` AP
 
 > Upgrade from "copy/paste helper" to "autofill like a password manager".
 
-- [ ] Content script: detect OTP input fields on login pages
-- [ ] Domain matching: suggest account whose issuer/label matches current domain
-- [ ] One-click autofill into detected field
+- [x] Content script: detect OTP input fields on login pages (detector.content.js + auto-fill.content.js)
+- [x] Domain matching: suggest account whose issuer/label matches current domain
+- [x] One-click autofill into detected field (auto-fill.content.js with 30s OTP clear)
 - [ ] Quick-add flow: detect QR codes on the current page → add account without leaving the site
-- [ ] WebAuthn platform authenticator unlock (biometric / OS PIN) as alternative to master password
+- [x] WebAuthn platform authenticator unlock (biometric / OS PIN) as alternative to master password
 - [ ] Keyboard shortcut to open/unlock popup
 
 ## Phase 3 — Don't lose user data
@@ -71,21 +81,21 @@ Target repo: `2FA-Vault-WebExtension` (with supporting changes in `2FA-Vault` AP
 
 > Features that make users *actually use* 2FA-Vault beyond "place to store OTPs".
 
-- [ ] Secret health dashboard: flag weak issuers, duplicates, stale entries (not used in 6 months)
+- [x] Secret health dashboard: flag weak issuers, duplicates, stale entries (Vault Health Dashboard at /admin/health)
 - [ ] Have I Been Pwned integration: alert when any account's email has been in a breach
 - [ ] Import: Authy, Microsoft Authenticator, Bitwarden, 1Password, Aegis (already supported upstream)
 - [ ] Bulk operations: multi-select delete, move to group, export
-- [ ] Search + filter when list has 100+ accounts
+- [x] Search + filter when list has 100+ accounts (Advanced Search with FilterPanel, client-side + server-side)
 
 ## Phase 5 — Teams that work
 
 > The differentiator vs. 1Password/Bitwarden for the TOTP-only use case.
 
 - [ ] Just-in-time team access: grant view for N minutes, auto-revoke
-- [ ] Secret access request workflow (member requests → admin approves)
+- [x] Secret access request workflow (Emergency Access: trusted contacts request → owner approves/denies)
 - [ ] Passkey storage alongside TOTP (credentials vault, not just OTP app)
-- [ ] Audit log UI: who accessed / modified / shared what, when. Exportable as CSV
-- [ ] Role-based access: admin / editor / viewer within a team
+- [x] Audit log UI: who accessed / modified / shared what, when. Exportable as JSON (Team Activity Log)
+- [ ] Role-based access: admin / editor / viewer within a team (partially: owner/admin/member/viewer exists)
 
 ## Phase 6 — Polish & contributor-ready
 

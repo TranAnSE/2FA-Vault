@@ -6,6 +6,7 @@
     import { useI18n } from 'vue-i18n'
     import { useErrorHandler } from '@2fauth/stores'
     import httpClientFactory from '@/services/httpClientFactory'
+    import biometricService from '@/services/biometric.js'
 
     const errorHandler = useErrorHandler()
     const { t } = useI18n()
@@ -14,6 +15,10 @@
     const notify = useNotify()
     const router = useRouter()
     const apiClient = httpClientFactory('api')
+
+    const biometricAvailable  = ref(false)
+    const biometricEnrolled   = ref(false)
+    const isBiometricUnlocking = ref(false)
 
     const unlockForm = reactive(new Form({
         masterPassword: '',
@@ -36,7 +41,18 @@
 
         if (!statusResponse.data.vault_locked && cryptoStore.isVaultUnlocked) {
             router.push({ name: 'accounts' })
+            return
         }
+
+        // Check biometric availability (non-blocking)
+        biometricService.isSupported().then(supported => {
+            biometricAvailable.value = supported
+            if (supported) {
+                biometricService.isRegistered().then(enrolled => {
+                    biometricEnrolled.value = enrolled
+                })
+            }
+        }).catch(() => {})
     })
 
     async function handleUnlock() {
@@ -94,6 +110,20 @@
         await userStore.logout()
     }
 
+    async function unlockWithBiometric() {
+        isBiometricUnlocking.value = true
+        try {
+            const masterPassword = await biometricService.retrieveMasterPassword()
+            unlockForm.masterPassword = masterPassword
+            await handleUnlock()
+        } catch (error) {
+            notify.alert({ text: t('error.biometric_unlock_failed') + ': ' + error.message })
+        } finally {
+            isBiometricUnlocking.value = false
+            unlockForm.masterPassword = ''
+        }
+    }
+
     onBeforeRouteLeave(() => {
         notify.clear()
     })
@@ -131,6 +161,19 @@
                         submitId="btnUnlockVault"
                     />
                 </form>
+
+                <!-- Biometric unlock option -->
+                <div v-if="biometricAvailable && biometricEnrolled" class="mt-4">
+                    <hr />
+                    <VueButton
+                        id="btnBiometricUnlock"
+                        :isLoading="isBiometricUnlocking"
+                        class="button is-fullwidth"
+                        @click="unlockWithBiometric"
+                    >
+                        {{ $t('label.unlock_with_biometric') }}
+                    </VueButton>
+                </div>
 
                 <div class="nav-links mt-4">
                     <p>

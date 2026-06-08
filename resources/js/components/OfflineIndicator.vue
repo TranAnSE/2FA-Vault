@@ -16,6 +16,12 @@
           <span v-if="!isOnline && cachedAccounts > 0">
             {{ $t('pwa.accounts_cached', cachedAccounts) }}
           </span>
+          <span v-if="!isOnline && pendingSync > 0">
+            · {{ pendingSync }} {{ $t('pwa.pending_operations') }}
+          </span>
+          <span v-if="failedSync > 0" style="opacity: 0.85">
+            · {{ failedSync }} {{ $t('pwa.failed_operations') }}
+          </span>
           <span v-if="syncing">
             {{ $t('pwa.syncing') }}
           </span>
@@ -34,6 +40,7 @@
 <script>
 import { ref, computed, onMounted, onUnmounted } from 'vue';
 import offlineDb from '../services/offline-db.js';
+import { syncService } from '../services/syncService.js';
 
 export default {
   name: 'OfflineIndicator',
@@ -55,7 +62,10 @@ export default {
     const isOnline = ref(navigator.onLine);
     const syncing = ref(false);
     const cachedAccounts = ref(0);
+    const pendingSync = ref(0);
+    const failedSync = ref(0);
     let hideTimer = null;
+    let removeSyncListener = null;
 
     // Status class
     const statusClass = computed(() => {
@@ -98,29 +108,34 @@ export default {
       show.value = false;
     };
 
+    // Refresh pending/failed counts from the queue
+    const refreshSyncStatus = async () => {
+      const status = await syncService.getStatus();
+      pendingSync.value = status.pending;
+      failedSync.value  = status.failed;
+    };
+
     // Handle online event
-    const handleOnline = () => {
+    const handleOnline = async () => {
       isOnline.value = true;
       syncing.value = true;
       showIndicator();
 
-      // Trigger sync
-      window.dispatchEvent(new CustomEvent('pwa:online', { 
-        detail: { isOnline: true } 
-      }));
+      window.dispatchEvent(new CustomEvent('pwa:online', { detail: { isOnline: true } }));
 
-      // Stop syncing indicator after delay
-      setTimeout(() => {
-        syncing.value = false;
-      }, 2000);
+      // Request background sync to process queued operations
+      await syncService.requestSync().catch(() => {});
+
+      setTimeout(() => { syncing.value = false; }, 3000);
     };
 
     // Handle offline event
     const handleOffline = async () => {
       isOnline.value = false;
       syncing.value = false;
-      
+
       await loadCachedCount();
+      await refreshSyncStatus();
       showIndicator();
 
       window.dispatchEvent(new CustomEvent('pwa:offline', { 
@@ -138,18 +153,20 @@ export default {
 
     // Lifecycle
     onMounted(async () => {
-      // Initial load
       await loadCachedCount();
+      await refreshSyncStatus();
 
-      // Show indicator if offline on load
-      if (!navigator.onLine) {
-        showIndicator();
-      }
+      if (!navigator.onLine) showIndicator();
 
-      // Listen for network events
       window.addEventListener('online', handleOnline);
       window.addEventListener('offline', handleOffline);
       window.addEventListener('pwa:syncAccounts', handleSync);
+
+      // Listen for sync completion from service worker
+      removeSyncListener = syncService.onSyncComplete(async () => {
+        syncing.value = false;
+        await refreshSyncStatus();
+      });
     });
 
     onUnmounted(() => {
@@ -157,6 +174,7 @@ export default {
       window.removeEventListener('online', handleOnline);
       window.removeEventListener('offline', handleOffline);
       window.removeEventListener('pwa:syncAccounts', handleSync);
+      if (removeSyncListener) removeSyncListener();
     });
 
     return {
@@ -164,6 +182,8 @@ export default {
       isOnline,
       syncing,
       cachedAccounts,
+      pendingSync,
+      failedSync,
       statusClass,
       statusText,
       dismiss

@@ -47,9 +47,66 @@ class TwoFAccountController extends Controller
 
         $validated = $request->validated();
 
-        return Arr::has($validated, 'ids')
-            ? new TwoFAccountCollection($request->user()->twofaccounts()->whereIn('id', Helpers::commaSeparatedToArray($validated['ids']))->get()->sortBy('order_column'))
-            : new TwoFAccountCollection($request->user()->twofaccounts->sortBy('order_column'));
+        if (Arr::has($validated, 'ids')) {
+            return new TwoFAccountCollection(
+                $request->user()->twofaccounts()
+                    ->whereIn('id', Helpers::commaSeparatedToArray($validated['ids']))
+                    ->with('tags')
+                    ->get()
+                    ->sortBy('order_column')
+            );
+        }
+
+        // Advanced search/filter
+        if ($request->hasAny(['q', 'types', 'algorithms', 'digits', 'group_id', 'tags', 'encrypted', 'last_used_from', 'last_used_to', 'sort'])) {
+            $query = $request->user()->twofaccounts()->with('tags');
+
+            if ($q = $request->get('q')) {
+                $query->where(function ($sub) use ($q) {
+                    $sub->where('service', 'LIKE', "%{$q}%")
+                        ->orWhere('account', 'LIKE', "%{$q}%");
+                });
+            }
+            if ($request->filled('types')) {
+                $query->whereIn('otp_type', explode(',', $request->types));
+            }
+            if ($request->filled('algorithms')) {
+                $query->whereIn('algorithm', explode(',', $request->algorithms));
+            }
+            if ($request->filled('digits')) {
+                $query->whereIn('digits', array_map('intval', explode(',', $request->digits)));
+            }
+            if ($request->filled('group_id')) {
+                $query->where('group_id', (int) $request->group_id);
+            }
+            if ($request->filled('tags')) {
+                $tagIds = array_filter(array_map('intval', explode(',', $request->tags)));
+                $mode   = $request->get('tag_mode', 'or');
+                if ($mode === 'and') {
+                    foreach ($tagIds as $tagId) {
+                        $query->whereHas('tags', fn ($q) => $q->where('tags.id', $tagId));
+                    }
+                } else {
+                    $query->whereHas('tags', fn ($q) => $q->whereIn('tags.id', $tagIds));
+                }
+            }
+            if ($request->has('encrypted')) {
+                $query->where('encrypted', $request->boolean('encrypted'));
+            }
+            if ($request->filled('last_used_from')) {
+                $query->where('last_used_at', '>=', $request->last_used_from);
+            }
+            if ($request->filled('last_used_to')) {
+                $query->where('last_used_at', '<=', $request->last_used_to);
+            }
+            $sortField = in_array($request->get('sort'), ['service', 'account', 'created_at', 'last_used_at', 'order_column']) ? $request->get('sort') : 'order_column';
+            $sortDir   = $request->get('sort_dir', 'asc') === 'desc' ? 'desc' : 'asc';
+            $query->orderBy($sortField, $sortDir);
+
+            return new TwoFAccountCollection($query->get());
+        }
+
+        return new TwoFAccountCollection($request->user()->twofaccounts()->with('tags')->get()->sortBy('order_column'));
     }
 
     /**
@@ -291,6 +348,8 @@ class TwoFAccountController extends Controller
         if ($id) {
             $twofaccount = TwoFAccount::findOrFail((int) $id);
             $this->authorize('view', $twofaccount);
+            $twofaccount->last_used_at = now();
+            $twofaccount->save();
         }
 
         // The request input is an uri

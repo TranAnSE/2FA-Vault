@@ -67,6 +67,101 @@ self.addEventListener('activate', (event) => {
   );
 });
 
+// Background Sync — process queued offline operations when network returns
+self.addEventListener('sync', (event) => {
+  if (event.tag === 'vault-sync') {
+    event.waitUntil(processSyncQueue());
+  }
+});
+
+const SYNC_DB_NAME    = '2fauth-offline';
+const SYNC_DB_VERSION = 1;
+const SYNC_STORE_NAME = 'syncQueue';
+
+function openSyncDB() {
+  return new Promise((resolve, reject) => {
+    const req = indexedDB.open(SYNC_DB_NAME, SYNC_DB_VERSION);
+    req.onsuccess = () => resolve(req.result);
+    req.onerror   = () => reject(req.error);
+    // If DB doesn't exist yet, createObjectStore fires here
+    req.onupgradeneeded = () => {};
+  });
+}
+
+async function processSyncQueue() {
+  let db;
+  try { db = await openSyncDB(); } catch { return; }
+
+  const pending = await new Promise((resolve, reject) => {
+    const tx  = db.transaction([SYNC_STORE_NAME], 'readonly');
+    const req = tx.objectStore(SYNC_STORE_NAME).getAll();
+    req.onsuccess = () => resolve((req.result || []).filter(i => i.status === 'pending'));
+    req.onerror   = () => reject(req.error);
+  }).catch(() => []);
+
+  let processed = 0;
+  for (const item of pending) {
+    const key = item.id ?? item.timestamp;
+    try {
+      await _updateSyncItem(db, key, { status: 'syncing' });
+      const ok = await _executeSyncOp(item);
+      if (ok) {
+        await _deleteSyncItem(db, key);
+        processed++;
+      } else {
+        const retries = (item.retryCount ?? 0) + 1;
+        await _updateSyncItem(db, key, { retryCount: retries, status: retries >= (item.maxRetries ?? 3) ? 'failed' : 'pending' });
+      }
+    } catch {
+      const retries = (item.retryCount ?? 0) + 1;
+      await _updateSyncItem(db, key, { retryCount: retries, status: retries >= (item.maxRetries ?? 3) ? 'failed' : 'pending' }).catch(() => {});
+    }
+  }
+
+  const clients = await self.clients.matchAll({ type: 'window' });
+  clients.forEach(c => c.postMessage({ type: 'SYNC_COMPLETE', processed, remaining: pending.length - processed }));
+}
+
+function _updateSyncItem(db, key, updates) {
+  return new Promise((resolve, reject) => {
+    const tx    = db.transaction([SYNC_STORE_NAME], 'readwrite');
+    const store = tx.objectStore(SYNC_STORE_NAME);
+    const get   = store.get(key);
+    get.onsuccess = () => {
+      if (!get.result) return resolve();
+      const put = store.put({ ...get.result, ...updates }, key);
+      put.onsuccess = () => resolve();
+      put.onerror   = () => reject(put.error);
+    };
+    get.onerror = () => reject(get.error);
+  });
+}
+
+function _deleteSyncItem(db, key) {
+  return new Promise((resolve, reject) => {
+    const tx  = db.transaction([SYNC_STORE_NAME], 'readwrite');
+    const req = tx.objectStore(SYNC_STORE_NAME).delete(key);
+    req.onsuccess = () => resolve();
+    req.onerror   = () => reject(req.error);
+  });
+}
+
+async function _executeSyncOp(item) {
+  const headers = { 'Content-Type': 'application/json', 'X-Requested-With': 'XMLHttpRequest' };
+  const opts    = (method, body) => ({ method, headers, credentials: 'include', ...(body ? { body: JSON.stringify(body) } : {}) });
+  try {
+    let res;
+    switch (item.action) {
+      case 'CREATE_ACCOUNT':  res = await fetch('/api/v1/twofaccounts', opts('POST', item.data)); break;
+      case 'UPDATE_ACCOUNT':  res = await fetch(`/api/v1/twofaccounts/${item.data.id}`, opts('PUT', item.data)); break;
+      case 'DELETE_ACCOUNT':  res = await fetch(`/api/v1/twofaccounts/${item.data.id}`, opts('DELETE')); break;
+      case 'UPDATE_COUNTER':  res = await fetch(`/api/v1/twofaccounts/${item.data.id}/counter`, opts('PATCH', { counter: item.data.counter })); break;
+      default: return true; // Unknown — discard
+    }
+    return res.ok;
+  } catch { return false; }
+}
+
 // Fetch event - route-based caching strategy
 self.addEventListener('fetch', (event) => {
   const { request } = event;
@@ -171,6 +266,11 @@ self.addEventListener('message', (event) => {
   // Heartbeat to reset auto-lock timeout
   if (event.data && event.data.type === 'HEARTBEAT') {
     resetAutoLockTimeout();
+  }
+
+  // Fallback sync trigger for browsers without Background Sync API
+  if (event.data && event.data.type === 'PROCESS_SYNC_QUEUE') {
+    event.waitUntil(processSyncQueue());
   }
 });
 

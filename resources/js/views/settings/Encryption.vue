@@ -7,6 +7,7 @@
     import { useI18n } from 'vue-i18n'
     import { useErrorHandler } from '@2fauth/stores'
     import httpClientFactory from '@/services/httpClientFactory'
+    import biometricService from '@/services/biometric.js'
 
     const errorHandler = useErrorHandler()
     const { t } = useI18n()
@@ -22,6 +23,11 @@
     const encryptionStatus = ref(null)
     const isLoading = ref(true)
     const isActionLoading = ref(false)
+
+    const biometricSupported  = ref(false)
+    const biometricEnrolled   = ref(false)
+    const isBiometricEnrolling = ref(false)
+    const bioEnrollPassword   = ref('')
 
     const formUnlock = reactive(new Form({
         masterPassword : '',
@@ -61,6 +67,10 @@
 
     onMounted(() => {
         fetchStatus()
+        biometricService.isSupported().then(s => {
+            biometricSupported.value = s
+            if (s) biometricService.isRegistered().then(r => { biometricEnrolled.value = r })
+        }).catch(() => {})
     })
 
     /**
@@ -158,6 +168,35 @@
         }
     }
 
+    async function enrollBiometric() {
+        if (!bioEnrollPassword.value) {
+            notify.alert({ text: t('error.master_password_required_for_biometric') })
+            return
+        }
+        isBiometricEnrolling.value = true
+        try {
+            await biometricService.enrollWithMasterPassword(user.email, bioEnrollPassword.value)
+            biometricEnrolled.value = true
+            bioEnrollPassword.value = ''
+            notify.success({ text: t('notification.biometric_enrolled') })
+        } catch (e) {
+            notify.alert({ text: t('error.biometric_enrollment_failed') + ': ' + e.message })
+        } finally {
+            isBiometricEnrolling.value = false
+        }
+    }
+
+    async function unenrollBiometric() {
+        if (!confirm(t('confirmation.remove_biometric'))) return
+        try {
+            await biometricService.remove()
+            biometricEnrolled.value = false
+            notify.success({ text: t('notification.biometric_removed') })
+        } catch (e) {
+            notify.alert({ text: t('error.biometric_removal_failed') })
+        }
+    }
+
     onBeforeRouteLeave((to) => {
         if (! to.name.startsWith('settings.')) {
             notify.clear()
@@ -245,6 +284,30 @@
                                 <FormButtons :isBusy="isActionLoading" submitLabel="label.unlock_vault" />
                             </form>
                         </div>
+
+                        <!-- Biometric Unlock -->
+                        <template v-if="biometricSupported">
+                            <h4 class="title is-4 pt-5">{{ $t('heading.biometric_unlock') }}</h4>
+                            <div v-if="biometricEnrolled" class="notification is-success is-size-7 mb-3">
+                                {{ $t('message.biometric_enrolled') }}
+                            </div>
+                            <div v-if="!biometricEnrolled">
+                                <p class="mb-3 is-size-7">{{ $t('message.biometric_enrollment_desc') }}</p>
+                                <div class="field">
+                                    <label class="label is-size-7">{{ $t('field.master_password') }}</label>
+                                    <input class="input is-small" type="password" v-model="bioEnrollPassword" autocomplete="current-password" />
+                                    <p class="help">{{ $t('message.biometric_password_help') }}</p>
+                                </div>
+                                <VueButton :isLoading="isBiometricEnrolling" @click="enrollBiometric" class="button is-info">
+                                    {{ $t('label.enable_biometric') }}
+                                </VueButton>
+                            </div>
+                            <div v-else>
+                                <VueButton @click="unenrollBiometric" class="button is-warning is-light">
+                                    {{ $t('label.remove_biometric') }}
+                                </VueButton>
+                            </div>
+                        </template>
 
                         <!-- Disable encryption (danger zone) -->
                         <h4 class="title is-4 pt-6 has-text-danger">{{ $t('heading.danger_zone') }}</h4>

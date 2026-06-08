@@ -17,6 +17,7 @@ class Kernel extends ConsoleKernel
     protected function schedule(Schedule $schedule)
     {
         $schedule->command('cache:prune-stale-tags')->hourly();
+        $schedule->command('emergency:process')->dailyAt('03:00');
     }
 
     /**

@@ -185,6 +185,17 @@ export const useTeamsStore = defineStore('teams', {
       }
     },
 
+    async shareEncrypted(teamId, twofaccountId, decryptedSecret, members, accessLevel = 'read') {
+      const { shareEncryptedWithTeam } = await import('@/services/keySharingService')
+      try {
+        const response = await shareEncryptedWithTeam(teamId, twofaccountId, decryptedSecret, members, accessLevel)
+        return response.data
+      } catch (error) {
+        console.error('Failed to share with encryption:', error)
+        throw error
+      }
+    },
+
     // --- Email Invitations ---
 
     async inviteByEmail(teamId, email, role = 'member') {

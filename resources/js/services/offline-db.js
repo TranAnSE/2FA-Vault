@@ -243,9 +243,13 @@ class OfflineDb {
       const transaction = db.transaction([STORES.SYNC_QUEUE], 'readwrite');
       const store = transaction.objectStore(STORES.SYNC_QUEUE);
       const request = store.add({
+        id: crypto.randomUUID(),
         action,
         data,
-        timestamp: Date.now()
+        timestamp: Date.now(),
+        retryCount: 0,
+        maxRetries: 3,
+        status: 'pending',
       });
 
       request.onsuccess = () => {
@@ -302,6 +306,39 @@ class OfflineDb {
         console.error('[OfflineDB] Failed to clear sync queue:', request.error);
         reject(request.error);
       };
+    });
+  }
+
+  /**
+   * Remove a specific item from the sync queue by its IDB key
+   */
+  async removeSyncItem(idbKey) {
+    const db = await this.ensureReady();
+    return new Promise((resolve, reject) => {
+      const tx  = db.transaction([STORES.SYNC_QUEUE], 'readwrite');
+      const req = tx.objectStore(STORES.SYNC_QUEUE).delete(idbKey);
+      req.onsuccess = () => resolve();
+      req.onerror   = () => reject(req.error);
+    });
+  }
+
+  /**
+   * Update status and retry count on a sync queue item
+   */
+  async updateSyncItem(idbKey, updates) {
+    const db = await this.ensureReady();
+    return new Promise((resolve, reject) => {
+      const tx    = db.transaction([STORES.SYNC_QUEUE], 'readwrite');
+      const store = tx.objectStore(STORES.SYNC_QUEUE);
+      const getReq = store.get(idbKey);
+      getReq.onsuccess = () => {
+        const item = getReq.result;
+        if (!item) return resolve();
+        const putReq = store.put({ ...item, ...updates }, idbKey);
+        putReq.onsuccess = () => resolve();
+        putReq.onerror   = () => reject(putReq.error);
+      };
+      getReq.onerror = () => reject(getReq.error);
     });
   }
 

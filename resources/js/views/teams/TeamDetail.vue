@@ -136,7 +136,12 @@
 
       <!-- Shared Accounts Section -->
       <div class="box shared-accounts-section" v-if="canInvite">
-        <h2 class="subtitle">{{ $t('teams.shared_accounts') }} ({{ sharedAccounts.length }})</h2>
+        <div class="is-flex is-justify-content-space-between is-align-items-center mb-3">
+          <h2 class="subtitle mb-0">{{ $t('teams.shared_accounts') }} ({{ sharedAccounts.length }})</h2>
+          <button v-if="isOwner" class="button is-small is-info" @click="showShareModal = true">
+            {{ $t('teams.share_encrypted') }}
+          </button>
+        </div>
         <table v-if="sharedAccounts.length > 0" class="table is-fullwidth is-hoverable">
           <thead>
             <tr>
@@ -227,6 +232,62 @@
         </div>
       </div>
 
+      <!-- Encrypted Share Modal -->
+      <div class="modal" :class="{ 'is-active': showShareModal }">
+        <div class="modal-background" @click="showShareModal = false"></div>
+        <div class="modal-card">
+          <header class="modal-card-head">
+            <p class="modal-card-title">{{ $t('teams.share_encrypted') }}</p>
+            <button class="delete" @click="showShareModal = false"></button>
+          </header>
+          <section class="modal-card-body">
+            <div v-if="!keyPairReady" class="notification is-warning is-size-7 mb-3">
+              {{ $t('teams.key_pair_not_ready') }}
+              <button class="button is-small is-warning ml-3" @click="initKeyPair" :class="{ 'is-loading': isInitingKeys }">
+                {{ $t('teams.setup_key_pair') }}
+              </button>
+            </div>
+            <div v-else>
+              <div class="field">
+                <label class="label">{{ $t('label.access_level') }}</label>
+                <div class="select">
+                  <select v-model="shareAccessLevel">
+                    <option value="read">{{ $t('label.read_only') }}</option>
+                    <option value="write">{{ $t('label.full_access') }}</option>
+                  </select>
+                </div>
+              </div>
+              <div class="field">
+                <label class="label">{{ $t('teams.select_members') }}</label>
+                <div v-for="member in nonOwnerMembers" :key="member.id" class="is-flex is-align-items-center mb-2">
+                  <input type="checkbox" :id="'member-' + member.id" :value="member.id" v-model="selectedMemberIds" class="mr-2" />
+                  <label :for="'member-' + member.id">{{ member.name }} ({{ member.email }})</label>
+                </div>
+              </div>
+              <div class="field">
+                <label class="label">{{ $t('label.account') }}</label>
+                <div class="control">
+                  <input class="input" type="text" :value="shareAccountSecret ? '••••••••' : $t('teams.enter_secret_to_share')" readonly />
+                  <input class="input mt-1" type="text" v-model="shareAccountSecret" :placeholder="$t('teams.paste_totp_secret')" />
+                </div>
+                <p class="help">{{ $t('teams.secret_never_sent_to_server') }}</p>
+              </div>
+            </div>
+          </section>
+          <footer class="modal-card-foot">
+            <button
+              @click="handleShareEncrypted"
+              class="button is-success"
+              :class="{ 'is-loading': isSharing }"
+              :disabled="!keyPairReady || !shareAccountSecret || selectedMemberIds.length === 0"
+            >
+              {{ $t('teams.share_now') }}
+            </button>
+            <button @click="showShareModal = false" class="button">{{ $t('label.cancel') }}</button>
+          </footer>
+        </div>
+      </div>
+
       <!-- Edit Modal -->
       <div class="modal" :class="{ 'is-active': showEditModal }">
         <div class="modal-background" @click="showEditModal = false"></div>
@@ -263,6 +324,7 @@ import { useRoute, useRouter } from 'vue-router'
 import { useTeamsStore } from '@/stores/teams'
 import { useNotifyStore } from '@/stores/notify'
 import { useUserStore } from '@/stores/user'
+import { ensureKeyPair } from '@/services/keySharingService'
 
 const route = useRoute()
 const router = useRouter()
@@ -286,15 +348,27 @@ const isSendingInvitation = ref(false)
 const sharedAccounts = ref([])
 const pendingInvitations = ref([])
 
+// Encrypted sharing state
+const showShareModal      = ref(false)
+const shareAccessLevel    = ref('read')
+const shareAccountSecret  = ref('')
+const selectedMemberIds   = ref([])
+const isSharing           = ref(false)
+const keyPairReady        = ref(false)
+const isInitingKeys       = ref(false)
+
 const userRole = computed(() => team.value?.role || 'viewer')
 const isOwner = computed(() => userRole.value === 'owner')
 const canUpdate = computed(() => ['owner', 'admin'].includes(userRole.value))
 const canDelete = computed(() => isOwner.value)
 const canInvite = computed(() => ['owner', 'admin'].includes(userRole.value))
 const canManageMembers = computed(() => ['owner', 'admin'].includes(userRole.value))
+const nonOwnerMembers = computed(() => (team.value?.members || []).filter(m => m.role !== 'owner'))
 
 onMounted(async () => {
   await loadTeam()
+  // Check key pair availability for encrypted sharing (non-blocking)
+  ensureKeyPair().then(() => { keyPairReady.value = true }).catch(() => {})
 })
 
 async function loadTeam() {
@@ -449,6 +523,49 @@ async function cancelInvitation(inv) {
     notifyStore.error(error.response?.data?.message || 'Failed to cancel invitation')
   }
 }
+
+async function initKeyPair() {
+  isInitingKeys.value = true
+  try {
+    await ensureKeyPair()
+    keyPairReady.value = true
+    notifyStore.success('Key pair ready for encrypted sharing')
+  } catch (error) {
+    notifyStore.error('Failed to initialize key pair: ' + error.message)
+  } finally {
+    isInitingKeys.value = false
+  }
+}
+
+async function handleShareEncrypted() {
+  if (!shareAccountSecret.value || selectedMemberIds.value.length === 0) return
+  isSharing.value = true
+  try {
+    const members = (team.value?.members || []).filter(m => selectedMemberIds.value.includes(m.id))
+    // twofaccountId is unknown here — the owner enters the secret manually
+    // For MVP: store the wrapped key against twofaccount_id = 0 (no account link)
+    // In a future iteration, the owner selects from their account list
+    await teamsStore.shareEncrypted(
+      team.value.id,
+      0,
+      shareAccountSecret.value,
+      members,
+      shareAccessLevel.value
+    )
+    notifyStore.success('Account shared with encrypted keys')
+    showShareModal.value = false
+    shareAccountSecret.value = ''
+    selectedMemberIds.value = []
+    const shared = await teamsStore.fetchSharedAccounts(team.value.id)
+    sharedAccounts.value = shared
+  } catch (error) {
+    notifyStore.error(error.message || 'Failed to share account')
+  } finally {
+    isSharing.value = false
+  }
+}
+
+
 </script>
 
 <style scoped>

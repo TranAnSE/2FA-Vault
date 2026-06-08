@@ -2,7 +2,9 @@
 
 namespace App\Http\Controllers;
 
+use App\Enums\TeamAction;
 use App\Models\Team;
+use App\Services\TeamActivityLogger;
 use App\Services\TeamService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -12,10 +14,12 @@ use Illuminate\Validation\Rule;
 class TeamController extends Controller
 {
     protected TeamService $teamService;
+    protected TeamActivityLogger $activityLogger;
 
-    public function __construct(TeamService $teamService)
+    public function __construct(TeamService $teamService, TeamActivityLogger $activityLogger)
     {
-        $this->teamService = $teamService;
+        $this->teamService    = $teamService;
+        $this->activityLogger = $activityLogger;
     }
 
     /**
@@ -62,6 +66,7 @@ class TeamController extends Controller
 
         try {
             $team = $this->teamService->createTeam($user, $validated['name']);
+            $this->activityLogger->log($team, $user, TeamAction::TEAM_CREATED, ['name' => $team->name]);
 
             return response()->json($team, 201);
         } catch (\Exception $e) {
@@ -278,6 +283,7 @@ class TeamController extends Controller
 
         try {
             $this->teamService->leaveTeam($team, $user);
+            $this->activityLogger->log($team, $user, TeamAction::MEMBER_LEFT);
 
             return response()->json(['message' => 'Successfully left the team']);
         } catch (\Exception $e) {
@@ -294,7 +300,11 @@ class TeamController extends Controller
         $user = Auth::user();
 
         try {
+            $targetUser = \App\Models\User::find($userId);
             $this->teamService->removeMember($team, $user, $userId);
+            if ($targetUser) {
+                $this->activityLogger->log($team, $user, TeamAction::MEMBER_REMOVED, null, $targetUser);
+            }
 
             return response()->json(['message' => 'Member removed successfully']);
         } catch (\Exception $e) {
@@ -324,13 +334,13 @@ class TeamController extends Controller
     }
 
     /**
-     * Share an account with a team.
+     * Share an account with a team (plain, non-E2EE).
      */
     public function shareAccount(Request $request, $id)
     {
         $validated = $request->validate([
             'twofaccount_id' => 'required|integer|exists:twofaccounts,id',
-            'access_level' => 'nullable|in:read,write,admin',
+            'access_level'   => 'nullable|in:read,write,admin',
         ]);
 
         $team = Team::findOrFail($id);
@@ -352,13 +362,89 @@ class TeamController extends Controller
                 $validated['access_level'] ?? 'read'
             );
 
+            $this->activityLogger->log($team, $user, TeamAction::ACCOUNT_SHARED, ['access_level' => $validated['access_level'] ?? 'read'], null, $account);
+
             return response()->json([
-                'message' => 'Account shared with team successfully',
+                'message'        => 'Account shared with team successfully',
                 'shared_account' => $sharedAccount,
             ], 201);
         } catch (\Exception $e) {
             return response()->json(['message' => $e->getMessage()], 403);
         }
+    }
+
+    /**
+     * Share an account with per-member encrypted keys (E2EE sharing).
+     * Owner wraps the account secret with each member's public key client-side.
+     */
+    public function shareEncrypted(Request $request, $id)
+    {
+        $validated = $request->validate([
+            'twofaccount_id'          => 'required|integer|exists:twofaccounts,id',
+            'access_level'            => 'nullable|in:read,write',
+            'member_keys'             => 'required|array|min:1',
+            'member_keys.*.member_id' => 'required|integer|exists:users,id',
+            'member_keys.*.wrapped_key' => 'required|string',
+        ]);
+
+        $team = Team::findOrFail($id);
+        $user = Auth::user();
+
+        $account = \App\Models\TwoFAccount::where('id', $validated['twofaccount_id'])
+            ->where('user_id', $user->id)
+            ->firstOrFail();
+
+        try {
+            $this->teamService->shareEncryptedWithMembers(
+                $account,
+                $team,
+                $user,
+                $validated['access_level'] ?? 'read',
+                $validated['member_keys']
+            );
+
+            return response()->json(['message' => 'Account shared with encrypted keys successfully'], 201);
+        } catch (\Exception $e) {
+            return response()->json(['message' => $e->getMessage()], 403);
+        }
+    }
+
+    /**
+     * Get a team member's public key (for key wrapping).
+     */
+    public function memberPublicKey(Request $request, $id, $userId)
+    {
+        $team = Team::findOrFail($id);
+
+        if (!Gate::allows('view', $team)) {
+            return response()->json(['message' => 'Forbidden'], 403);
+        }
+
+        if (!$team->hasMember($userId)) {
+            return response()->json(['message' => 'User is not a team member'], 404);
+        }
+
+        $member = \App\Models\User::select('id', 'name', 'public_key')->findOrFail($userId);
+
+        return response()->json([
+            'user_id'    => $member->id,
+            'name'       => $member->name,
+            'public_key' => $member->public_key,
+        ]);
+    }
+
+    /**
+     * Register the authenticated user's public key for E2EE sharing.
+     */
+    public function registerPublicKey(Request $request)
+    {
+        $validated = $request->validate([
+            'public_key' => 'required|string|max:4096',
+        ]);
+
+        Auth::user()->update(['public_key' => $validated['public_key']]);
+
+        return response()->json(['message' => 'Public key registered successfully']);
     }
 
     /**
@@ -380,7 +466,9 @@ class TeamController extends Controller
             }
         }
 
+        $accountToLog = $sharedAccount->twoFAccount;
         $sharedAccount->delete();
+        $this->activityLogger->log($team, $user, TeamAction::ACCOUNT_UNSHARED, null, null, $accountToLog);
 
         return response()->json(['message' => 'Account unshared successfully']);
     }
@@ -396,19 +484,29 @@ class TeamController extends Controller
             return response()->json(['message' => 'Forbidden'], 403);
         }
 
+        $requestingUserId = Auth::id();
+
         $sharedAccounts = $team->sharedAccounts()
             ->with(['twoFAccount', 'sharedBy'])
             ->get()
-            ->map(function ($sa) {
+            // For encrypted shares, return only the row for the requesting user
+            ->filter(function ($sa) use ($requestingUserId) {
+                // Include if no member_id (legacy plain share) or if this row is for the requesting user
+                return is_null($sa->member_id) || $sa->member_id === $requestingUserId;
+            })
+            ->unique('twofaccount_id')
+            ->values()
+            ->map(function ($sa) use ($requestingUserId) {
                 return [
-                    'id' => $sa->id,
-                    'twofaccount_id' => $sa->twofaccount_id,
+                    'id'              => $sa->id,
+                    'twofaccount_id'  => $sa->twofaccount_id,
                     'account_service' => $sa->twoFAccount->service ?? '',
-                    'account_name' => $sa->twoFAccount->account ?? '',
-                    'shared_by' => $sa->sharedBy->name,
-                    'shared_by_id' => $sa->shared_by,
-                    'access_level' => $sa->access_level,
-                    'created_at' => $sa->created_at,
+                    'account_name'    => $sa->twoFAccount->account ?? '',
+                    'shared_by'       => $sa->sharedBy->name,
+                    'shared_by_id'    => $sa->shared_by,
+                    'access_level'    => $sa->access_level,
+                    'wrapped_key'     => $sa->wrapped_key,
+                    'created_at'      => $sa->created_at,
                 ];
             });
 

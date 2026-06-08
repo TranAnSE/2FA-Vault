@@ -60,6 +60,14 @@ class Team extends Model
     }
 
     /**
+     * Get the activity log entries for this team.
+     */
+    public function activityLogs()
+    {
+        return $this->hasMany(\App\Models\TeamActivityLog::class);
+    }
+
+    /**
      * Scope a query to only include teams accessible by a specific user.
      */
     public function scopeAccessibleByUser($query, $userId)

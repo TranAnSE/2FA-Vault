@@ -96,12 +96,19 @@ A quick reference guide to navigate the 2FA-Vault codebase structure.
 ### Core API Endpoints
 | Controller | Routes | Purpose |
 |-----------|--------|---------|
-| `TwoFAccountController` | `/api/v1/twofaccounts/*` | TOTP account CRUD |
+| `TwoFAccountController` | `/api/v1/twofaccounts/*` | TOTP account CRUD with search/filter |
 | `GroupController` | `/api/v1/groups/*` | Account grouping |
 | `UserController` | `/api/v1/user/*` | User profile |
 | `SettingController` | `/api/v1/settings/*` | User preferences |
 | `QrCodeController` | `/api/v1/qrcode/*` | QR code scanning |
 | `IconController` | `/api/v1/icons/*` | Icon management |
+| `TagController` | `/api/v1/tags/*` + `/api/v1/twofaccounts/{id}/tags` | Account tags/labels |
+| `TeamActivityController` | `/api/v1/teams/{id}/activity` | Activity log per team (owner/admin) |
+| `EmergencyAccessController` | `/api/v1/emergency-contacts/*` + `/api/v1/emergency-requests/*` | Emergency contacts & requests |
+| `VaultController` | `/api/v1/vaults/*` | Multiple vault management |
+| `WebhookController` | `/api/v1/webhooks/*` | Webhook CRUD & delivery logs |
+| `RateLimitDashboardController` | `/api/v1/admin/rate-limits` | Rate limit monitoring (admin-only) |
+| `TeamController` (extended) | `…/share-encrypted`, `…/members/{id}/public-key` | E2EE key sharing per team member |
 
 ## Service Layer
 
@@ -116,6 +123,18 @@ All business logic is in `app/Services/`:
 | `QrCodeService` | QR code scanning and decoding |
 | `SettingService` | User settings management |
 | `AuthenticationService` | Authentication logic |
+| `VaultHealthService` | Vault health metrics, stale account detection, duplicate flagging |
+| `KeySharingService` | Encrypted key sharing between team members with key wrapping |
+| `SyncService` | Background PWA sync, conflict resolution, offline queue |
+| `SearchService` | Advanced account search with filtering, tagging, domain matching |
+| `TeamActivityLogger` | Activity audit log for team operations and access |
+| `EmergencyAccessService` | Emergency contact management, access request handling |
+| `VaultService` | Multiple vault management, vault-scoped encryption, user vault selection |
+| `AutoFillService` | Browser extension auto-fill coordination |
+| `BiometricService` | WebAuthn biometric unlock, credential management |
+| `RateLimitMonitorService` | Rate limit tracking and analytics |
+| `WebhookService` | Webhook registration, event delivery, retry logic |
+| `DomainMappingService` | Form detection, issuer-domain matching for auto-fill |
 
 ## Store Layer (Pinia)
 
@@ -124,14 +143,18 @@ All state management is in `resources/js/stores/`:
 | Store | State |
 |-------|-------|
 | `crypto.js` | Encryption key, vault lock status, encryption test value |
-| `twofaccounts.js` | TOTP account list, active account, OTP codes |
+| `twofaccounts.js` | TOTP account list, active account, OTP codes, tags |
 | `groups.js` | Account groups, selected group |
 | `user.js` | User profile, preferences, settings |
-| `teams.js` | Team list, team members, invitations |
+| `teams.js` | Team list, team members, invitations, activity logs |
 | `backup.js` | Backup/restore state, file format |
 | `appSettings.js` | Global app configuration |
-| `pwa.js` | PWA installation state, offline capability |
+| `pwa.js` | PWA installation state, offline capability, sync queue |
 | `bus.js` | Event bus for component communication |
+| `vaults.js` | User vaults, active vault selection, vault metadata |
+| `emergencyAccess.js` | Emergency contacts, access requests, recovery status |
+| `webhooks.js` | Registered webhooks, delivery history |
+| `rateLimit.js` | Rate limit stats for admin dashboard |
 
 ## Authentication Flow
 

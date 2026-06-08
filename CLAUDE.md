@@ -48,10 +48,17 @@ composer test-coverage-html   # Output to tests/Coverage/
 
 ### Enterprise Features
 - **End-to-End Encryption (E2EE)**: Client-side only, server never sees plaintext secrets
-- **Multi-User & Team Management**: Role-based access control and secure sharing
-- **Browser Extension**: Chrome/Firefox companion; E2EE sync is still roadmap work
-- **Progressive Web App (PWA)**: App-shell caching and offline OTP support; background sync is not implemented
+- **Multi-User & Team Management**: Role-based access control, secure sharing with per-member RSA-OAEP key wrapping
+- **Browser Extension**: Chrome/Firefox companion with auto-fill OTP, biometric unlock, and form detection
+- **Progressive Web App (PWA)**: App-shell caching, offline OTP generation, and Background Sync for queued mutations
 - **Encrypted Backups**: Double-encrypted `.vault` format
+- **Vault Health Dashboard**: Client-side health scoring, duplicate/unused/weak-secret detection
+- **Account Tags & Advanced Search**: Multi-tag labelling, client-side + server-side filtered search
+- **Emergency Access**: Trusted contacts with configurable dead man's switch wait period
+- **Multiple Vaults**: Up to 10 independent E2EE vaults per user
+- **Team Activity Log**: Full audit trail for all team actions, exportable
+- **Webhook System**: HMAC-signed HTTP event delivery with retry and delivery history
+- **Admin Rate Limit Dashboard**: Real-time monitoring of rate-limited requests
 
 ### Tech Stack
 | Layer | Technology |

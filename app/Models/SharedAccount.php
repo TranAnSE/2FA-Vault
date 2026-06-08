@@ -20,6 +20,8 @@ class SharedAccount extends Model
         'shared_by',
         'access_level',
         'encrypted_key',
+        'member_id',
+        'wrapped_key',
     ];
 
     /**
@@ -54,5 +56,13 @@ class SharedAccount extends Model
     public function sharedBy()
     {
         return $this->belongsTo(User::class, 'shared_by');
+    }
+
+    /**
+     * Get the member this share is for (per-member key wrapping).
+     */
+    public function member()
+    {
+        return $this->belongsTo(User::class, 'member_id');
     }
 }
