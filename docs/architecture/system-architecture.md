@@ -665,7 +665,8 @@ CMD ["php-fpm"]
 - HSTS header (force HTTPS on return visits)
 - TLS 1.2+ required
 - No sensitive data in logs
-- API rate limiting
+- API rate limiting (configurable per route)
+- CORS fully configurable via environment variables (`CORS_ALLOWED_ORIGINS`, `CORS_ALLOWED_METHODS`, `CORS_ALLOWED_HEADERS`, `CORS_MAX_AGE`)
 
 ### Application Security
 - CSRF protection (Sanctum tokens)
@@ -674,6 +675,8 @@ CMD ["php-fpm"]
 - Authentication: OAuth2 (Laravel Passport)
 - Authorization: Policies + middleware
 - Input validation: FormRequest on every endpoint
+- CSP middleware applied across `web`, `behind-auth`, and `api.v1` middleware groups with `base-uri`, `form-action`, `frame-ancestors` directives
+- Stack traces excluded from error responses to prevent information leakage
 
 ### Data Security
 - Passwords hashed (bcrypt + salt)
@@ -681,6 +684,8 @@ CMD ["php-fpm"]
 - Encryption key never sent to server
 - TLS encryption in transit
 - Encrypted backups (double encryption)
+- Backup files encrypted at rest on the `backups` filesystem disk
+- Session lifetime and encryption configurable via environment variables
 
 ### Cryptography
 - Key derivation: Argon2id (memory-hard, GPU-resistant)
@@ -707,6 +712,7 @@ Access Logs: /var/log/nginx/
 - Encryption keys
 - User passwords
 - API tokens
+- Stack traces in error responses (stripped before sending to clients)
 
 **Always log:**
 - API endpoint, method, status
@@ -780,6 +786,8 @@ Access Logs: /var/log/nginx/
 - Regular automated backups
 - Backup testing (restore validation)
 - Encrypted storage of backups
+- Backup files encrypted at rest on the `backups` filesystem disk
+- Stale backup files cleaned up via `CleanupBackupFiles` artisan command
 - Geographically distributed replicas
 - User can always export their own backup
 

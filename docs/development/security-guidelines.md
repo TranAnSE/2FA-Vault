@@ -135,6 +135,9 @@ Client: Stores key in memory for session
 - Changing password would require re-encrypting ALL secrets
 - Current implementation: Disable E2EE, re-enable with new password
 - Future enhancement: Implement secure password rotation
+
+Note: Disabling encryption is blocked when encrypted accounts exist.
+Users must decrypt or delete all encrypted accounts before disabling E2EE.
 ```
 
 ### What Data Is Encrypted
@@ -157,6 +160,8 @@ Client: Stores key in memory for session
   2. Server stores: Encrypted backup file as-is
 - Backup password is separate from master password
 - Server cannot decrypt user backups
+- Backup files are encrypted at rest on the `backups` filesystem disk
+- Stale backup files cleaned up automatically via the `CleanupBackupFiles` artisan command
 
 ### Team Sharing Security Model
 
@@ -191,7 +196,7 @@ Viewer → Read-only access to shared accounts
 | **Password reuse** | Unique encryption key per user | ✅ Protected |
 | **Session hijacking** | HTTP-only cookies, CSRF tokens | ✅ Protected |
 | **XSS attacks** | CSP headers, input sanitization | ✅ Mitigated |
-| **Brute force** | Rate limiting on auth endpoints | ✅ Protected |
+| **Brute force** | Rate limiting on auth, registration (5/hr), and password reset (3/hr) endpoints | ✅ Protected |
 | **Man-in-the-middle** | HTTPS required, HSTS enabled | ✅ Protected |
 
 ### What We DON'T Protect Against
@@ -222,7 +227,7 @@ Our security model assumes:
 | **Server-side injection** | Parameterized queries, input sanitization | ✅ Protected |
 | **Session hijacking** | HTTP-only, Secure, SameSite cookies | ✅ Protected |
 | **CSRF attacks** | Token validation on state changes | ✅ Protected |
-| **Brute force (auth)** | Rate limiting (5 attempts/minute) | ✅ Protected |
+| **Brute force (auth)** | Rate limiting (5 attempts/minute, registration 5/hr, password reset 3/hr) | ✅ Protected |
 | **Brute force (API)** | Rate limiting (60 requests/minute) | ✅ Protected |
 
 **Remaining Attack Surface:**
@@ -269,6 +274,8 @@ Our security model assumes:
 To change master password:
 1. Decrypt all accounts (unlock vault)
 2. Disable E2EE (stores plaintext temporarily)
+   - Note: This step is blocked if any encrypted accounts still exist
+   - All encrypted accounts must be decrypted or removed first
 3. Re-enable E2EE with new password
 4. Re-encrypt all accounts with new key
 ```
@@ -326,6 +333,8 @@ Backup Password: Protects .vault file (user-managed file)
 # .env
 THROTTLE_API=60,1      # API requests per minute
 THROTTLE_LOGIN=5,1     # Login attempts per minute
+THROTTLE_REGISTER=5,1  # Registration attempts: 5 per hour
+THROTTLE_PASSWORD_RESET=3,1  # Password reset attempts: 3 per hour
 THROTTLE_IMPORT=3,1    # Backup imports per hour
 THROTTLE_EXPORT=5,1    # Backup exports per hour
 ```
@@ -333,6 +342,8 @@ THROTTLE_EXPORT=5,1    # Backup exports per hour
 **Rate Limit Enforcement:**
 - Per IP address for unauthenticated requests
 - Per user ID for authenticated requests
+- Registration limited to 5 attempts per hour to prevent bulk account creation
+- Password reset limited to 3 attempts per hour to prevent abuse
 - Uses Laravel's built-in rate limiter
 - Configured in `app/Providers/RouteServiceProvider.php`
 
@@ -446,11 +457,28 @@ THROTTLE_API=60,1   # 60 requests per minute
 
 **5. Security Headers**
 ```php
-// Already configured in app/Http/Middleware/SecurityHeaders.php
-Content-Security-Policy: default-src 'self'
+// Already configured in app/Http/Middleware/CspMiddleware.php
+// Applied to web, behind-auth, and api.v1 middleware groups
+Content-Security-Policy: default-src 'self'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'
 X-Frame-Options: DENY
 X-Content-Type-Options: nosniff
 Strict-Transport-Security: max-age=31536000
+```
+
+**5b. CORS Configuration (Production)**
+```env
+# .env — configure CORS for production hardening
+CORS_ALLOWED_ORIGINS=https://2fa-vault.example.com
+CORS_ALLOWED_METHODS=GET,POST,PUT,PATCH,DELETE
+CORS_ALLOWED_HEADERS=Content-Type,Authorization,X-Requested-With
+CORS_MAX_AGE=86400
+```
+
+**5c. Session Configuration**
+```env
+# .env — session lifetime and encryption
+SESSION_LIFETIME=120          # Session timeout in minutes
+SESSION_ENCRYPT=true          # Encrypt session data at rest
 ```
 
 **6. Monitoring**
@@ -638,16 +666,20 @@ Currently, we do not offer a bug bounty program. However, we deeply appreciate s
 **Pre-Deployment Security Verification:**
 - [x] All secrets stored encrypted at rest
 - [x] TLS 1.2+ enforced for all connections
-- [x] Security headers configured (CSP, HSTS, X-Frame-Options)
-- [x] Rate limiting enabled on auth endpoints
+- [x] Security headers configured (CSP with base-uri, form-action, frame-ancestors across all route groups)
+- [x] CORS origins configured via environment variables
+- [x] Rate limiting enabled on auth, registration (5/hr), and password reset (3/hr) endpoints
 - [x] Input validation on all user inputs
 - [x] SQL injection prevention (parameterized queries)
 - [x] XSS protection (output encoding)
 - [x] CSRF protection on all state-changing operations
 - [x] Authentication logging enabled
-- [x] Error messages don't leak sensitive information
+- [x] Error messages don't leak sensitive information (stack traces stripped)
 - [x] Debug mode disabled in production
 - [x] Secure cookie flags (HttpOnly, Secure, SameSite)
+- [x] Session encryption at rest enabled
+- [x] Backup files encrypted at rest on the `backups` disk
+- [x] Encryption disable blocked when encrypted accounts exist
 
 **Ongoing Security Monitoring:**
 - [ ] Automated dependency scanning (Suggested: GitHub Dependabot)
@@ -656,6 +688,16 @@ Currently, we do not offer a bug bounty program. However, we deeply appreciate s
 - [ ] Penetration testing (Recommended: Annual)
 
 ## 🔄 Security Changelog
+
+### v1.1.0 (2026-06-10) - Security Hardening
+- ✅ CORS fully configurable via environment variables (`CORS_ALLOWED_ORIGINS`, `CORS_ALLOWED_METHODS`, `CORS_ALLOWED_HEADERS`, `CORS_MAX_AGE`)
+- ✅ CSP middleware applied to `web`, `behind-auth`, and `api.v1` middleware groups with `base-uri`, `form-action`, `frame-ancestors` directives
+- ✅ Rate limiting added to registration (5/hr) and password reset (3/hr) routes
+- ✅ Encryption disable blocked when encrypted accounts exist
+- ✅ Backup files encrypted at rest on the `backups` filesystem disk
+- ✅ `CleanupBackupFiles` artisan command for stale backup file removal
+- ✅ Stack traces no longer included in error responses
+- ✅ Session lifetime and encryption configurable via environment variables
 
 ### v1.0.0 (2026-04-05) - Production Release
 - ✅ Implemented E2EE with Argon2id + AES-256-GCM
@@ -671,7 +713,7 @@ Currently, we do not offer a bug bounty program. However, we deeply appreciate s
 
 ---
 
-**Last updated:** 2026-04-05  
-**Version:** 1.0.0  
-**Test Status:** 97% pass rate - Production Ready  
+**Last updated:** 2026-06-10
+**Version:** 1.1.0
+**Test Status:** 97% pass rate - Production Ready
 **Contact:** security@2fa-vault.example.com

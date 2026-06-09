@@ -20,9 +20,10 @@ These are the directions 2FA-Vault is experimenting with. Not all are complete â
 
 - **End-to-end encryption (E2EE).** Upstream offers optional at-rest encryption using `APP_KEY`; this fork experiments with client-side key derivation (Argon2id) and AES-256-GCM so the server never sees plaintext secrets.
 - **Multi-user & teams.** Upstream is single-user by design. This fork explores multi-user accounts and team sharing with role-based access.
-- **Encrypted backup format.** Exports encrypted with a user-chosen password.
+- **Encrypted backup format.** Exports encrypted with a user-chosen password. Backup files are encrypted at rest on the server.
 - **Browser extension fork.** Tracks the upstream extension with adjustments for the features above.
 - **PWA tweaks.** Offline behavior and install flow.
+- **Security hardening.** Configurable CORS origins, CSP headers across all route groups, rate-limited registration and password reset routes, session encryption at rest, and stack trace suppression in error responses.
 
 ## Tech stack
 

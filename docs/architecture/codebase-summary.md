@@ -13,12 +13,12 @@ A quick reference guide to navigate the 2FA-Vault codebase structure.
 │   │   └── Resources/            # JSON response transformers
 │   ├── Http/
 │   │   ├── Controllers/          # Web controllers (auth, backup, etc.)
-│   │   ├── Middleware/           # Request/response middleware
+│   │   ├── Middleware/           # Request/response middleware (includes CspMiddleware for web, behind-auth, api.v1 groups)
 │   │   └── Requests/             # Web form validation
 │   ├── Models/                   # Eloquent ORM models
 │   ├── Services/                 # Business logic layer
 │   ├── Console/
-│   │   ├── Commands/             # Artisan CLI commands
+│   │   ├── Commands/             # Artisan CLI commands (including CleanupBackupFiles)
 │   │   └── Kernel.php            # Console scheduling
 │   ├── Events/                   # Laravel events
 │   ├── Exceptions/               # Custom exceptions
@@ -83,6 +83,9 @@ A quick reference guide to navigate the 2FA-Vault codebase structure.
 | `app/Models/Team.php` | Multi-user team model |
 | `config/auth.php` | Authentication configuration |
 | `config/database.php` | Database connection config |
+| `config/cors.php` | CORS settings (env-driven: `CORS_ALLOWED_ORIGINS`, etc.) |
+| `config/session.php` | Session lifetime and encryption (env-driven) |
+| `config/filesystems.php` | Filesystem disks including `backups` (encrypted at rest) |
 
 ### Frontend Entry Points
 | File | Purpose |
@@ -268,7 +271,12 @@ tests/
 - `personal_access_tokens` - API tokens
 - `settings` - User preferences
 - `webauthn_credentials` - WebAuthn credentials
-- `backups` - Backup metadata
+- `backups` - Backup metadata (files stored encrypted on the `backups` disk)
+
+### Artisan Commands
+- `php artisan migrate` - Run database migrations
+- `php artisan key:generate` - Generate application key
+- `php artisan cleanup:backup-files` - Remove stale encrypted backup files from the `backups` disk
 
 ## Environment Configuration
 
@@ -276,8 +284,10 @@ Key `.env` variables:
 - `APP_NAME`, `APP_URL`, `APP_ENV` - Application identity
 - `DB_*` - Database connection
 - `CACHE_DRIVER`, `SESSION_DRIVER` - State storage
+- `SESSION_LIFETIME`, `SESSION_ENCRYPT` - Session timeout and encryption at rest
 - `E2EE_*` - Encryption configuration
 - `VAPID_*` - PWA push notification keys
 - `RATE_LIMIT_*` - Rate limiting thresholds
+- `CORS_ALLOWED_ORIGINS`, `CORS_ALLOWED_METHODS`, `CORS_ALLOWED_HEADERS`, `CORS_MAX_AGE` - CORS hardening
 
 See `.env.example` for all available variables.
