@@ -39,6 +39,7 @@ class Kernel extends HttpKernel
             \Illuminate\Routing\Middleware\SubstituteBindings::class,
             \App\Http\Middleware\SetLanguage::class,
             \App\Http\Middleware\CustomCreateFreshApiToken::class,
+            \App\Http\Middleware\AddContentSecurityPolicyHeaders::class,
         ],
 
         'behind-auth' => [
@@ -52,6 +53,7 @@ class Kernel extends HttpKernel
             \App\Http\Middleware\LogUserLastSeen::class,
             \App\Http\Middleware\SetLanguage::class,
             \App\Http\Middleware\CustomCreateFreshApiToken::class,
+            \App\Http\Middleware\AddContentSecurityPolicyHeaders::class,
         ],
 
         'api.v1' => [
@@ -60,6 +62,7 @@ class Kernel extends HttpKernel
             \App\Http\Middleware\KickOutInactiveUser::class,
             \App\Http\Middleware\LogUserLastSeen::class,
             \App\Http\Middleware\SetLanguage::class,
+            \App\Http\Middleware\AddContentSecurityPolicyHeaders::class,
         ],
     ];
 

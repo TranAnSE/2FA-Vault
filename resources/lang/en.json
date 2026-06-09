@@ -31,6 +31,7 @@
     "error.backup_metadata_failed": "Failed to read backup file. The file may be corrupted or invalid.",
     "error.browser_does_not_support_webauthn": "Your device does not support webauthn. Try again later using a more modern browser",
     "error.cannot_create_otp_without_secret": "Cannot create an OTP without a secret",
+    "error.cannot_disable_encryption_with_accounts": "Cannot disable encryption while encrypted accounts exist. Decrypt or delete them first.",
     "error.cannot_decipher_secret": "The secret cannot be deciphered. This is mainly caused by a wrong APP_KEY set in the .env configuration file of 2FA-Vault or a corrupted data stored in database.",
     "error.cannot_decode_detected_qrcode": "Cannot decode detected QR code, try to crop or sharpen the image",
     "error.cannot_delete_the_only_admin": "Cannot delete the only admin account",
@@ -44,7 +45,9 @@
     "error.error_during_qrcode_retrieval": "Error during QR code retrieval",
     "error.email_sending_failed": "Email sending failed",
     "error.encrypted_migration": "Unreadable, the data seem encrypted",
+    "error.encryption_disable_failed": "Failed to disable encryption.",
     "error.encryption_key_generation_failed": "Generation of encryption key failed",
+    "error.encryption_not_enabled": "Encryption is not enabled.",
     "error.error_during_data_fetching": "💀 Something went wrong during data fetching",
     "error.error_during_decryption": "Decryption failed, your database is still protected. This is mainly caused by an integrity issue of encrypted data for one or more accounts.",
     "error.error_during_encryption": "Encryption failed, your database remains unprotected.",
@@ -1246,5 +1249,6 @@
     "label.encrypted": "Encrypted",
     "label.not_encrypted": "Not encrypted",
     "label.filter_presets": "Saved presets",
-    "field.preset_name": "Preset name…"
+    "field.preset_name": "Preset name…",
+    "message.encryption_disabled": "Encryption has been disabled successfully."
 }

@@ -266,12 +266,24 @@ class EncryptionController extends Controller
         }
 
         try {
-            $this->encryptionService->disableEncryption($user);
+            $encryptedCount = $this->encryptionService->getEncryptedAccountCount($user);
+            if ($encryptedCount > 0) {
+                return response()->json([
+                    'message' => __('error.cannot_disable_encryption_with_accounts'),
+                    'encrypted_count' => $encryptedCount,
+                ], 422);
+            }
+
+            if (!$this->encryptionService->disableEncryption($user)) {
+                return response()->json([
+                    'message' => __('error.encryption_disable_failed'),
+                ], 500);
+            }
 
             Log::warning('E2EE disabled', ['user_id' => $user->id]);
 
             return response()->json([
-                'message' => 'Encryption disabled successfully',
+                'message' => __('message.encryption_disabled'),
                 'encryption_enabled' => false
             ]);
         } catch (\Exception $e) {

@@ -8,6 +8,7 @@ use App\Models\TwoFAccount;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Crypt;
 use Illuminate\Support\Facades\Storage;
 use Tests\TestCase;
 
@@ -23,6 +24,7 @@ class BackupControllerTest extends TestCase
         parent::setUp();
 
         Storage::fake('local');
+        Storage::fake('backups');
 
         $this->user = User::factory()->create([
             'email' => 'test@example.com',
@@ -73,9 +75,12 @@ class BackupControllerTest extends TestCase
         $this->assertStringEndsWith('.vault', $data['filename']);
         $this->assertEquals(3, $data['account_count']);
         $this->assertEquals(1, $data['group_count']);
-        $this->assertTrue(Storage::exists('backups/' . $data['filename']));
+        $this->assertTrue(Storage::disk('backups')->exists($data['filename']));
 
-        $backupData = json_decode(Storage::get('backups/' . $data['filename']), true);
+        // File is encrypted at rest — decrypt to verify content
+        $encrypted = Storage::disk('backups')->get($data['filename']);
+        $decrypted = Crypt::decryptString($encrypted);
+        $backupData = json_decode($decrypted, true);
 
         $this->assertEquals('2FA-Vault', $backupData['app']);
         $this->assertArrayHasKey('encryption', $backupData);
@@ -113,7 +118,7 @@ class BackupControllerTest extends TestCase
                 'group_count' => 1,
             ]);
 
-        $this->assertTrue(Storage::exists('backups/' . $response->json('filename')));
+        $this->assertTrue(Storage::disk('backups')->exists($response->json('filename')));
     }
 
     public function test_user_can_export_backup_via_legacy_alias_with_get(): void
@@ -131,7 +136,7 @@ class BackupControllerTest extends TestCase
             ]);
 
         $this->assertStringEndsWith('.vault', $response->json('filename'));
-        $this->assertTrue(Storage::exists('backups/' . $response->json('filename')));
+        $this->assertTrue(Storage::disk('backups')->exists($response->json('filename')));
     }
 
     public function test_export_requires_authentication(): void

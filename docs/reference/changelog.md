@@ -5,6 +5,37 @@ All notable changes to 2FA-Vault will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.1.1] - 2026-06-10
+
+### Added
+
+**Security Hardening (7 phases)**
+
+- **CORS Hardening**: `CORS_MAX_AGE` default changed from `0` to `86400` (24h preflight cache); configurable `CORS_ALLOWED_METHODS`, `CORS_ALLOWED_ORIGINS`, `CORS_ALLOWED_HEADERS` via env
+- **Session Encryption**: `SESSION_ENCRYPT` default changed from `false` to `true`; all session payloads encrypted server-side via Laravel's built-in encrypter
+- **Database Indexes**: Migration `2026_06_09_120000` adding composite indexes on `twofaccounts` (user_id, order_column, group_id, last_used_at, encrypted) and `groups` (user_id) — idempotent, safe to re-run
+- **Rate Limiting**: Throttle enforced on login, registration, and password-reset endpoints; `AuthRateLimitTest` validates 429 responses
+- **Backup Encryption**: `BackupService` enforces encrypted export by default; `BackupController` validates encryption state before export
+- **CSP Extension**: `ContentSecurityPolicyMiddleware` updated with frame-src and worker-src allowances for browser extension integration
+- **Encryption Disable Safety**: `EncryptionServiceDisableTest` and `EncryptionControllerDisableTest` ensure graceful degradation when E2EE is disabled — no data loss, clear user feedback
+
+### Security
+
+- Session payloads now encrypted at rest (mitigates session hijacking via storage access)
+- CORS preflight caching reduces attack surface from repeated OPTIONS requests
+- Auth endpoints rate-limited to prevent brute-force attempts
+- Database indexes improve query performance and reduce timing-based information leakage
+
+### Breaking Changes
+
+- `SESSION_ENCRYPT` default changed from `false` to `true`. Existing sessions are invalidated after upgrade; users must re-authenticate.
+- `CORS_MAX_AGE` default changed from `0` to `86400`. Browsers will cache preflight responses for 24 hours. If you previously relied on per-request preflight, set `CORS_MAX_AGE=0` in your `.env`.
+
+### Tests
+
+- 34 new security-focused tests added
+- 1428 total tests passing
+
 ## [1.1.0] - 2026-06-07
 
 ### Added
@@ -346,4 +377,6 @@ https://github.com/TranAnSE/2FA-Vault/blob/master/CHANGELOG.md
 ---
 
 [1.0.0]: https://github.com/yourusername/2FA-Vault/releases/tag/v1.0.0
-[Unreleased]: https://github.com/yourusername/2FA-Vault/compare/v1.0.0...HEAD
+[1.1.0]: https://github.com/yourusername/2FA-Vault/releases/tag/v1.1.0
+[1.1.1]: https://github.com/yourusername/2FA-Vault/releases/tag/v1.1.1
+[Unreleased]: https://github.com/yourusername/2FA-Vault/compare/v1.1.1...HEAD

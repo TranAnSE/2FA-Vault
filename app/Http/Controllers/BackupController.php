@@ -6,6 +6,7 @@ use App\Services\BackupService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Crypt;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Facades\Storage;
@@ -72,8 +73,9 @@ class BackupController extends Controller
             $filename = '2fa-vault-backup-' . now()->format('Y-m-d-His') . '.vault';
             $backupJson = json_encode($backupData, JSON_PRETTY_PRINT);
 
-            // Store backup file for later retrieval and testing
-            Storage::put('backups/' . $filename, $backupJson);
+            // Store backup file encrypted at rest
+            $encrypted = Crypt::encryptString($backupJson);
+            Storage::disk('backups')->put($filename, $encrypted);
 
             // For testing: return JSON response instead of download
             if ($request->wantsJson() || $request->expectsJson()) {
@@ -97,7 +99,8 @@ class BackupController extends Controller
             Log::error('Backup export failed', [
                 'user_id' => $user->id,
                 'error' => $e->getMessage(),
-                'trace' => $e->getTraceAsString(),
+                'file' => $e->getFile(),
+                'line' => $e->getLine(),
             ]);
 
             return response()->json([
@@ -112,6 +115,13 @@ class BackupController extends Controller
      * Client decrypts the backup file with backup password first,
      * then sends the decrypted data here. Each account secret is
      * still encrypted with the user's master key.
+     *
+     * SECURITY NOTE: For vault-format backups, the client decrypts the backup
+     * file client-side and sends the decrypted payload here. Each account secret
+     * is still encrypted with the user's E2EE master key, but the backup metadata
+     * (account names, groups, tags) is exposed in the request. This is a known
+     * limitation of the current architecture. A future improvement would have
+     * the client send individual encrypted accounts instead of the full blob.
      *
      * @param Request $request
      * @return JsonResponse
@@ -223,7 +233,8 @@ class BackupController extends Controller
             Log::error('Backup import failed', [
                 'user_id' => $user->id,
                 'error' => $e->getMessage(),
-                'trace' => $e->getTraceAsString(),
+                'file' => $e->getFile(),
+                'line' => $e->getLine(),
             ]);
 
             return response()->json([

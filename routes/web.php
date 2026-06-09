@@ -15,7 +15,6 @@ use App\Http\Controllers\Auth\WebAuthnRecoveryController;
 use App\Http\Controllers\Auth\WebAuthnRegisterController;
 use App\Http\Controllers\SinglePageController;
 use App\Http\Controllers\SystemController;
-use App\Http\Middleware\AddContentSecurityPolicyHeaders;
 use App\Http\Middleware\CustomCreateFreshApiToken;
 use App\Http\Middleware\SetLanguage;
 use App\Http\Middleware\VerifyCsrfToken;
@@ -40,9 +39,9 @@ use Illuminate\Support\Facades\Route;
  * Routes that only work for unauthenticated user (otherwise, the user is logged out)
  */
 Route::group(['middleware' => ['rejectIfDemoMode', 'RejectIfSsoOnlyAndNotForAdmin', 'forceLogout', 'setLanguage']], function () {
-    Route::post('user', [RegisterController::class, 'register'])->name('user.register');
-    Route::post('user/password/lost', [ForgotPasswordController::class, 'sendResetLinkEmail'])->name('user.password.lost');
-    Route::post('user/password/reset', [ResetPasswordController::class, 'reset'])->name('password.reset');
+    Route::post('user', [RegisterController::class, 'register'])->name('user.register')->middleware('throttle:5,60');
+    Route::post('user/password/lost', [ForgotPasswordController::class, 'sendResetLinkEmail'])->name('user.password.lost')->middleware('throttle:3,60');
+    Route::post('user/password/reset', [ResetPasswordController::class, 'reset'])->name('password.reset')->middleware('throttle:3,60');
     Route::post('webauthn/login/options', [WebAuthnLoginController::class, 'options'])->name('webauthn.login.options');
     Route::post('webauthn/lost', [WebAuthnDeviceLostController::class, 'sendRecoveryEmail'])->name('webauthn.lost');
 });
@@ -132,4 +131,4 @@ Route::withoutMiddleware([
 /**
  * Route for the main landing view
  */
-Route::get('/{any}', [SinglePageController::class, 'index'])->where('any', '.*')->name('landing')->middleware(AddContentSecurityPolicyHeaders::class);
+Route::get('/{any}', [SinglePageController::class, 'index'])->where('any', '.*')->name('landing');

@@ -16,12 +16,19 @@ return [
     */
 
     'paths' => ['api/*', 'sanctum/csrf-cookie'],
-    'allowed_methods' => ['*'],
-    'allowed_origins' => ['*'],
+
+    'allowed_methods' => explode(',', env('CORS_ALLOWED_METHODS', '*')),
+
+    'allowed_origins' => array_filter(explode(',', env('CORS_ALLOWED_ORIGINS', '*'))),
+
     'allowed_origins_patterns' => [],
-    'allowed_headers' => ['*'],
+
+    'allowed_headers' => explode(',', env('CORS_ALLOWED_HEADERS', '*')),
+
     'exposed_headers' => [],
-    'max_age' => 0,
-    'supports_credentials' => false,
+
+    'max_age' => (int) env('CORS_MAX_AGE', 86400),
+
+    'supports_credentials' => env('CORS_SUPPORTS_CREDENTIALS', false),
 
 ];

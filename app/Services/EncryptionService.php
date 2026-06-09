@@ -123,14 +123,25 @@ class EncryptionService
     /**
      * Disable E2EE for a user
      *
-     * WARNING: This should only be called after the client has re-encrypted
-     * all data or the user confirms data loss.
+     * Refuses to disable if the user has encrypted accounts that would
+     * become permanently inaccessible without their encryption metadata.
      *
      * @param User $user
      * @return bool
      */
     public function disableEncryption(User $user): bool
     {
+        $encryptedCount = $this->getEncryptedAccountCount($user);
+
+        if ($encryptedCount > 0) {
+            Log::warning('Cannot disable encryption: user has encrypted accounts', [
+                'user_id' => $user->id,
+                'encrypted_count' => $encryptedCount,
+            ]);
+
+            return false;
+        }
+
         $user->encryption_enabled = false;
         $user->encryption_salt = null;
         $user->encryption_test_value = null;
@@ -138,6 +149,19 @@ class EncryptionService
         $user->vault_locked = false;
 
         return $user->save();
+    }
+
+    /**
+     * Get count of encrypted accounts for a user
+     *
+     * @param User $user
+     * @return int
+     */
+    public function getEncryptedAccountCount(User $user): int
+    {
+        return TwoFAccount::where('user_id', $user->id)
+            ->where('encrypted', true)
+            ->count();
     }
 
     /**

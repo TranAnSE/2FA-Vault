@@ -2,11 +2,11 @@
 
 > Honest, focused roadmap for reaching a self-hostable, trustable 1.0. Scoped for an OSS self-host tool — **not** a SaaS product. See [Non-goals](#non-goals) for what we deliberately skip.
 
-Last updated: 2026-06-07
+Last updated: 2026-06-10
 
 ---
 
-## Current state (as of 2026-06-07)
+## Current state (as of 2026-06-10)
 
 - ✅ E2EE (client-side Argon2id + AES-256-GCM) — implemented
 - ✅ Multi-user + teams — implemented
@@ -24,6 +24,7 @@ Last updated: 2026-06-07
 - ✅ Extension Form Detection + Badge — badge shows matching account count per page
 - ✅ Admin Rate Limit Dashboard — real-time rate limit monitoring with top consumers/endpoints
 - ✅ Webhook / Event System — HMAC-signed HTTP webhooks with retry and delivery history
+- ✅ Security Hardening — CORS preflight cache, session encryption at rest, DB indexes on core tables, auth rate limiting, backup encryption enforcement, CSP extension allowances, encryption-disable safety (34 tests, 1428 total)
 
 ---
 
@@ -71,8 +72,8 @@ Target repo: `2FA-Vault-WebExtension` (with supporting changes in `2FA-Vault` AP
 - [ ] Printable recovery codes (PDF) as the baseline fallback
 - [ ] CLI: `php artisan vault:backup` — exports encrypted archive to disk with clear restore instructions
 - [ ] CLI: `php artisan vault:restore <file>`
-- [ ] Rate limiting on login + account lockout after N failed attempts
-- [ ] Security headers: strict CSP, HSTS, X-Frame-Options, Referrer-Policy (one middleware, ship once)
+- [x] Rate limiting on login + account lockout after N failed attempts
+- [x] Security headers: strict CSP, HSTS, X-Frame-Options, Referrer-Policy (one middleware, ship once)
 - [ ] Email verification on signup
 - [ ] Password reset flow (reviewed against OWASP ASVS)
 - [ ] Dependabot enabled + security advisories monitored
