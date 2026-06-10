@@ -64,12 +64,12 @@
             <td>{{ user.email }}</td>
             <td>
               <span class="tag" :class="user.is_admin ? 'is-danger' : 'is-info'">
-                {{ user.is_admin ? 'Admin' : 'User' }}
+                {{ user.is_admin ? $t('teams.role_admin') : $t('label.user') }}
               </span>
             </td>
             <td>
               <span class="tag" :class="user.is_active ? 'is-success' : 'is-warning'">
-                {{ user.is_active ? 'Active' : 'Inactive' }}
+                {{ user.is_active ? $t('label.active') : $t('label.inactive') }}
               </span>
             </td>
             <td>{{ user.teams_count || 0 }}</td>
@@ -143,20 +143,20 @@
     </div>
 
     <!-- User Detail Modal -->
-    <div class="modal" :class="{ 'is-active': showDetailModal }">
-      <div class="modal-background" @click="showDetailModal = false"></div>
+    <div class="modal" :class="{ 'is-active': showDetailModal }" role="dialog" aria-modal="true" aria-labelledby="user-detail-title" @keydown.escape="showDetailModal = false">
+      <div class="modal-background" @click="showDetailModal = false" aria-hidden="true"></div>
       <div class="modal-card">
         <header class="modal-card-head">
-          <p class="modal-card-title">{{ $t('admin.user_details') }}</p>
-          <button class="delete" @click="showDetailModal = false"></button>
+          <p class="modal-card-title" id="user-detail-title">{{ $t('admin.user_details') }}</p>
+          <button class="delete" :aria-label="$t('label.close')" @click="showDetailModal = false"></button>
         </header>
         <section v-if="selectedUser" class="modal-card-body">
           <div class="content">
             <p><strong>{{ $t('admin.id') }}:</strong> {{ selectedUser.id }}</p>
             <p><strong>{{ $t('admin.name') }}:</strong> {{ selectedUser.name }}</p>
             <p><strong>{{ $t('admin.email') }}:</strong> {{ selectedUser.email }}</p>
-            <p><strong>{{ $t('admin.role') }}:</strong> {{ selectedUser.is_admin ? 'Admin' : 'User' }}</p>
-            <p><strong>{{ $t('admin.status') }}:</strong> {{ selectedUser.is_active ? 'Active' : 'Inactive' }}</p>
+            <p><strong>{{ $t('admin.role') }}:</strong> {{ selectedUser.is_admin ? $t('teams.role_admin') : $t('label.user') }}</p>
+            <p><strong>{{ $t('admin.status') }}:</strong> {{ selectedUser.is_active ? $t('label.active') : $t('label.inactive') }}</p>
             <p><strong>{{ $t('admin.teams') }}:</strong> {{ selectedUser.teams_count }}</p>
             <p><strong>{{ $t('admin.owned_teams') }}:</strong> {{ selectedUser.owned_teams_count }}</p>
             <p><strong>{{ $t('admin.accounts') }}:</strong> {{ selectedUser.twofaccounts_count }}</p>

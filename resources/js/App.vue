@@ -123,6 +123,10 @@
         () => {
             isProtectedRoute.value = route.meta.watchedByKicker
             registerVaultActivity()
+            nextTick(() => {
+                const main = document.getElementById('main-content')
+                if (main) main.focus()
+            })
         }
     )
 
@@ -151,6 +155,9 @@
 </script>
 
 <template>
+    <a href="#main-content" class="skip-to-content" @click.prevent="document.getElementById('main-content')?.focus()">
+        {{ $t('label.skip_to_content') }}
+    </a>
     <notifications
         id="vueNotification"
         role="alert"
@@ -160,7 +167,7 @@
         :speed="0"
         :max="1"
         classes="notification notification-banner is-radiusless" />
-    <main class="main-section">
+    <main id="main-content" class="main-section" role="main" tabindex="-1">
         <RouterView />
     </main>
     <Kicker
@@ -169,3 +176,21 @@
         @kicked="() => user.logout({ kicked: true})"
     />
 </template>
+
+<style scoped>
+.skip-to-content {
+    position: absolute;
+    left: -9999px;
+    z-index: 999;
+    padding: 0.5rem 1rem;
+    background: #4f46e5;
+    color: white;
+    font-weight: 600;
+    text-decoration: none;
+    border-radius: 0 0 4px 0;
+}
+.skip-to-content:focus {
+    left: 0;
+    top: 0;
+}
+</style>

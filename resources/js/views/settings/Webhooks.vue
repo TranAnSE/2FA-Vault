@@ -140,18 +140,18 @@
         </div>
 
         <!-- Delivery history modal -->
-        <div v-if="selectedWebhook" class="modal is-active">
-            <div class="modal-background" @click="selectedWebhook = null"></div>
+        <div v-if="selectedWebhook" class="modal is-active" role="dialog" aria-modal="true" aria-labelledby="webhook-delivery-title" @keydown.escape="selectedWebhook = null">
+            <div class="modal-background" @click="selectedWebhook = null" aria-hidden="true"></div>
             <div class="modal-card">
                 <header class="modal-card-head">
-                    <p class="modal-card-title">{{ $t('label.delivery_history') }}: {{ selectedWebhook.name }}</p>
-                    <button class="delete" @click="selectedWebhook = null"></button>
+                    <p class="modal-card-title" id="webhook-delivery-title">{{ $t('label.delivery_history') }}: {{ selectedWebhook.name }}</p>
+                    <button class="delete" :aria-label="$t('label.close')" @click="selectedWebhook = null"></button>
                 </header>
                 <section class="modal-card-body">
                     <p v-if="!deliveries.length" class="has-text-grey">{{ $t('message.no_deliveries_yet') }}</p>
                     <table v-else class="table is-fullwidth is-narrow is-size-7">
                         <thead>
-                            <tr><th>Event</th><th>Status</th><th>Date</th></tr>
+                            <tr><th>{{ $t('label.event') }}</th><th>{{ $t('label.status') }}</th><th>{{ $t('label.date') }}</th></tr>
                         </thead>
                         <tbody>
                             <tr v-for="d in deliveries" :key="d.id">

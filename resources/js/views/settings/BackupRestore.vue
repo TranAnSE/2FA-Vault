@@ -262,12 +262,12 @@
             </FormWrapper>
 
             <!-- Export Dialog -->
-            <div class="modal" :class="{ 'is-active': showExportDialog }">
-                <div class="modal-background" @click="cancelExport"></div>
+            <div class="modal" :class="{ 'is-active': showExportDialog }" role="dialog" aria-modal="true" aria-labelledby="export-dialog-title" @keydown.escape="cancelExport">
+                <div class="modal-background" @click="cancelExport" aria-hidden="true"></div>
                 <div class="modal-card">
                     <header class="modal-card-head">
-                        <p class="modal-card-title">{{ $t('settings.backup.export_dialog_title') }}</p>
-                        <button class="delete" @click="cancelExport" aria-label="close"></button>
+                        <p class="modal-card-title" id="export-dialog-title">{{ $t('settings.backup.export_dialog_title') }}</p>
+                        <button class="delete" @click="cancelExport" :aria-label="$t('label.close')"></button>
                     </header>
                     <section class="modal-card-body">
                         <div class="field">
@@ -296,12 +296,12 @@
             </div>
 
             <!-- Import Dialog -->
-            <div class="modal" :class="{ 'is-active': showImportDialog }">
-                <div class="modal-background" @click="cancelImport"></div>
+            <div class="modal" :class="{ 'is-active': showImportDialog }" role="dialog" aria-modal="true" aria-labelledby="import-dialog-title" @keydown.escape="cancelImport">
+                <div class="modal-background" @click="cancelImport" aria-hidden="true"></div>
                 <div class="modal-card">
                     <header class="modal-card-head">
-                        <p class="modal-card-title">{{ $t('settings.backup.import_dialog_title') }}</p>
-                        <button class="delete" @click="cancelImport" aria-label="close"></button>
+                        <p class="modal-card-title" id="import-dialog-title">{{ $t('settings.backup.import_dialog_title') }}</p>
+                        <button class="delete" @click="cancelImport" :aria-label="$t('label.close')"></button>
                     </header>
                     <section class="modal-card-body">
                         <!-- Backup Preview -->

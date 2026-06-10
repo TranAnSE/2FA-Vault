@@ -21,7 +21,7 @@
 </script>
 
 <template>
-    <div class="toolbar has-text-centered has-nowrap">
+    <div class="toolbar has-text-centered has-nowrap" role="navigation" :aria-label="$t('label.main_navigation')">
         <!-- selected label -->
         <span style="vertical-align: sub;" class="has-text-grey">{{ $t('message.x_selected', { count: selectedCount }) }}</span>
         <!-- deselect all -->

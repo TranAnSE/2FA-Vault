@@ -170,12 +170,12 @@
       </div>
 
       <!-- Invite Modal -->
-      <div class="modal" :class="{ 'is-active': showInviteModal }">
-        <div class="modal-background" @click="showInviteModal = false"></div>
+      <div class="modal" :class="{ 'is-active': showInviteModal }" role="dialog" aria-modal="true" aria-labelledby="invite-modal-title" @keydown.escape="showInviteModal = false">
+        <div class="modal-background" @click="showInviteModal = false" aria-hidden="true"></div>
         <div class="modal-card">
           <header class="modal-card-head">
-            <p class="modal-card-title">{{ $t('teams.invite_member') }}</p>
-            <button class="delete" @click="showInviteModal = false"></button>
+            <p class="modal-card-title" id="invite-modal-title">{{ $t('teams.invite_member') }}</p>
+            <button class="delete" :aria-label="$t('label.close')" @click="showInviteModal = false"></button>
           </header>
           <section class="modal-card-body">
             <!-- Invite Code -->
@@ -217,9 +217,9 @@
               <div class="control">
                 <div class="select">
                   <select v-model="inviteRole">
-                    <option value="member">Member</option>
-                    <option value="admin">Admin</option>
-                    <option value="viewer">Viewer</option>
+                    <option value="member">{{ $t('teams.role_member') }}</option>
+                    <option value="admin">{{ $t('teams.role_admin') }}</option>
+                    <option value="viewer">{{ $t('teams.role_viewer') }}</option>
                   </select>
                 </div>
               </div>
@@ -233,12 +233,12 @@
       </div>
 
       <!-- Encrypted Share Modal -->
-      <div class="modal" :class="{ 'is-active': showShareModal }">
-        <div class="modal-background" @click="showShareModal = false"></div>
+      <div class="modal" :class="{ 'is-active': showShareModal }" role="dialog" aria-modal="true" aria-labelledby="share-modal-title" @keydown.escape="showShareModal = false">
+        <div class="modal-background" @click="showShareModal = false" aria-hidden="true"></div>
         <div class="modal-card">
           <header class="modal-card-head">
-            <p class="modal-card-title">{{ $t('teams.share_encrypted') }}</p>
-            <button class="delete" @click="showShareModal = false"></button>
+            <p class="modal-card-title" id="share-modal-title">{{ $t('teams.share_encrypted') }}</p>
+            <button class="delete" :aria-label="$t('label.close')" @click="showShareModal = false"></button>
           </header>
           <section class="modal-card-body">
             <div v-if="!keyPairReady" class="notification is-warning is-size-7 mb-3">
@@ -289,12 +289,12 @@
       </div>
 
       <!-- Edit Modal -->
-      <div class="modal" :class="{ 'is-active': showEditModal }">
-        <div class="modal-background" @click="showEditModal = false"></div>
+      <div class="modal" :class="{ 'is-active': showEditModal }" role="dialog" aria-modal="true" aria-labelledby="edit-modal-title" @keydown.escape="showEditModal = false">
+        <div class="modal-background" @click="showEditModal = false" aria-hidden="true"></div>
         <div class="modal-card">
           <header class="modal-card-head">
-            <p class="modal-card-title">{{ $t('teams.edit_team') }}</p>
-            <button class="delete" @click="showEditModal = false"></button>
+            <p class="modal-card-title" id="edit-modal-title">{{ $t('teams.edit_team') }}</p>
+            <button class="delete" :aria-label="$t('label.close')" @click="showEditModal = false"></button>
           </header>
           <section class="modal-card-body">
             <div class="field">

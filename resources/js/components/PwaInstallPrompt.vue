@@ -11,10 +11,10 @@
             </svg>
           </div>
           <div class="prompt-title">
-            <h3>Install 2FA-Vault</h3>
-            <p>Add to your home screen for quick access</p>
+            <h3>{{ $t('pwa.install_app') }}</h3>
+            <p>{{ $t('pwa.add_to_home_screen') }}</p>
           </div>
-          <button @click="dismiss" class="close-btn" aria-label="Close">
+          <button @click="dismiss" class="close-btn" :aria-label="$t('label.close')">
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <line x1="18" y1="6" x2="6" y2="18"></line>
               <line x1="6" y1="6" x2="18" y2="18"></line>
@@ -24,7 +24,7 @@
 
         <!-- Platform-specific instructions -->
         <div v-if="platform === 'ios'" class="install-instructions">
-          <p class="instruction-intro">To install on iOS:</p>
+          <p class="instruction-intro">{{ $t('pwa.to_install_on_ios') }}</p>
           <ol>
             <li v-for="(step, index) in instructions.steps" :key="index">{{ step }}</li>
           </ol>
@@ -38,9 +38,9 @@
               <polyline points="7 10 12 15 17 10"></polyline>
               <line x1="12" y1="15" x2="12" y2="3"></line>
             </svg>
-            Install App
+            {{ $t('pwa.install') }}
           </button>
-          <button @click="dismiss" class="cancel-btn">Not now</button>
+          <button @click="dismiss" class="cancel-btn">{{ $t('pwa.later') }}</button>
         </div>
       </div>
     </div>
@@ -50,6 +50,9 @@
 <script setup>
 import { ref, onMounted, onUnmounted } from 'vue';
 import pwaService from '../services/pwa.js';
+import { useI18n } from 'vue-i18n';
+
+const { t } = useI18n();
 
 const showPrompt = ref(false);
 const platform = ref('');

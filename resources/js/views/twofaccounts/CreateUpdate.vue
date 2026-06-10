@@ -844,7 +844,7 @@
         <div class="modal-card">
             <header class="modal-card-head">
                 <p class="modal-card-title">{{ $t('teams.share_with_team') }}</p>
-                <button class="delete" aria-label="close" @click="showShareModal = false"></button>
+                <button class="delete" :aria-label="$t('label.close')" @click="showShareModal = false"></button>
             </header>
             <section class="modal-card-body">
                 <FormSelect v-model="shareForm.team_id" :options="shareableTeams" fieldName="team_id" label="teams.select_team" />

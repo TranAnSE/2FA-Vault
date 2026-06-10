@@ -366,9 +366,9 @@
                         <thead>
                             <tr>
                                 <th></th>
-                                <th>Plain text</th>
-                                <th>QR code</th>
-                                <th>JSON</th>
+                                <th>{{ $t('label.plain_text') }}</th>
+                                <th>{{ $t('label.qr_code') }}</th>
+                                <th>{{ $t('label.json_format') }}</th>
                             </tr>
                         </thead>
                         <tbody>
