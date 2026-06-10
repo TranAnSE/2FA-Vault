@@ -2,12 +2,14 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class EmergencyContact extends Model
 {
+    use HasFactory;
     protected $fillable = [
         'owner_id', 'trusted_user_id', 'email',
         'status', 'access_type', 'wait_days',

@@ -2,6 +2,7 @@
 
 namespace App\Api\v1\Controllers;
 
+use App\Http\Controllers\Controller;
 use App\Models\Tag;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;

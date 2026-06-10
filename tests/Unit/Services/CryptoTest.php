@@ -18,11 +18,34 @@ class CryptoTest extends TestCase
      */
     public function test_server_never_stores_plaintext_secrets(): void
     {
-        // This is a CLIENT-SIDE test placeholder
-        // The crypto module runs in the browser using Web Crypto API
-        // Server-side tests only verify that encrypted data is stored correctly
-        
-        $this->assertTrue(true, 'Crypto operations happen client-side');
+        $account = new \App\Models\TwoFAccount();
+
+        // When an E2EE-encrypted secret is set, the server stores it as-is (opaque JSON)
+        $encryptedPayload = '{"ciphertext":"base64data","iv":"base64iv","authTag":"base64tag"}';
+        $account->secret = $encryptedPayload;
+
+        // The raw attribute should be stored as the opaque JSON, not decrypted/modified
+        $this->assertEquals($encryptedPayload, $account->getAttributes()['secret']);
+
+        // The getter returns it as-is without attempting decryption
+        $this->assertEquals($encryptedPayload, $account->secret);
+    }
+
+    /**
+     * Test that encrypted secret matches expected E2EE JSON structure
+     */
+    public function test_encrypted_secret_matches_expected_json_structure(): void
+    {
+        $account = new \App\Models\TwoFAccount();
+
+        // Valid E2EE payload structure
+        $account->secret = '{"ciphertext":"abc","iv":"def","authTag":"ghi"}';
+
+        // Should be detected as encrypted and stored without modification
+        $this->assertStringStartsWith('{', $account->secret);
+        $this->assertStringContainsString('ciphertext', $account->secret);
+        $this->assertStringContainsString('iv', $account->secret);
+        $this->assertStringContainsString('authTag', $account->secret);
     }
     
     /**
@@ -30,16 +53,48 @@ class CryptoTest extends TestCase
      */
     public function test_server_never_receives_encryption_keys(): void
     {
-        // The server should ONLY receive:
-        // 1. encryption_salt (needed for key derivation)
-        // 2. encryption_test_value (encrypted test data for verification)
-        
-        // The server should NEVER receive:
-        // - Master password
-        // - Encryption key
-        // - Plaintext secrets
-        
-        $this->assertTrue(true, 'Server never receives encryption keys');
+        $user = new \App\Models\User();
+        $fillable = $user->getFillable();
+
+        // Server should never have an encryption_key field
+        $this->assertNotContains('encryption_key', $fillable);
+        $this->assertNotContains('master_password', $fillable);
+        $this->assertNotContains('derived_key', $fillable);
+
+        // Only salt and test_value are stored (never the key itself)
+        $this->assertContains('encryption_salt', $fillable);
+        $this->assertContains('encryption_test_value', $fillable);
+    }
+
+    /**
+     * Test that User model hides encryption fields from API responses
+     */
+    public function test_user_model_hides_encryption_fields_from_api(): void
+    {
+        $user = new \App\Models\User();
+        $hidden = $user->getHidden();
+
+        // Encryption secrets must never appear in API responses
+        $this->assertContains('encryption_salt', $hidden);
+        $this->assertContains('encryption_test_value', $hidden);
+        $this->assertContains('password', $hidden);
+        $this->assertContains('remember_token', $hidden);
+    }
+
+    /**
+     * Test that User model casts encryption fields correctly
+     */
+    public function test_user_model_casts_encryption_fields_correctly(): void
+    {
+        $user = new \App\Models\User();
+        $casts = $user->getCasts();
+
+        $this->assertArrayHasKey('encryption_enabled', $casts);
+        $this->assertEquals('boolean', $casts['encryption_enabled']);
+        $this->assertArrayHasKey('vault_locked', $casts);
+        $this->assertEquals('boolean', $casts['vault_locked']);
+        $this->assertArrayHasKey('encryption_version', $casts);
+        $this->assertEquals('integer', $casts['encryption_version']);
     }
     
     /**

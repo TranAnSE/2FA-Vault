@@ -95,7 +95,7 @@ class EmergencyAccessService
             ->get()
             ->each(function (EmergencyAccessRequest $request) use (&$processed) {
                 $waitDays = $request->contact->wait_days;
-                if (now()->diffInDays($request->requested_at) >= $waitDays) {
+                if (abs(now()->diffInDays($request->requested_at)) >= $waitDays) {
                     $request->update([
                         'status'    => 'auto_granted',
                         'granted_at'=> now(),
@@ -124,7 +124,7 @@ class EmergencyAccessService
                 foreach ($contacts as $contact) {
                     $owner       = $contact->owner;
                     $lastSeen    = $owner->last_seen_at ?? $owner->created_at;
-                    $inactiveDays = (int) now()->diffInDays($lastSeen);
+                    $inactiveDays = (int) abs(now()->diffInDays($lastSeen));
 
                     if ($inactiveDays >= $contact->wait_days) {
                         // Auto-create a request and immediately grant it
