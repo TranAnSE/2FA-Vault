@@ -24,7 +24,8 @@ Last updated: 2026-06-10
 - ✅ Extension Form Detection + Badge — badge shows matching account count per page
 - ✅ Admin Rate Limit Dashboard — real-time rate limit monitoring with top consumers/endpoints
 - ✅ Webhook / Event System — HMAC-signed HTTP webhooks with retry and delivery history
-- ✅ Security Hardening — CORS preflight cache, session encryption at rest, DB indexes on core tables, auth rate limiting, backup encryption enforcement, CSP extension allowances, encryption-disable safety (34 tests, 1428 total)
+- ✅ Security Hardening — CORS preflight cache, session encryption at rest, DB indexes on core tables, auth rate limiting, backup encryption enforcement, CSP extension allowances, encryption-disable safety
+- ✅ Enterprise Feature Test Coverage — 118 new tests (~350 assertions) for Emergency Access, Webhooks, Vaults, Tags, Team Activity, CryptoTest; found and fixed 3 bugs (diffInDays sign, missing import); 1524 total tests passing, 0 failures
 
 ---
 

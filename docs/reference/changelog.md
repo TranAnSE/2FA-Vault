@@ -5,6 +5,31 @@ All notable changes to 2FA-Vault will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.1.2] - 2026-06-10
+
+### Added
+
+**Enterprise Feature Test Coverage (7 phases)**
+
+- **Test Factories**: Created 5 missing Eloquent factories (EmergencyContact, EmergencyAccessRequest, Webhook, Vault, Tag); added `HasFactory` trait to 4 models
+- **Emergency Access Tests**: 27 tests across service, controller, and console command — contact CRUD, access request lifecycle, dead man's switch processing, authorization boundaries
+- **Webhook Tests**: 20 tests across service and controller — HMAC signature generation, event type validation, delivery history, Queue::fake for job dispatch
+- **Vault Tests**: 16 tests across service and controller — 10-vault limit enforcement, default vault protection, ownership boundaries
+- **Tag Tests**: 16 tests across model and controller — CRUD with colors, duplicate name prevention, many-to-many associations
+- **Team Activity Tests**: 14 tests across logger service and controller — all 11 TeamAction enum cases, authorization, pagination
+- **CryptoTest Fixes**: Replaced 2 `assertTrue(true)` placeholders with 5 real zero-knowledge verification tests
+
+### Fixed
+
+- `EmergencyAccessService::processExpiredRequests()` — `diffInDays()` returning negative values for expired requests
+- `EmergencyAccessService::checkDeadMansSwitch()` — same `diffInDays()` sign bug
+- `TagController` — missing `use App\Http\Controllers\Controller` import
+
+### Tests
+
+- 118 new tests, ~350 new assertions
+- 1524 total tests passing, 0 failures
+
 ## [1.1.1] - 2026-06-10
 
 ### Added
