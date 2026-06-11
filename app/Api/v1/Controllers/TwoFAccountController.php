@@ -384,7 +384,7 @@ class TwoFAccountController extends Controller
      */
     public function count(Request $request)
     {
-        return response()->json(['count' => $request->user()->twofaccounts->count()], 200);
+        return response()->json(['count' => $request->user()->twofaccounts()->count()], 200);
     }
 
     /**

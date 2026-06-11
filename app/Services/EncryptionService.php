@@ -334,8 +334,12 @@ class EncryptionService
      */
     public function getEncryptionStats(User $user): array
     {
-        $total = TwoFAccount::where('user_id', $user->id)->count();
-        $encrypted = TwoFAccount::where('user_id', $user->id)->where('encrypted', true)->count();
+        $stats = TwoFAccount::where('user_id', $user->id)
+            ->selectRaw('COUNT(*) as total, SUM(CASE WHEN encrypted = 1 THEN 1 ELSE 0 END) as encrypted_count')
+            ->first();
+
+        $total = (int) $stats->total;
+        $encrypted = (int) $stats->encrypted_count;
 
         return [
             'total_accounts' => $total,

@@ -31,11 +31,13 @@ class TeamController extends Controller
 
         $teams = Team::accessibleByUser($user->id)
             ->with(['owner', 'users'])
-            ->withCount('users')
+            ->withCount([
+                'users',
+                'sharedAccounts',
+                'invitations as pending_invitations_count' => fn ($q) => $q->where('status', 'pending'),
+            ])
             ->get()
             ->map(function ($team) use ($user) {
-                $stats = $this->teamService->getTeamStats($team);
-
                 return [
                     'id' => $team->id,
                     'name' => $team->name,
@@ -43,8 +45,8 @@ class TeamController extends Controller
                     'owner_name' => $team->owner->name,
                     'role' => $team->getUserRole($user->id),
                     'members_count' => $team->users_count,
-                    'shared_accounts_count' => $stats['shared_accounts_count'],
-                    'pending_invitations' => $stats['invitations_pending'],
+                    'shared_accounts_count' => $team->shared_accounts_count,
+                    'pending_invitations' => $team->pending_invitations_count,
                     'created_at' => $team->created_at,
                     'invite_code' => $team->owner_id === $user->id ? $team->invite_code : null,
                 ];

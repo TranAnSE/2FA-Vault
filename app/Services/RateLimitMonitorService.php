@@ -59,10 +59,16 @@ class RateLimitMonitorService
             ->limit(10)
             ->get();
 
+        $hourExpression = match (DB::getDriverName()) {
+            'sqlite' => "strftime('%Y-%m-%d %H:00:00', created_at)",
+            'mysql', 'mariadb' => "DATE_FORMAT(created_at, '%Y-%m-%d %H:00:00')",
+            default => "date_trunc('hour', created_at)::text",
+        };
+
         $hourly = (clone $base)
             ->where('was_limited', true)
-            ->selectRaw("strftime('%Y-%m-%d %H:00:00', created_at) as hour, COUNT(*) as count")
-            ->groupBy('hour')
+            ->selectRaw("{$hourExpression} as hour, COUNT(*) as count")
+            ->groupByRaw($hourExpression)
             ->orderBy('hour')
             ->get();
 

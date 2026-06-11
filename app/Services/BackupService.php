@@ -631,10 +631,12 @@ class BackupService
      */
     public function getBackupStats(User $user): array
     {
-        $totalAccounts = TwoFAccount::where('user_id', $user->id)->count();
-        $encryptedAccounts = TwoFAccount::where('user_id', $user->id)
-            ->where('encrypted', true)
-            ->count();
+        $accountStats = TwoFAccount::where('user_id', $user->id)
+            ->selectRaw('COUNT(*) as total, SUM(CASE WHEN encrypted = 1 THEN 1 ELSE 0 END) as encrypted_count')
+            ->first();
+
+        $totalAccounts = (int) $accountStats->total;
+        $encryptedAccounts = (int) $accountStats->encrypted_count;
         $totalGroups = $user->groups()->count();
 
         $backupSize = $this->estimateBackupSize($totalAccounts, $totalGroups);

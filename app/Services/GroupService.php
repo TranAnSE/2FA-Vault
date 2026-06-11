@@ -92,7 +92,7 @@ class GroupService
         ]);
 
         $theAllGroup->id                 = 0;
-        $theAllGroup->twofaccounts_count = $user->twofaccounts->count();
+        $theAllGroup->twofaccounts_count = $user->twofaccounts()->count();
 
         return $groups->prepend($theAllGroup);
     }

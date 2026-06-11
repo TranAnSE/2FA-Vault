@@ -60,6 +60,14 @@ class Team extends Model
     }
 
     /**
+     * Get all invitations for this team.
+     */
+    public function invitations()
+    {
+        return $this->hasMany(TeamInvitation::class);
+    }
+
+    /**
      * Get the activity log entries for this team.
      */
     public function activityLogs()
