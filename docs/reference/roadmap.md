@@ -2,7 +2,7 @@
 
 > Honest, focused roadmap for reaching a self-hostable, trustable 1.0. Scoped for an OSS self-host tool — **not** a SaaS product. See [Non-goals](#non-goals) for what we deliberately skip.
 
-Last updated: 2026-06-10
+Last updated: 2026-06-11
 
 ---
 
@@ -26,6 +26,7 @@ Last updated: 2026-06-10
 - ✅ Webhook / Event System — HMAC-signed HTTP webhooks with retry and delivery history
 - ✅ Security Hardening — CORS preflight cache, session encryption at rest, DB indexes on core tables, auth rate limiting, backup encryption enforcement, CSP extension allowances, encryption-disable safety
 - ✅ Enterprise Feature Test Coverage — 118 new tests (~350 assertions) for Emergency Access, Webhooks, Vaults, Tags, Team Activity, CryptoTest; found and fixed 3 bugs (diffInDays sign, missing import); 1524 total tests passing, 0 failures
+- ✅ Frontend Code Quality — split 4 oversized files (CreateUpdate.vue 861→507, TeamDetail.vue 611→369, Accounts.vue 590→261, offline-db.js 409→226); extracted 8 composables/components; removed dead code
 
 ---
 

@@ -1,5 +1,4 @@
 import { defineStore } from 'pinia'
-import { startsWithUppercase } from '@/composables/helpers'
 import { useUserStore } from '@/stores/user'
 import { useCryptoStore } from '@/stores/crypto'
 import cryptoService from '@/services/crypto'

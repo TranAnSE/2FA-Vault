@@ -3,18 +3,18 @@
     import QrContentDisplay from '@/components/QrContentDisplay.vue'
     import { FormProtectedField } from '@2fauth/formcontrols'
     import twofaccountService from '@/services/twofaccountService'
-    import iconService from '@/services/iconService'
-    import cryptoService from '@/services/crypto'
     import { useUserStore } from '@/stores/user'
     import { useTwofaccounts } from '@/stores/twofaccounts'
     import { useGroups } from '@/stores/groups'
     import { useBusStore } from '@/stores/bus'
-    import { useCryptoStore } from '@/stores/crypto'
     import { useTeamsStore } from '@/stores/teams'
     import { useNotify, OtpDisplay } from '@2fauth/ui'
     import { UseColorMode } from '@vueuse/components'
     import { useI18n } from 'vue-i18n'
     import { useErrorHandler } from '@2fauth/stores'
+    import { useIconManager } from '@/composables/useIconManager'
+    import { useQrUpload } from '@/composables/useQrUpload'
+    import { useAccountEncryption } from '@/composables/useAccountEncryption'
     import {
         LucideHardDriveUpload,
         LucideImageUp,
@@ -31,102 +31,57 @@
     const user = useUserStore()
     const twofaccounts = useTwofaccounts()
     const bus = useBusStore()
-    const cryptoStore = useCryptoStore()
     const notify = useNotify()
+
     const form = reactive(new Form({
-        service: '',
-        account: '',
-        otp_type: '',
-        icon: '',
+        service: '', account: '', otp_type: '', icon: '',
         group_id: user.preferences.defaultGroup == -1 ? user.preferences.activeGroup : user.preferences.defaultGroup,
-        secret: '',
-        algorithm: '',
-        digits: null,
-        counter: null,
-        period: null,
-        image: '',
+        secret: '', algorithm: '', digits: null, counter: null, period: null, image: '',
     }))
-    const qrcodeForm = reactive(new Form({
-        qrcode: null
-    }))
-    const iconForm = reactive(new Form({
-        icon: null
-    }))
-    const iconCollections = [
-        { text: 'selfh.st', value: 'selfh', hasVariant: true },
-        { text: 'dashboardicons.com', value: 'dashboardicons', hasVariant: true },
-        { text: '2fa.directory', value: 'tfa', hasVariant: false },
-    ]
-    const iconCollectionVariants = {
-        selfh: [
-            { text: 'label.regular', value: 'regular' },
-            { text: 'label.light', value: 'light' },
-            { text: 'label.dark', value: 'dark' },
-        ],
-        dashboardicons: [
-            { text: 'label.regular', value: 'regular' },
-            { text: 'label.light', value: 'light' },
-            { text: 'label.dark', value: 'dark' },
-        ],
-        tfa: [
-            { text: 'label.regular', value: 'regular' },
-        ]
-    }
-    const accountParams = ref({
-        otp_type: '',
-        account: '',
-        service: '',
-        icon: '',
-        secret: '',
-        digits: null,
-        algorithm: '',
-        period: null,
-        counter: null,
-        image: ''
-    })
-    const otp_types = [
-        { text: 'TOTP', value: 'totp' },
-        { text: 'HOTP', value: 'hotp' },
-        { text: 'STEAM', value: 'steamtotp' },
-    ]
-    const digitsChoices = [
-        { text: '6', value: 6 },
-        { text: '7', value: 7 },
-        { text: '8', value: 8 },
-        { text: '9', value: 9 },
-        { text: '10', value: 10 },
-    ]
-    const algorithms = [
-        { text: 'sha1', value: 'sha1' },
-        { text: 'sha256', value: 'sha256' },
-        { text: 'sha512', value: 'sha512' },
-        { text: 'md5', value: 'md5' },
-    ]
-    const uri = ref()
-    const tempIcon = ref('')
+
+    const qrcodeForm = reactive(new Form({ qrcode: null }))
+    const iconForm = reactive(new Form({ icon: null }))
+
     const showQuickForm = ref(false)
     const showAlternatives = ref(false)
     const showOtpInModal = ref(false)
     const showAdvancedForm = ref(false)
     const ShowTwofaccountInModal = ref(false)
     const showSpinner = ref(false)
-    const fetchingLogo = ref(false)
-    const iconCollection = ref(user.preferences.iconCollection)
-    const iconCollectionVariant = ref(user.preferences.iconVariant)
-    const iconPack = ref(user.preferences.iconPack ?? '/')
-    const iconPacks = ref([
-        { text: 'label.no_available_icon_packs', value: '/' }
-    ])
-    const hasSomeIconPack = ref(false)
-    const isLoading = ref(false)
+
+    const accountParams = ref({
+        otp_type: '', account: '', service: '', icon: '',
+        secret: '', digits: null, algorithm: '', period: null, counter: null, image: ''
+    })
+
+    const otp_types = [
+        { text: 'TOTP', value: 'totp' }, { text: 'HOTP', value: 'hotp' }, { text: 'STEAM', value: 'steamtotp' },
+    ]
+    const digitsChoices = [
+        { text: '6', value: 6 }, { text: '7', value: 7 }, { text: '8', value: 8 },
+        { text: '9', value: 9 }, { text: '10', value: 10 },
+    ]
+    const algorithms = [
+        { text: 'sha1', value: 'sha1' }, { text: 'sha256', value: 'sha256' },
+        { text: 'sha512', value: 'sha512' }, { text: 'md5', value: 'md5' },
+    ]
+
+    // Composables — icon manager must init first so tempIcon ref is available for QR upload
+    const { encryptSecret } = useAccountEncryption()
+    const {
+        tempIcon, fetchingLogo, iconCollection, iconCollectionVariant,
+        iconPack, iconPacks, hasSomeIconPack, isLoading,
+        iconCollections, iconCollectionVariants,
+        uploadIcon, deleteTempIcon, fetchLogo, refreshIconPackList,
+    } = useIconManager(form, { showQuickForm, OtpDisplayForQuickForm: null })
+    const { uri, uploadQrcode } = useQrUpload(form, {
+        tempIcon, showAlternatives, showAdvancedForm,
+    })
 
     // Share with Team
     const teamsStore = useTeamsStore()
     const showShareModal = ref(false)
-    const shareForm = reactive({
-        team_id: '',
-        access_level: 'read'
-    })
+    const shareForm = reactive({ team_id: '', access_level: 'read' })
     const isSharing = ref(false)
 
     // $refs
@@ -137,31 +92,23 @@
     const qrcodeInputLabel = ref(null)
     const qrcodeInput = ref(null)
     const iconInputLabel = ref(null)
-    
-    const props = defineProps({
-        twofaccountId: [Number, String]
-    })
 
-    const isEditMode = computed(() => {
-        return props.twofaccountId != undefined
-    })
+    const props = defineProps({ twofaccountId: [Number, String] })
+
+    const isEditMode = computed(() => props.twofaccountId != undefined)
 
     const groups = computed(() => {
-        return useGroups().items.map((item) => {
-            return { text: item.id > 0 ? item.name : '- ' + t('label.no_group') + ' -', value: item.id }
-        })
-    })
-
-    const shareableTeams = computed(() => {
-        return teamsStore.teams.map(team => ({
-            text: team.name,
-            value: team.id
+        return useGroups().items.map((item) => ({
+            text: item.id > 0 ? item.name : '- ' + t('label.no_group') + ' -', value: item.id
         }))
     })
 
+    const shareableTeams = computed(() => teamsStore.teams.map(team => ({
+        text: team.name, value: team.id
+    })))
+
     const accessLevels = [
-        { text: 'label.read', value: 'read' },
-        { text: 'label.write', value: 'write' },
+        { text: 'label.read', value: 'read' }, { text: 'label.write', value: 'write' },
     ]
 
     async function shareWithTeam() {
@@ -175,99 +122,59 @@
             shareForm.access_level = 'read'
         } catch (error) {
             notify.error({ text: error.response?.data?.message || t('teams.share_error') })
-        } finally {
-            isSharing.value = false
-        }
+        } finally { isSharing.value = false }
     }
 
     onMounted(() => {
         if (route.name == 'editAccount') {
             showSpinner.value = true
-
             twofaccountService.get(props.twofaccountId).then(async response => {
-                // Decrypt secret if vault is unlocked
-                if (cryptoStore.isVaultUnlocked && response.data.secret) {
-                    try {
-                        response.data.secret = await cryptoService.decryptSecret(response.data.secret)
-                    } catch (error) {
-                        console.error('Failed to decrypt secret:', error)
-                    }
+                const { decryptSecret } = useAccountEncryption()
+                if (decryptSecret) {
+                    response.data.secret = await decryptSecret(response.data.secret)
                 }
-
                 form.fill(response.data)
-                if (form.group_id == null) {
-                    form.group_id = 0
-                }
+                if (form.group_id == null) form.group_id = 0
                 form.setOriginal()
-                // set account icon as temp icon
                 tempIcon.value = form.icon
                 showAdvancedForm.value = true
-            })
-            .finally(() => {
-                showSpinner.value = false
-            })
+            }).finally(() => { showSpinner.value = false })
         }
-        else if( bus.decodedUri ) {
-            // The Start|Capture view provided an uri via the bus store.
+        else if (bus.decodedUri) {
             uri.value = bus.decodedUri
             bus.decodedUri = null
             showSpinner.value = true
 
             if (user.preferences.AutoSaveQrcodedAccount) {
-                // The user wants the account to be saved automatically.
-                // We save it now and we show him a fresh otp
                 twofaccountService.storeFromUri(uri.value).then(response => {
                     showOTP(response.data)
                 })
                 .catch(error => {
-                    if( error.response.data.errors.uri ) {
+                    if (error.response.data.errors.uri) {
                         showAlternatives.value = true
                         showAdvancedForm.value = true
                     }
                 })
-                .finally(() => {
-                    showSpinner.value = false
-                })
-            }
-            else {
-                // We prefill and show the quick form
+                .finally(() => { showSpinner.value = false })
+            } else {
                 twofaccountService.preview(uri.value).then(response => {
                     form.fill(response.data)
                     tempIcon.value = response.data.icon ? response.data.icon : ''
                     showQuickForm.value = true
-                    nextTick().then(() => {
-                        OtpDisplayForQuickForm.value.show()
-                    })
+                    nextTick().then(() => { OtpDisplayForQuickForm.value.show() })
                 })
                 .catch(error => {
-                    if( error.response.data.errors.uri ) {
+                    if (error.response.data.errors.uri) {
                         showAlternatives.value = true
                         showAdvancedForm.value = true
                     }
                 })
-                .finally(() => {
-                    showSpinner.value = false
-                })
+                .finally(() => { showSpinner.value = false })
             }
         } else {
             showAdvancedForm.value = true
         }
-
         refreshIconPackList()
-    })
-
-    watch(iconCollection, (val) => {
-        iconCollectionVariant.value = Object.prototype.hasOwnProperty.call(iconCollectionVariants, val)
-            ? iconCollectionVariants[val][0].value
-            : ''
-    })
-
-    watch(tempIcon, (val) => {
-        if( showQuickForm.value ) {
-            nextTick().then(() => {
-                OtpDisplayForQuickForm.value.icon = val
-            })
-        }
     })
 
     watch(ShowTwofaccountInModal, (val) => {
@@ -284,344 +191,97 @@
         }
     })
 
-    watch(
-        () => form.otp_type,
-        (to, from) => {
-            if (to === 'steamtotp') {
-                form.service = 'Steam'
-                fetchLogo()
-            }
-            else if (from === 'steamtotp') {
-                form.service = ''
-                deleteTempIcon()
-            }
-        }
-    )
+    watch(() => form.otp_type, (to, from) => {
+        if (to === 'steamtotp') { form.service = 'Steam'; fetchLogo() }
+        else if (from === 'steamtotp') { form.service = ''; deleteTempIcon() }
+    })
 
-    /**
-     * Wrapper to call the appropriate function at form submit
-     */
-     function handleSubmit() {
+    function handleSubmit() {
         isEditMode.value ? updateAccount() : createAccount()
     }
 
-    /**
-     * Submits the form to the backend to store the new account
-     */
     async function createAccount() {
-        // set current temp icon as account icon
         form.icon = tempIcon.value
-
-        // Encrypt secret if vault is unlocked
-        if (cryptoStore.isVaultUnlocked && form.secret) {
-            try {
-                form.secret = await cryptoService.encryptSecret(form.secret)
-            } catch (error) {
-                notify.error({ text: t('notification.encryption_failed') })
-                return
-            }
-        }
+        const encrypted = await encryptSecret(form.secret)
+        if (encrypted === null) return
+        form.secret = encrypted
 
         const { data } = await form.post('/api/v1/twofaccounts')
-
         if (form.errors.any() === false) {
             twofaccounts.items.push(data)
             twofaccounts.sortDefault()
-            
             notify.success({ text: t('notification.account_created') })
-            router.push({ name: 'accounts' });
+            router.push({ name: 'accounts' })
         }
     }
 
-    /**
-     * Submits the form to the backend to save the edited account
-     */
     async function updateAccount() {
-        // Set new icon and delete old one
-        if( tempIcon.value !== form.icon ) {
-            let oldIcon = ''
-            oldIcon = form.icon
+        if (tempIcon.value !== form.icon) {
+            const oldIcon = form.icon
             form.icon = tempIcon.value
             tempIcon.value = oldIcon
             deleteTempIcon()
         }
-
-        // Encrypt secret if vault is unlocked
-        if (cryptoStore.isVaultUnlocked && form.secret) {
-            try {
-                form.secret = await cryptoService.encryptSecret(form.secret)
-            } catch (error) {
-                notify.error({ text: t('notification.encryption_failed') })
-                return
-            }
-        }
+        const encrypted = await encryptSecret(form.secret)
+        if (encrypted === null) return
+        form.secret = encrypted
 
         const { data } = await form.put('/api/v1/twofaccounts/' + props.twofaccountId)
-
-        if( form.errors.any() === false ) {
+        if (form.errors.any() === false) {
             const index = twofaccounts.items.findIndex(acc => acc.id === data.id)
             twofaccounts.items.splice(index, 1, data)
             twofaccounts.sortDefault()
-
             notify.success({ text: t('notification.account_updated') })
             router.push({ name: 'accounts' })
         }
     }
 
-    /**
-     * Shows an OTP generated with the infos filled in the form
-     * in order to preview or validated the password/the form data
-     */
     function previewOTP() {
         form.clear()
         ShowTwofaccountInModal.value = true
         OtpDisplayForAdvancedForm.value.show()
     }
 
-    /**
-     * Shows rotating OTP for the provided account
-     */
     function showOTP(otp) {
-        // Data that should be displayed quickly by the OtpDisplay
-        // component are passed using props.
         accountParams.value.otp_type = otp.otp_type
         accountParams.value.service = otp.service
         accountParams.value.account = otp.account
         accountParams.value.icon = otp.icon
-
         nextTick().then(() => {
             showOtpInModal.value = true
-            OtpDisplayForAutoSave.value.show(otp.id);
+            OtpDisplayForAutoSave.value.show(otp.id)
         })
     }
 
-    /**
-     * Exits the view with user confirmation
-     */
     function cancelCreation() {
         if (form.hasChanged() || tempIcon.value != form.icon) {
             if (confirm(t('confirmation.cancel_creation')) === true) {
-                if (!isEditMode.value || tempIcon.value != form.icon) {
-                    deleteTempIcon()
-                }
-                router.push({name: 'accounts'})
+                if (!isEditMode.value || tempIcon.value != form.icon) deleteTempIcon()
+                router.push({ name: 'accounts' })
             }
-        }
-        else router.push({name: 'accounts'})
+        } else router.push({ name: 'accounts' })
     }
 
-    /**
-     * Uploads the submited image resource to the backend
-     */
-    function uploadIcon() {
-        // clean possible already uploaded temp icon
-        deleteTempIcon()
-        iconForm.icon = iconInput.value.files[0]
+    function incrementHotp(payload) { form.counter = payload.nextHotpCounter }
 
-        iconForm.upload('/api/v1/icons', { returnError: true })
-        .then(response => {
-            tempIcon.value = response.data.filename
-            if (showQuickForm.value) {
-                form.icon = tempIcon.value
-            }
-        })
-        .catch(error => {
-            if (error.response.status !== 422) {
-                notify.alert({ text: error.response.data.message})
-            }
-        })
-    }
-
-    /**
-     * Deletes the temp icon from backend
-     */
-    function deleteTempIcon() {
-        if (isEditMode.value) {
-            if (tempIcon.value) {
-                if (tempIcon.value !== form.icon) {
-                    iconService.deleteIcon(tempIcon.value)
-                }
-                tempIcon.value = ''
-            }
-        }
-        else if (tempIcon.value) {
-            iconService.deleteIcon(tempIcon.value)
-            tempIcon.value = ''
-            if (showQuickForm.value) {
-                form.icon = ''
-            }
-        }
-    }
-
-    /**
-     * Increments the HOTP counter of the form after a preview
-     * 
-     * @param {object} payload 
-     */
-    function incrementHotp(payload) {
-        // The quick form or the preview feature has incremented the HOTP counter so we get the new value from
-        // the OtpDisplay component.
-        // This could desynchronized the HOTP verification server and our local counter if the user never verified the HOTP but this
-        // is acceptable (and HOTP counter can be edited by the way)
-        form.counter = payload.nextHotpCounter
-        
-        //form.uri = payload.nextUri
-    }
-    
-    /**
-     * Maps errors received by the OtpDisplay to the form errors instance
-     * 
-     * @param {object} errorResponse 
-     */
     function mapDisplayerErrors(errorResponse) {
         form.errors.set(form.extractErrors(errorResponse))
     }
 
-    /**
-     * Sends a QR code to backend for decoding and prefill the form with the qr data
-     */
-    function uploadQrcode() {
-        qrcodeForm.qrcode = qrcodeInput.value.files[0]
+    function strip_tags(str) { return str.replace(/(<([^> ]+)>)/ig, "") }
 
-        // First we get the uri encoded in the qrcode
-        qrcodeForm.upload('/api/v1/qrcode/decode', { returnError: true })
-        .then(response => {
-            uri.value = response.data.data
-            
-            // Then the otp described by the uri
-            twofaccountService.preview(uri.value, { returnError: true }).then(response => {
-                form.fill(response.data)
-                form.group_id = 0 // group_id is not in the response payload
-                tempIcon.value = response.data.icon ? response.data.icon : null
-            })
-            .catch(error => {
-                if( error.response.status === 422 ) {
-                    if( error.response.data.errors.uri ) {
-                        showAlternatives.value = true
-                    }
-                    else notify.alert({ text: t(error.response.data.message) })
-                } else {
-                    errorHandler.show(error)
-                }
-            })
-        })
-        .catch(error => {
-            if (error.response.status !== 422) {
-                notify.alert({ text: error.response.data.message})
-            }
-        })
-    }
-
-    /**
-     * Tries to get the official logo/icon of the Service filled in the form
-     */
-    function fetchLogo() {
-        if (user.preferences.getOfficialIcons) {
-            fetchingLogo.value = true
-
-            if (user.preferences.iconSource == 'logolib') {
-                iconService.getLogo(form.service, iconCollection.value, iconCollectionVariant.value, { returnError: true })
-                .then(response => {
-                    if (response.status === 201) {
-                        // clean possible already uploaded temp icon
-                        deleteTempIcon()
-                        tempIcon.value = response.data.filename;
-                    }
-                    else notify.warn( {text: t('error.no_icon_for_this_variant') })
-                })
-                .catch(() => {
-                    notify.warn({ text: t('error.no_icon_for_this_variant') })
-                })
-                .finally(() => {
-                    fetchingLogo.value = false
-                })
-            }
-            else {
-                iconService.getLogoFromPack(form.service, iconPack.value, { returnError: true })
-                .then(response => {
-                    if (response.status === 201) {
-                        // clean possible already uploaded temp icon
-                        deleteTempIcon()
-                        tempIcon.value = response.data.filename;
-                    }
-                    else notify.warn( {text: t('error.no_match_in_the_icon_pack') })
-                })
-                .catch(error => {
-                    if (error.response.status === 422) {
-                        form.clear()
-                        form.errors.set(form.extractErrors(error.response))
-                    }
-                    else notify.warn({ text: t('error.no_match_in_the_icon_pack') })
-                })
-                .finally(() => {
-                    fetchingLogo.value = false
-                })
-            }
-        }
-    }
-
-    /**
-     * Strips html tags to prevent code injection
-     * 
-     * @param {*} str 
-     */
-    function strip_tags(str) {
-        return str.replace(/(<([^> ]+)>)/ig, "")
-    }
-
-    /**
-     * Saves the active group to the backends
-     */
-    // TODO : Delegate this to the store or a global watcher
-    // TODO : make this method unique, see Accounts.vue
     function saveActiveGroup(newActiveGroupId) {
-        // When invoked by GroupSwitch event,  newActiveGroupId should
-        // be the same as user.preferences.activeGroup because of the v-model
-        // binding.
-        // When invoked by OtpDisplay we have to update the user preference too.
         if (user.preferences.activeGroup != newActiveGroupId) {
             user.preferences.activeGroup = newActiveGroupId
         }
-
-        if( user.preferences.rememberActiveGroup) {
+        if (user.preferences.rememberActiveGroup) {
             userService.updatePreference('activeGroup', user.preferences.activeGroup)
         }
     }
 
-
-    /**
-     * Refreshes the list of available icon packs
-     */
-    function refreshIconPackList() {
-        isLoading.value = true
-
-        iconService.getIconPacks().then(response => {
-            iconPacks.value = []
-            response.data.forEach((pack) => {
-                iconPacks.value.push({
-                    text: pack.name,
-                    value: pack.name
-                })
-            })
-
-            if (iconPacks.value.length == 0) {
-                hasSomeIconPack.value = false
-                iconPack.value = '/'
-                iconPacks.value.push({ text: 'label.no_available_icon_packs', value: '/' })
-            }
-            else {
-                hasSomeIconPack.value = true
-
-                iconPack.value = user.preferences.iconPack == null || !iconPacks.value.some((pack) => pack.value === user.preferences.iconPack)
-                    ? iconPacks.value[0].value
-                    : user.preferences.iconPack
-            }
-        })
-        .finally(() => {
-            isLoading.value = false
-        })
-    }
-
+    function onUploadIcon() { uploadIcon(iconForm, iconInput.value) }
+    function onDeleteTempIcon() { deleteTempIcon(isEditMode.value) }
+    function onUploadQrcode() { uploadQrcode(qrcodeForm, qrcodeInput.value) }
 </script>
 
 <template>
@@ -651,10 +311,10 @@
                             <div>
                                 <FormFieldError v-if="iconForm.errors.hasAny('icon')" :error="iconForm.errors.get('icon')" :field="'icon'" class="help-for-file" />
                                 <label for="filUploadIcon" class="add-icon-button pt-2" v-if="!tempIcon">
-                                    <input id="filUploadIcon" class="file-input" type="file" accept="image/*" v-on:change="uploadIcon" ref="iconInput">
+                                    <input id="filUploadIcon" class="file-input" type="file" accept="image/*" v-on:change="onUploadIcon" ref="iconInput">
                                     <LucideImageUp class="icon-size-3" />
                                 </label>
-                                <button type="button" class="delete delete-icon-button is-medium" v-if="tempIcon" @click.prevent="deleteTempIcon"></button>
+                                <button type="button" class="delete delete-icon-button is-medium" v-if="tempIcon" @click.prevent="onDeleteTempIcon"></button>
                                 <OtpDisplay
                                     ref="OtpDisplayForQuickForm"
                                     :accountParams="form.data()"
@@ -688,12 +348,12 @@
             <!-- Full form -->
             <FormWrapper v-if="showAdvancedForm" :title="isEditMode ? 'heading.edit_account' : 'heading.new_account'">
                 <form @submit.prevent="handleSubmit" @keydown="form.onKeydown($event)">
-                    <!-- qcode fileupload -->
+                    <!-- qrcode fileupload -->
                     <div v-if="!isEditMode" class="field is-grouped">
                         <div class="control">
                             <div role="button" tabindex="0" class="file is-small" :class="{ 'is-black': mode == 'dark' }" @keyup.enter="qrcodeInputLabel.click()">
                                 <label class="file-label" :title="$t('tooltip.use_qrcode')" ref="qrcodeInputLabel">
-                                    <input inert tabindex="-1" class="file-input" type="file" accept="image/*" v-on:change="uploadQrcode" ref="qrcodeInput">
+                                    <input inert tabindex="-1" class="file-input" type="file" accept="image/*" v-on:change="onUploadQrcode" ref="qrcodeInput">
                                     <span class="file-cta">
                                         <span class="file-label">
                                             <LucideQrCode class="mr-2" />{{ $t('label.prefill_using_qrcode') }}
@@ -739,33 +399,25 @@
                     </FormSelect>
                     <!-- icon field buttons -->
                     <div class="field is-grouped">
-                        <!-- try my luck button -->
                         <div class="control">
                             <VueButton @click="fetchLogo" :color="mode == 'dark' ? 'is-dark' : ''" nativeType="button" :is-loading="fetchingLogo" :disabled="!form.service || (user.preferences.iconSource == 'iconpack' && !hasSomeIconPack)" aria-describedby="lgdTryMyLuck">
-                                <span class="icon is-small">
-                                    <LucideWandSparkles />
-                                </span>
+                                <span class="icon is-small"><LucideWandSparkles /></span>
                                 <span>{{ $t('label.i_m_lucky') }}</span>
                             </VueButton>
                         </div>
-                        <!-- upload icon button -->
                         <div class="control is-flex">
                             <div role="button" tabindex="0" class="file mr-3" :class="mode == 'dark' ? 'is-dark' : 'is-white'" @keyup.enter="iconInputLabel.click()">
                                 <label for="filUploadIcon" class="file-label" ref="iconInputLabel">
-                                    <input id="filUploadIcon" tabindex="-1" class="file-input" type="file" accept="image/*" v-on:change="uploadIcon" ref="iconInput">
+                                    <input id="filUploadIcon" tabindex="-1" class="file-input" type="file" accept="image/*" v-on:change="onUploadIcon" ref="iconInput">
                                     <span class="file-cta">
-                                        <span class="icon">
-                                            <LucideImageUp />
-                                        </span>
-                                        <span class="file-label">
-                                            <span class="is-hidden-mobile ml-1">{{ $t('label.choose_image') }}</span>
-                                        </span>
+                                        <span class="icon"><LucideImageUp /></span>
+                                        <span class="file-label"><span class="is-hidden-mobile ml-1">{{ $t('label.choose_image') }}</span></span>
                                     </span>
                                 </label>
                             </div>
                             <span class="tag is-large" :class="mode =='dark' ? 'is-dark' : 'is-white'" v-if="tempIcon">
                                 <img class="icon-preview" :src="$2fauth.config.subdirectory + '/storage/icons/' + tempIcon" :alt="$t('alttext.icon_to_illustrate_the_account')">
-                                <button type="button" class="clear-selection delete is-small" @click.prevent="deleteTempIcon" :aria-label="$t('label.remove_icon')"></button>
+                                <button type="button" class="clear-selection delete is-small" @click.prevent="onDeleteTempIcon" :aria-label="$t('label.remove_icon')"></button>
                             </span>
                         </div>
                     </div>
@@ -778,21 +430,13 @@
                     <!-- otp type -->
                     <FormToggle v-model="form.otp_type" :isDisabled="isEditMode" :choices="otp_types" fieldName="otp_type" :errorMessage="form.errors.get('otp_type')" label="field.otp_type" help="field.otp_type.help" :hasOffset="true" />
                     <div v-if="form.otp_type != ''">
-                        <!-- secret -->
                         <FormProtectedField :enableProtection="isEditMode" v-model.trimAll="form.secret" fieldName="secret" :errorMessage="form.errors.get('secret')" label="field.secret" help="field.secret.help" />
-                        <!-- Options -->
                         <div v-if="form.otp_type !== 'steamtotp'">
                             <h2 class="title is-4 mt-5 mb-2">{{ $t('heading.options') }}</h2>
-                            <p class="help mb-4">
-                                {{ $t('field.options.help') }}
-                            </p>
-                            <!-- digits -->
+                            <p class="help mb-4">{{ $t('field.options.help') }}</p>
                             <FormToggle v-model="form.digits" :choices="digitsChoices" fieldName="digits" :errorMessage="form.errors.get('digits')" label="field.digits" help="field.digits.help" />
-                            <!-- algorithm -->
                             <FormToggle v-model="form.algorithm" :choices="algorithms" fieldName="algorithm" :errorMessage="form.errors.get('algorithm')" label="field.algorithm" help="field.algorithm.help" />
-                            <!-- TOTP period -->
                             <FormField v-if="form.otp_type === 'totp'" pattern="[0-9]{1,4}" :class="'is-half-width-field'" v-model="form.period" fieldName="period" :errorMessage="form.errors.get('period')" label="field.period" help="field.period.help" :placeholder="$t('field.period.placeholder')" />
-                            <!-- HOTP counter -->
                             <FormProtectedField v-if="form.otp_type === 'hotp'" pattern="[0-9]{1,4}" :enableProtection="isEditMode" :isExpanded="false" v-model="form.counter" fieldName="counter" :errorMessage="form.errors.get('counter')" label="field.counter" :placeholder="$t('field.counter.placeholder')" :help="isEditMode ? 'field.counter.help_lock' : 'field.counter.help'" />
                         </div>
                     </div>

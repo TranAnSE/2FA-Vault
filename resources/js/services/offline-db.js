@@ -1,7 +1,14 @@
 /**
  * Offline Database Service - IndexedDB for offline data storage
- * Stores encrypted account data and user settings for offline access
+ * Stores encrypted account data and user settings for offline access.
+ *
+ * Sub-modules:
+ * - offline-db-sync-queue.js — Sync queue operations
+ * - offline-db-settings.js — Settings operations
  */
+
+import { OfflineDBSyncQueue } from './offline-db-sync-queue'
+import { OfflineDBSettings } from './offline-db-settings'
 
 const DB_NAME = '2fauth-vault';
 const DB_VERSION = 1;
@@ -16,6 +23,11 @@ class OfflineDb {
   constructor() {
     this.db = null;
     this.isReady = false;
+
+    // Compose sub-modules with a getter that ensures DB is ready
+    const getDb = () => this.ensureReady()
+    this.syncQueue = new OfflineDBSyncQueue(getDb)
+    this.settings = new OfflineDBSettings(getDb)
   }
 
   /**
@@ -43,30 +55,21 @@ class OfflineDb {
         if (import.meta.env.DEV) console.log('[OfflineDB] Upgrading database...');
         const db = event.target.result;
 
-        // Create accounts store
         if (!db.objectStoreNames.contains(STORES.ACCOUNTS)) {
-          const accountsStore = db.createObjectStore(STORES.ACCOUNTS, { 
-            keyPath: 'id' 
-          });
+          const accountsStore = db.createObjectStore(STORES.ACCOUNTS, { keyPath: 'id' });
           accountsStore.createIndex('service', 'service', { unique: false });
           accountsStore.createIndex('updatedAt', 'updatedAt', { unique: false });
-          if (import.meta.env.DEV) console.log('[OfflineDB] Created accounts store');
         }
 
-        // Create settings store
         if (!db.objectStoreNames.contains(STORES.SETTINGS)) {
           db.createObjectStore(STORES.SETTINGS, { keyPath: 'key' });
-          if (import.meta.env.DEV) console.log('[OfflineDB] Created settings store');
         }
 
-        // Create sync queue store
         if (!db.objectStoreNames.contains(STORES.SYNC_QUEUE)) {
-          const syncStore = db.createObjectStore(STORES.SYNC_QUEUE, { 
-            keyPath: 'id', 
-            autoIncrement: true 
+          const syncStore = db.createObjectStore(STORES.SYNC_QUEUE, {
+            keyPath: 'id', autoIncrement: true
           });
           syncStore.createIndex('timestamp', 'timestamp', { unique: false });
-          if (import.meta.env.DEV) console.log('[OfflineDB] Created sync queue store');
         }
       };
     });
@@ -76,15 +79,12 @@ class OfflineDb {
    * Ensure database is initialized
    */
   async ensureReady() {
-    if (!this.isReady) {
-      await this.init();
-    }
+    if (!this.isReady) await this.init();
     return this.db;
   }
 
   /**
    * Save accounts to offline storage (encrypted)
-   * @param {Array} accounts - Array of encrypted account objects
    */
   async saveAccounts(accounts) {
     const db = await this.ensureReady();
@@ -93,16 +93,8 @@ class OfflineDb {
       const transaction = db.transaction([STORES.ACCOUNTS], 'readwrite');
       const store = transaction.objectStore(STORES.ACCOUNTS);
 
-      // Clear existing accounts first
       store.clear();
-
-      // Add all accounts
-      accounts.forEach(account => {
-        store.put({
-          ...account,
-          cachedAt: Date.now()
-        });
-      });
+      accounts.forEach(account => { store.put({ ...account, cachedAt: Date.now() }) });
 
       transaction.oncomplete = () => {
         if (import.meta.env.DEV) console.log('[OfflineDB] Saved', accounts.length, 'accounts');
@@ -150,195 +142,11 @@ class OfflineDb {
       const store = transaction.objectStore(STORES.ACCOUNTS);
       const request = store.get(id);
 
-      request.onsuccess = () => {
-        resolve(request.result);
-      };
-
+      request.onsuccess = () => resolve(request.result);
       request.onerror = () => {
         console.error('[OfflineDB] Failed to get account:', request.error);
         reject(request.error);
       };
-    });
-  }
-
-  /**
-   * Save a single setting
-   */
-  async saveSetting(key, value) {
-    const db = await this.ensureReady();
-
-    return new Promise((resolve, reject) => {
-      const transaction = db.transaction([STORES.SETTINGS], 'readwrite');
-      const store = transaction.objectStore(STORES.SETTINGS);
-      const request = store.put({ key, value, updatedAt: Date.now() });
-
-      request.onsuccess = () => {
-        if (import.meta.env.DEV) console.log('[OfflineDB] Saved setting:', key);
-        resolve();
-      };
-
-      request.onerror = () => {
-        console.error('[OfflineDB] Failed to save setting:', request.error);
-        reject(request.error);
-      };
-    });
-  }
-
-  /**
-   * Get a single setting
-   */
-  async getSetting(key, defaultValue = null) {
-    const db = await this.ensureReady();
-
-    return new Promise((resolve, reject) => {
-      const transaction = db.transaction([STORES.SETTINGS], 'readonly');
-      const store = transaction.objectStore(STORES.SETTINGS);
-      const request = store.get(key);
-
-      request.onsuccess = () => {
-        const result = request.result;
-        resolve(result ? result.value : defaultValue);
-      };
-
-      request.onerror = () => {
-        console.error('[OfflineDB] Failed to get setting:', request.error);
-        reject(request.error);
-      };
-    });
-  }
-
-  /**
-   * Get all settings
-   */
-  async getAllSettings() {
-    const db = await this.ensureReady();
-
-    return new Promise((resolve, reject) => {
-      const transaction = db.transaction([STORES.SETTINGS], 'readonly');
-      const store = transaction.objectStore(STORES.SETTINGS);
-      const request = store.getAll();
-
-      request.onsuccess = () => {
-        const settings = {};
-        request.result.forEach(item => {
-          settings[item.key] = item.value;
-        });
-        resolve(settings);
-      };
-
-      request.onerror = () => {
-        console.error('[OfflineDB] Failed to get settings:', request.error);
-        reject(request.error);
-      };
-    });
-  }
-
-  /**
-   * Queue an action to sync when back online
-   */
-  async queueSync(action, data) {
-    const db = await this.ensureReady();
-
-    return new Promise((resolve, reject) => {
-      const transaction = db.transaction([STORES.SYNC_QUEUE], 'readwrite');
-      const store = transaction.objectStore(STORES.SYNC_QUEUE);
-      const request = store.add({
-        id: crypto.randomUUID(),
-        action,
-        data,
-        timestamp: Date.now(),
-        retryCount: 0,
-        maxRetries: 3,
-        status: 'pending',
-      });
-
-      request.onsuccess = () => {
-        if (import.meta.env.DEV) console.log('[OfflineDB] Queued sync action:', action);
-        resolve(request.result);
-      };
-
-      request.onerror = () => {
-        console.error('[OfflineDB] Failed to queue sync:', request.error);
-        reject(request.error);
-      };
-    });
-  }
-
-  /**
-   * Get all queued sync actions
-   */
-  async getSyncQueue() {
-    const db = await this.ensureReady();
-
-    return new Promise((resolve, reject) => {
-      const transaction = db.transaction([STORES.SYNC_QUEUE], 'readonly');
-      const store = transaction.objectStore(STORES.SYNC_QUEUE);
-      const request = store.getAll();
-
-      request.onsuccess = () => {
-        resolve(request.result);
-      };
-
-      request.onerror = () => {
-        console.error('[OfflineDB] Failed to get sync queue:', request.error);
-        reject(request.error);
-      };
-    });
-  }
-
-  /**
-   * Clear sync queue after successful sync
-   */
-  async clearSyncQueue() {
-    const db = await this.ensureReady();
-
-    return new Promise((resolve, reject) => {
-      const transaction = db.transaction([STORES.SYNC_QUEUE], 'readwrite');
-      const store = transaction.objectStore(STORES.SYNC_QUEUE);
-      const request = store.clear();
-
-      request.onsuccess = () => {
-        if (import.meta.env.DEV) console.log('[OfflineDB] Sync queue cleared');
-        resolve();
-      };
-
-      request.onerror = () => {
-        console.error('[OfflineDB] Failed to clear sync queue:', request.error);
-        reject(request.error);
-      };
-    });
-  }
-
-  /**
-   * Remove a specific item from the sync queue by its IDB key
-   */
-  async removeSyncItem(idbKey) {
-    const db = await this.ensureReady();
-    return new Promise((resolve, reject) => {
-      const tx  = db.transaction([STORES.SYNC_QUEUE], 'readwrite');
-      const req = tx.objectStore(STORES.SYNC_QUEUE).delete(idbKey);
-      req.onsuccess = () => resolve();
-      req.onerror   = () => reject(req.error);
-    });
-  }
-
-  /**
-   * Update status and retry count on a sync queue item
-   */
-  async updateSyncItem(idbKey, updates) {
-    const db = await this.ensureReady();
-    return new Promise((resolve, reject) => {
-      const tx    = db.transaction([STORES.SYNC_QUEUE], 'readwrite');
-      const store = tx.objectStore(STORES.SYNC_QUEUE);
-      const getReq = store.get(idbKey);
-      getReq.onsuccess = () => {
-        const item = getReq.result;
-        if (!item) return resolve();
-        const putReq = store.put({ ...item, ...updates }, idbKey);
-        putReq.onsuccess = () => resolve();
-        putReq.onerror   = () => reject(putReq.error);
-      };
-      getReq.onerror = () => reject(getReq.error);
     });
   }
 
@@ -350,8 +158,7 @@ class OfflineDb {
 
     return new Promise((resolve, reject) => {
       const transaction = db.transaction(
-        [STORES.ACCOUNTS, STORES.SETTINGS, STORES.SYNC_QUEUE], 
-        'readwrite'
+        [STORES.ACCOUNTS, STORES.SETTINGS, STORES.SYNC_QUEUE], 'readwrite'
       );
 
       transaction.objectStore(STORES.ACCOUNTS).clear();
@@ -375,7 +182,6 @@ class OfflineDb {
    */
   async getStats() {
     const db = await this.ensureReady();
-
     const stats = {};
 
     for (const storeName of Object.values(STORES)) {
@@ -402,6 +208,18 @@ class OfflineDb {
       if (import.meta.env.DEV) console.log('[OfflineDB] Database closed');
     }
   }
+
+  // --- Backward-compatible delegation to sub-modules ---
+
+  queueSync(action, data) { return this.syncQueue.queueSync(action, data) }
+  getSyncQueue() { return this.syncQueue.getSyncQueue() }
+  clearSyncQueue() { return this.syncQueue.clearSyncQueue() }
+  removeSyncItem(idbKey) { return this.syncQueue.removeSyncItem(idbKey) }
+  updateSyncItem(idbKey, updates) { return this.syncQueue.updateSyncItem(idbKey, updates) }
+
+  saveSetting(key, value) { return this.settings.saveSetting(key, value) }
+  getSetting(key, defaultValue) { return this.settings.getSetting(key, defaultValue) }
+  getAllSettings() { return this.settings.getAllSettings() }
 }
 
 // Export singleton instance
