@@ -315,6 +315,56 @@ class User extends Authenticatable implements HasLocalePreference, WebAuthnAuthe
     }
 
     /**
+     * Get the personal activity logs for the user.
+     *
+     * @return \Illuminate\Database\Eloquent\Relations\HasMany<\App\Models\PersonalActivityLog, $this>
+     */
+    public function personalActivityLogs()
+    {
+        return $this->hasMany(\App\Models\PersonalActivityLog::class);
+    }
+
+    /**
+     * Get the invitations sent by the user.
+     *
+     * @return \Illuminate\Database\Eloquent\Relations\HasMany<\App\Models\UserInvitation, $this>
+     */
+    public function invitations()
+    {
+        return $this->hasMany(\App\Models\UserInvitation::class, 'invited_by_id');
+    }
+
+    /**
+     * Get the backup destinations for the user.
+     *
+     * @return \Illuminate\Database\Eloquent\Relations\HasMany<\App\Models\UserBackupDestination, $this>
+     */
+    public function backupDestinations()
+    {
+        return $this->hasMany(\App\Models\UserBackupDestination::class);
+    }
+
+    /**
+     * Get the sessions for the user.
+     *
+     * @return \Illuminate\Database\Eloquent\Relations\HasMany<\App\Models\UserSession, $this>
+     */
+    public function sessions()
+    {
+        return $this->hasMany(\App\Models\UserSession::class);
+    }
+
+    /**
+     * Get the secure notes for the user.
+     *
+     * @return \Illuminate\Database\Eloquent\Relations\HasMany<\App\Models\SecureNote, $this>
+     */
+    public function secureNotes()
+    {
+        return $this->hasMany(\App\Models\SecureNote::class);
+    }
+
+    /**
      * Compare 2 Users
      */
     public function equals(self $other) : bool

@@ -123,7 +123,10 @@ class TwoFAccount extends Model implements Sortable
      *
      * @var list<string>
      */
-    protected $fillable = [];
+    protected $fillable = [
+        'notes',
+        'is_pinned',
+    ];
 
     /**
      * The table associated with the model.
@@ -165,6 +168,7 @@ class TwoFAccount extends Model implements Sortable
         'user_id'      => 'integer',
         'encrypted'    => 'boolean',
         'last_used_at' => 'datetime',
+        'is_pinned'    => 'boolean',
     ];
 
     /**
@@ -394,6 +398,28 @@ class TwoFAccount extends Model implements Sortable
     }
 
     /**
+     * Get notes attribute
+     *
+     * @param  string|null  $value
+     * @return string|null
+     */
+    public function getNotesAttribute($value)
+    {
+        return $this->decryptOrReturn($value);
+    }
+
+    /**
+     * Set notes attribute
+     *
+     * @param  string|null  $value
+     * @return void
+     */
+    public function setNotesAttribute($value)
+    {
+        $this->attributes['notes'] = $this->encryptOrReturn($value);
+    }
+
+    /**
      * Set algorithm attribute
      *
      * @param  string  $value
@@ -505,6 +531,15 @@ class TwoFAccount extends Model implements Sortable
         $this->digits    = Arr::get($parameters, 'digits', self::DEFAULT_DIGITS);
         $this->period    = Arr::get($parameters, 'period', $this->otp_type == self::TOTP ? self::DEFAULT_PERIOD : null);
         $this->counter   = Arr::get($parameters, 'counter', $this->otp_type == self::HOTP ? self::DEFAULT_COUNTER : null);
+
+        // notes & is_pinned (v1.2.0 features #1, #2) — only set when provided
+        if (Arr::has($parameters, 'notes')) {
+            $this->notes = Arr::get($parameters, 'notes');
+        }
+
+        if (Arr::has($parameters, 'is_pinned')) {
+            $this->is_pinned = Arr::get($parameters, 'is_pinned');
+        }
 
         $this->initGenerator();
 

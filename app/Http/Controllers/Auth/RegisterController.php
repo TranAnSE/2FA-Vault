@@ -6,6 +6,7 @@ use App\Facades\Settings;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\UserStoreRequest;
 use App\Models\User;
+use App\Models\UserInvitation;
 use Illuminate\Auth\Events\Registered;
 use Illuminate\Foundation\Auth\RegistersUsers;
 use Illuminate\Http\Response;
@@ -34,13 +35,34 @@ class RegisterController extends Controller
      */
     public function register(UserStoreRequest $request)
     {
-        if (Settings::get('disableRegistration') == true) {
+        $invitation = null;
+
+        // Check if registration is via invitation
+        if ($request->has('invitation')) {
+            $invitation = UserInvitation::where('token', $request->invitation)->first();
+
+            if (!$invitation || $invitation->isExpired() || !$invitation->isPending()) {
+                return response()->json(['message' => 'Invalid or expired invitation'], Response::HTTP_UNPROCESSABLE_ENTITY);
+            }
+
+            // Bypass registration open check for valid invitations
+        } elseif (Settings::get('disableRegistration') == true) {
             return response()->json(['message' => 'forbidden'], Response::HTTP_FORBIDDEN);
         }
 
         $validated = $request->validated();
 
+        // Pre-fill email from invitation if available
+        if ($invitation && empty($validated['email'])) {
+            $validated['email'] = $invitation->email;
+        }
+
         event(new Registered($user = $this->create($validated)));
+
+        // Mark invitation as accepted
+        if ($invitation) {
+            $invitation->update(['accepted_at' => now()]);
+        }
 
         $this->guard()->login($user);
         /**

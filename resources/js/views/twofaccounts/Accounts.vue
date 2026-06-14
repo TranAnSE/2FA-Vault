@@ -1,5 +1,6 @@
 <script setup>
     import twofaccountService from '@/services/twofaccountService'
+    import { httpClientFactory } from '@/services/httpClientFactory'
     import DestinationGroupSelector from '@/components/DestinationGroupSelector.vue'
     import Toolbar from '@/components/Toolbar.vue'
     import ActionButtons from '@/components/ActionButtons.vue'
@@ -16,7 +17,7 @@
     import { useErrorHandler } from '@2fauth/stores'
     import { useOtpDisplay } from '@/composables/useOtpDisplay'
     import { useAccountSort } from '@/composables/useAccountSort'
-    import { LucideChevronDown, LucideCircleAlert, LucideEye, LucideEyeOff, LucideMenu, LucideQrCode } from 'lucide-vue-next'
+    import { LucideChevronDown, LucideCircleAlert, LucideEye, LucideEyeOff, LucideMenu, LucidePin, LucideQrCode } from 'lucide-vue-next'
 
     const errorHandler = useErrorHandler()
     const { t } = useI18n()
@@ -27,6 +28,9 @@
     const bus = useBusStore()
     const twofaccounts = useTwofaccounts()
     const groups = useGroups()
+
+    // Dedicated api client for optimistic pin PATCH (twofaccountService exposes no generic update method)
+    const apiClient = httpClientFactory('api')
 
     const showExportFormatSelector = ref(false)
     const showGroupSwitch = ref(false)
@@ -109,6 +113,26 @@
 
     function onStart() { isDragging.value = true }
     function onEnd() { isDragging.value = false }
+
+    /**
+     * Toggles the is_pinned flag on an account optimistically.
+     * Sends a PATCH to the backend; reverts on error.
+     */
+    function togglePin(account) {
+        const previous = account.is_pinned
+        account.is_pinned = !account.is_pinned
+        apiPatchPin(account.id, account.is_pinned).then(() => {
+            notify.success({ text: t('notification.pin_updated') })
+        }).catch(() => {
+            account.is_pinned = previous
+            notify.alert({ text: t('notification.pin_update_failed') })
+        })
+    }
+
+    async function apiPatchPin(id, isPinned) {
+        // twofaccountService has no generic patch method; call the axios api client directly.
+        return apiClient.patch('/twofaccounts/' + id, { is_pinned: isPinned }, { returnError: true })
+    }
 </script>
 
 <template>
@@ -192,6 +216,12 @@
                                                 <button type="button" class="button tag" :class="mode == 'dark' ? 'is-dark' : 'is-white'" @click="showOrCopy(account)" :title="$t('tooltip.import_this_account')">{{ $t('label.generate') }}</button>
                                             </div>
                                         </div>
+                                    </transition>
+                                    <!-- pin toggle (optimistic) -->
+                                    <transition name="fadeInOut">
+                                        <button v-if="!bus.inManagementMode" type="button" class="tfa-cell tfa-pin button is-ghost pr-0" :class="{ 'has-text-warning': account.is_pinned, 'has-text-grey': !account.is_pinned }" :title="$t('tooltip.toggle_pin')" @click.stop="togglePin(account)" :aria-label="$t('tooltip.toggle_pin')">
+                                            <LucidePin />
+                                        </button>
                                     </transition>
                                     <transition name="popLater" v-if="user.preferences.showOtpAsDot && user.preferences.revealDottedOTP">
                                         <div v-show="user.preferences.getOtpOnRequest == false && !bus.inManagementMode" class="has-text-right">

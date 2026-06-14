@@ -18,6 +18,8 @@ class Kernel extends ConsoleKernel
     {
         $schedule->command('cache:prune-stale-tags')->hourly();
         $schedule->command('emergency:process')->dailyAt('03:00');
+        // Auto-backup: dispatches jobs for users whose scheduled backup is due
+        $schedule->command('backup:auto')->everyMinute()->withoutOverlapping();
     }
 
     /**

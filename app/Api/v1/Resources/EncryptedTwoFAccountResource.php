@@ -26,6 +26,8 @@ class EncryptedTwoFAccountResource extends JsonResource
             'algorithm' => $this->algorithm,
             'period'    => is_null($this->period) ? null : (int) $this->period,
             'counter'   => is_null($this->counter) ? null : (int) $this->counter,
+            'notes'     => $this->notes,
+            'is_pinned' => (bool) $this->is_pinned,
         ];
     }
 }

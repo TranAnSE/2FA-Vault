@@ -37,6 +37,7 @@
         service: '', account: '', otp_type: '', icon: '',
         group_id: user.preferences.defaultGroup == -1 ? user.preferences.activeGroup : user.preferences.defaultGroup,
         secret: '', algorithm: '', digits: null, counter: null, period: null, image: '',
+        notes: '',
     }))
 
     const qrcodeForm = reactive(new Form({ qrcode: null }))
@@ -427,6 +428,14 @@
                     </div>
                     <!-- group -->
                     <FormSelect v-if="groups.length > 0" v-model="form.group_id" :options="groups" fieldName="group_id" label="field.group" help="field.group.help" />
+                    <!-- notes -->
+                    <div class="field">
+                        <label class="label">{{ $t('field.notes') }}</label>
+                        <div class="control">
+                            <textarea class="textarea" v-model="form.notes" maxlength="5000" :placeholder="$t('field.notes')"></textarea>
+                        </div>
+                        <p class="help">{{ $t('field.notes.help') }}</p>
+                    </div>
                     <!-- otp type -->
                     <FormToggle v-model="form.otp_type" :isDisabled="isEditMode" :choices="otp_types" fieldName="otp_type" :errorMessage="form.errors.get('otp_type')" label="field.otp_type" help="field.otp_type.help" :hasOffset="true" />
                     <div v-if="form.otp_type != ''">

@@ -51,6 +51,8 @@
         "vue-router": "^5.0.2"
     },
     "dependencies": {
-        "argon2-browser": "^1.18.0"
+        "argon2-browser": "^1.18.0",
+        "dompurify": "^3.4.10",
+        "markdown-it": "^14.2.0"
     }
 }

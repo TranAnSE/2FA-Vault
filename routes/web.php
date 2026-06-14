@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Admin\MetricsController;
 use App\Http\Controllers\Auth\ForgotPasswordController;
 use App\Http\Controllers\Auth\LoginController;
 use App\Http\Controllers\Auth\PasswordController;
@@ -16,6 +17,7 @@ use App\Http\Controllers\Auth\WebAuthnRegisterController;
 use App\Http\Controllers\SinglePageController;
 use App\Http\Controllers\SystemController;
 use App\Http\Middleware\CustomCreateFreshApiToken;
+use App\Http\Middleware\MetricsAuthMiddleware;
 use App\Http\Middleware\SetLanguage;
 use App\Http\Middleware\VerifyCsrfToken;
 use Illuminate\Routing\Middleware\SubstituteBindings;
@@ -108,6 +110,14 @@ Route::get('refresh-csrf', function (Request $request) {
         'Pragma' => 'no-cache',
     ]);
 });
+
+/**
+ * Prometheus metrics endpoint
+ * Protected by IP allowlist or Bearer token authentication
+ */
+Route::get('/metrics', [MetricsController::class, 'index'])
+    ->name('metrics')
+    ->middleware(MetricsAuthMiddleware::class);
 
 Route::withoutMiddleware([
     StartSession::class,

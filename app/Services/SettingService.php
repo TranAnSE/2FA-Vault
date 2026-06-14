@@ -215,6 +215,11 @@ class SettingService
                     $item->service = $encrypted ? Crypt::encryptString($item->service) : Crypt::decryptString($item->service);
                 }
 
+                // notes is nullable and only encrypted when present
+                if (!empty($item->notes)) {
+                    $item->notes = $encrypted ? Crypt::encryptString($item->notes) : Crypt::decryptString($item->notes);
+                }
+
                 $item->legacy_uri = $encrypted ? Crypt::encryptString($item->legacy_uri) : Crypt::decryptString($item->legacy_uri);
                 $item->account    = $encrypted ? Crypt::encryptString($item->account) : Crypt::decryptString($item->account);
                 $item->secret     = $encrypted ? Crypt::encryptString($item->secret) : Crypt::decryptString($item->secret);
@@ -251,6 +256,7 @@ class SettingService
                             'legacy_uri' => $item->legacy_uri,
                             'account'    => $item->account,
                             'secret'     => $item->secret,
+                            'notes'      => $item->notes,
                         ]);
                 });
 

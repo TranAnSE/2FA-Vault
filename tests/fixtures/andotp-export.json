@@ -1,0 +1,26 @@
+{
+    "encrypted": false,
+    "tokens": [
+        {
+            "type": "TOTP",
+            "secret": "JBSWY3DPEHPK3PXP",
+            "issuer": "SyntheticService",
+            "label": "alice@synthetic.example",
+            "digits": 6,
+            "period": 30,
+            "algorithm": "SHA1",
+            "thumbnail": null
+        },
+        {
+            "type": "HOTP",
+            "secret": "JBSWY3DPEHPK3PXP",
+            "issuer": "AnotherService",
+            "label": "bob@synthetic.example",
+            "digits": 6,
+            "period": 30,
+            "counter": 5,
+            "algorithm": "SHA256",
+            "thumbnail": null
+        }
+    ]
+}

@@ -1,0 +1,22 @@
+{
+    "tokens": [
+        {
+            "issuerExt": "SyntheticService",
+            "label": "alice@synthetic.example",
+            "secret": "JBSWY3DPEHPK3PXP",
+            "algo": "SHA1",
+            "digits": 6,
+            "period": 30,
+            "type": "TOTP"
+        },
+        {
+            "issuerExt": "AnotherService",
+            "label": "bob@synthetic.example",
+            "secret": "JBSWY3DPEHPK3PXP",
+            "algo": "SHA256",
+            "digits": 8,
+            "period": 60,
+            "type": "TOTP"
+        }
+    ]
+}

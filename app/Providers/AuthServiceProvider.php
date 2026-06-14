@@ -5,9 +5,11 @@ namespace App\Providers;
 use App\Extensions\RemoteUserProvider;
 use App\Extensions\WebauthnCredentialBroker;
 use App\Models\Group;
+use App\Models\SecureNote;
 use App\Models\TwoFAccount;
 use App\Models\User;
 use App\Policies\GroupPolicy;
+use App\Policies\SecureNotePolicy;
 use App\Policies\TwoFAccountPolicy;
 use App\Policies\UserPolicy;
 use App\Services\Auth\ReverseProxyGuard;
@@ -28,6 +30,7 @@ class AuthServiceProvider extends ServiceProvider
         TwoFAccount::class => TwoFAccountPolicy::class,
         Group::class       => GroupPolicy::class,
         User::class        => UserPolicy::class,
+        SecureNote::class  => SecureNotePolicy::class,
     ];
 
     /**

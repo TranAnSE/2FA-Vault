@@ -151,6 +151,36 @@ export const useCryptoStore = defineStore('crypto', () => {
     }
     
     /**
+     * Encrypt an arbitrary string (e.g. secure note title/content)
+     * @param {string} plaintext - Data to encrypt
+     * @returns {Promise<string>} JSON string {ciphertext, iv, authTag}
+     */
+    async function encryptData(plaintext) {
+        if (!isVaultUnlocked.value || !encryptionKey.value) {
+            throw new Error('Vault is locked')
+        }
+        if (plaintext === null || plaintext === undefined) return null
+        const encrypted = await crypto.encryptSecret(String(plaintext), encryptionKey.value)
+        return JSON.stringify(encrypted)
+    }
+
+    /**
+     * Decrypt an arbitrary string (e.g. secure note title/content)
+     * @param {string} encryptedJson - JSON string {ciphertext, iv, authTag}
+     * @returns {Promise<string>} Decrypted plaintext
+     */
+    async function decryptData(encryptedJson) {
+        if (!isVaultUnlocked.value || !encryptionKey.value) {
+            throw new Error('Vault is locked')
+        }
+        if (!encryptedJson) return ''
+        const encryptedData = typeof encryptedJson === 'string'
+            ? JSON.parse(encryptedJson)
+            : encryptedJson
+        return await crypto.decryptSecret(encryptedData, encryptionKey.value)
+    }
+
+    /**
      * Reset store (for logout)
      */
     function reset() {
@@ -181,6 +211,8 @@ export const useCryptoStore = defineStore('crypto', () => {
         encryptAccountData,
         decryptAccountData,
         decryptAccounts,
+        encryptData,
+        decryptData,
         reset
     }
 })

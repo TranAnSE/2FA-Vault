@@ -7,6 +7,7 @@ use App\Models\User;
 use Illuminate\Http\Resources\Json\JsonResource;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Schema;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\URL;
 use Illuminate\Support\ServiceProvider;
 use Laravel\Passport\Console\ClientCommand;
@@ -60,6 +61,30 @@ class AppServiceProvider extends ServiceProvider
 
         Gate::define('manage-webauthn-credentials', function (User $user) {
             return ! Settings::get('useSsoOnly');
+        });
+
+        $this->registerWebDavDriver();
+    }
+
+    /**
+     * Register the WebDAV Flysystem v3 driver for auto-backup destinations.
+     * The adapter package (league/flysystem-webdav) must be installed via composer.
+     */
+    private function registerWebDavDriver(): void
+    {
+        Storage::extend('webdav', function ($app, array $config) {
+            $client = new \Sabre\DAV\Client([
+                'baseUri'  => rtrim($config['baseUri'], '/') . '/',
+                'userName' => $config['userName'] ?? '',
+                'password' => $config['password'] ?? '',
+            ]);
+
+            $adapter = new \League\Flysystem\WebDAV\WebDAVAdapter(
+                $client,
+                $config['pathPrefix'] ?? ''
+            );
+
+            return new \League\Flysystem\Filesystem($adapter);
         });
     }
 }

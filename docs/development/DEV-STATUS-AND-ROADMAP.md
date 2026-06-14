@@ -8,7 +8,17 @@ Current state of 2FA-Vault development from commit ec348113 onwards. Comprehensi
 **Last Major Commit:** d09a6083 - Production ready: fix all controllers, models, unskip tests, cleanup storage
 **Latest Commit:** 27dad595 - docs: Organize documentation with proper subfolder structure and E2E test requirements
 
-**Test Status:** ✅ **1524 tests passing, 0 failures** (up from 1,406 — 118 new enterprise feature tests added)
+**Test Status:** ✅ **1590 tests passing, 0 failures** (1524 baseline + ~66 new v1.2.0 feature tests)
+
+### Latest Release
+**v1.2.0 (2026-06-14)** — Feature release: 13 features across 5 repos.
+- Backend: Account Notes, Favorites/Pinned, Personal Audit Log, Auto-Backup (AutoBackupJob + destinations + scheduler), Email Invitations, Import Formats (Raivo/andOTP/FreeOTP+/Authy-BETA), Vault Health Weak-Secrets (frontend), Session Management, Prometheus `/metrics`, Secure Notes
+- 6 new migrations, 5 new models, new services/controllers/policies
+- Extension: TOTP countdown badge (#11) + global `Ctrl+Shift+Y` copy-OTP shortcut (#10)
+- New repo `2FA-Vault-CLI` (Phase 1 MVP: login/logout/list/get/copy; TypeScript+Bun; OS keychain via keytar)
+- OpenAPI bumped to v1.11.0; 7 new user-doc pages added
+- Deferred: Playwright e2e + CLI `bun test` tests (require running app/browser + Bun runtime)
+- Known issue: extension `npm run build` fails on a pre-existing stale `@2fauth/ui` dist (missing `StackLayout` export) in `2FA-Vault-Components` — unrelated to this release
 
 ### Features Merged
 ✅ Phase 0: Project infrastructure setup (ec348113)
@@ -23,7 +33,7 @@ Current state of 2FA-Vault development from commit ec348113 onwards. Comprehensi
 ✅ **Backend:** E2EE, Teams, Backup - PRODUCTION READY
 🟡 **Frontend:** Browser Extension, PWA - In Development
 ✅ **Documentation:** Complete (API, Deployment, Admin, User, Troubleshooting)
-✅ **Tests:** 1524 tests, 0 failures — comprehensive enterprise feature coverage
+✅ **Tests:** 1590 tests, 0 failures — comprehensive enterprise + v1.2.0 feature coverage
 
 ### Current Issues Identified
 ✅ Phase 0 (Test Stabilization): COMPLETE - 95%+ target achieved

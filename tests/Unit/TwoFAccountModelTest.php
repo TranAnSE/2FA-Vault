@@ -26,7 +26,7 @@ class TwoFAccountModelTest extends ModelTestCase
     {
         $this->runConfigurationAssertions(
             new TwoFAccount,
-            [],
+            ['notes', 'is_pinned'],
             [],
             ['*'],
             [],
@@ -35,6 +35,7 @@ class TwoFAccountModelTest extends ModelTestCase
                 'user_id'      => 'integer',
                 'encrypted'    => 'boolean',
                 'last_used_at' => 'datetime',
+                'is_pinned'    => 'boolean',
             ],
             ['deleted' => TwoFAccountDeleted::class],
             ['created_at', 'updated_at'],

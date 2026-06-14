@@ -2,11 +2,11 @@
 
 > Honest, focused roadmap for reaching a self-hostable, trustable 1.0. Scoped for an OSS self-host tool — **not** a SaaS product. See [Non-goals](#non-goals) for what we deliberately skip.
 
-Last updated: 2026-06-11
+Last updated: 2026-06-14
 
 ---
 
-## Current state (as of 2026-06-10)
+## Current state (as of 2026-06-14)
 
 - ✅ E2EE (client-side Argon2id + AES-256-GCM) — implemented
 - ✅ Multi-user + teams — implemented
@@ -27,6 +27,14 @@ Last updated: 2026-06-11
 - ✅ Security Hardening — CORS preflight cache, session encryption at rest, DB indexes on core tables, auth rate limiting, backup encryption enforcement, CSP extension allowances, encryption-disable safety
 - ✅ Enterprise Feature Test Coverage — 118 new tests (~350 assertions) for Emergency Access, Webhooks, Vaults, Tags, Team Activity, CryptoTest; found and fixed 3 bugs (diffInDays sign, missing import); 1524 total tests passing, 0 failures
 - ✅ Frontend Code Quality — split 4 oversized files (CreateUpdate.vue 861→507, TeamDetail.vue 611→369, Accounts.vue 590→261, offline-db.js 409→226); extracted 8 composables/components; removed dead code
+- ✅ **v1.2.0 Feature Release (2026-06-14)** — 13 features shipped across 5 repos:
+  - Account Notes, Favorites/Pinned, Personal Audit Log, Auto-Backup, Email Invitations
+  - Import Formats (Raivo, andOTP, FreeOTP+, Authy-BETA)
+  - Vault Health Weak-Secrets (frontend), Session Management, Prometheus Metrics, Secure Notes
+  - Extension TOTP countdown badge + `Ctrl+Shift+Y` global copy-OTP shortcut
+  - New `2FA-Vault-CLI` repo (Phase 1 MVP: login/logout/list/get/copy, TypeScript+Bun, OS keychain via keytar)
+  - 6 new migrations, 5 new models; OpenAPI bumped to v1.11.0; 7 new user-doc pages
+  - 1590 PHPUnit tests passing, 0 failures (Playwright e2e + CLI bun tests deferred)
 
 ---
 
@@ -64,7 +72,7 @@ Target repo: `2FA-Vault-WebExtension` (with supporting changes in `2FA-Vault` AP
 - [x] One-click autofill into detected field (auto-fill.content.js with 30s OTP clear)
 - [ ] Quick-add flow: detect QR codes on the current page → add account without leaving the site
 - [x] WebAuthn platform authenticator unlock (biometric / OS PIN) as alternative to master password
-- [ ] Keyboard shortcut to open/unlock popup
+- [x] Keyboard shortcut to open/unlock popup (v1.2.0: global `Ctrl+Shift+Y` copy-OTP shortcut)
 
 ## Phase 3 — Don't lose user data
 
@@ -86,7 +94,7 @@ Target repo: `2FA-Vault-WebExtension` (with supporting changes in `2FA-Vault` AP
 
 - [x] Secret health dashboard: flag weak issuers, duplicates, stale entries (Vault Health Dashboard at /admin/health)
 - [ ] Have I Been Pwned integration: alert when any account's email has been in a breach
-- [ ] Import: Authy, Microsoft Authenticator, Bitwarden, 1Password, Aegis (already supported upstream)
+- [x] Import: Raivo, andOTP, FreeOTP+, Authy-BETA added in v1.2.0 (Microsoft Authenticator, Bitwarden, 1Password still pending; Aegis already supported upstream)
 - [ ] Bulk operations: multi-select delete, move to group, export
 - [x] Search + filter when list has 100+ accounts (Advanced Search with FilterPanel, client-side + server-side)
 

@@ -2,13 +2,18 @@
 
 use App\Api\v1\Controllers\FeatureFlagController;
 use App\Api\v1\Controllers\GroupController;
+use App\Api\v1\Controllers\InvitationController;
+use App\Api\v1\Controllers\PersonalActivityController;
+use App\Api\v1\Controllers\SecureNoteController;
 use App\Api\v1\Controllers\TagController;
+use App\Api\v1\Controllers\UserBackupDestinationController;
 use App\Api\v1\Controllers\IconController;
 use App\Api\v1\Controllers\QrCodeController;
 use App\Api\v1\Controllers\SettingController;
 use App\Api\v1\Controllers\TwoFAccountController;
 use App\Api\v1\Controllers\UserController;
 use App\Api\v1\Controllers\UserManagerController;
+use App\Api\v1\Controllers\UserSessionController;
 use App\Http\Controllers\Admin\UserManagementController;
 use App\Http\Controllers\EncryptionController;
 use App\Http\Controllers\Admin\RateLimitDashboardController;
@@ -39,6 +44,14 @@ Route::get('user/name', function () {
 Route::group(['middleware' => ['auth:api-guard', 'enforceMandatoryEncryption']], function () {
     Route::get('user', [UserController::class, 'show'])->name('user.show'); // Returns email address in addition to the username
 
+    // Personal activity routes
+    Route::get('user/activity', [PersonalActivityController::class, 'index'])->name('user.activity.index');
+    Route::delete('user/activity', [PersonalActivityController::class, 'destroyAll'])->name('user.activity.destroyAll');
+
+    // User sessions routes
+    Route::get('user/sessions', [UserSessionController::class, 'index'])->name('user.sessions.index');
+    Route::delete('user/sessions/{id}', [UserSessionController::class, 'destroy'])->name('user.sessions.destroy');
+
     Route::get('user/preferences/{preferenceName}', [UserController::class, 'showPreference'])->name('user.preferences.show');
     Route::get('user/preferences', [UserController::class, 'allPreferences'])->name('user.preferences.all');
     Route::put('user/preferences/{preferenceName}', [UserController::class, 'setPreference'])->name('user.preferences.set');
@@ -65,6 +78,16 @@ Route::group(['middleware' => ['auth:api-guard', 'enforceMandatoryEncryption']],
     // Tags
     Route::apiResource('tags', TagController::class)->only(['index', 'store', 'update', 'destroy']);
     Route::post('twofaccounts/{accountId}/tags', [TagController::class, 'syncAccountTags'])->name('twofaccounts.tags.sync');
+
+    // Secure Notes routes
+    Route::apiResource('secure-notes', SecureNoteController::class);
+
+    // Auto-backup destination routes
+    Route::get('user/backup-destinations', [UserBackupDestinationController::class, 'index'])->name('user.backup-destinations.index');
+    Route::post('user/backup-destinations', [UserBackupDestinationController::class, 'store'])->name('user.backup-destinations.store');
+    Route::put('user/backup-destinations/{id}', [UserBackupDestinationController::class, 'update'])->name('user.backup-destinations.update');
+    Route::delete('user/backup-destinations/{id}', [UserBackupDestinationController::class, 'destroy'])->name('user.backup-destinations.destroy');
+    Route::post('user/backup-destinations/{id}/test', [UserBackupDestinationController::class, 'testConnection'])->name('user.backup-destinations.test');
 
     Route::post('qrcode/decode', [QrCodeController::class, 'decode'])->name('qrcode.decode');
 
@@ -182,6 +205,11 @@ Route::group(['middleware' => ['auth:api-guard', 'admin']], function () {
 
     // Admin: Rate Limit Dashboard
     Route::get('admin/rate-limits', [RateLimitDashboardController::class, 'index'])->name('admin.rateLimits.index');
+
+    // User invitations routes (admin-only)
+    Route::post('user/invitations', [InvitationController::class, 'store'])->name('user.invitations.store');
+    Route::get('user/invitations', [InvitationController::class, 'index'])->name('user.invitations.index');
+    Route::delete('user/invitations/{id}', [InvitationController::class, 'destroy'])->name('user.invitations.destroy');
 });
 
 Route::get('/{any}', function () {

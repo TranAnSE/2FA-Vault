@@ -1,0 +1,20 @@
+{
+    "2fas-backup.json": [
+        {
+            "issuer": "SyntheticService",
+            "account": "alice@synthetic.example",
+            "secret": "JBSWY3DPEHPK3PXP",
+            "algorithm": "SHA1",
+            "digits": 6,
+            "timer": 30
+        },
+        {
+            "issuer": "AnotherService",
+            "account": "bob@synthetic.example",
+            "secret": "JBSWY3DPEHPK3PXP",
+            "algorithm": "SHA256",
+            "digits": 8,
+            "timer": 60
+        }
+    ]
+}

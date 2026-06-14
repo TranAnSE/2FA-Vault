@@ -1,0 +1,14 @@
+{
+    "accounts": [
+        {
+            "name": "SyntheticService:alice@synthetic.example",
+            "totp_secret": "JBSWY3DPEHPK3PXP",
+            "digits": 6
+        },
+        {
+            "name": "AnotherService",
+            "totp_secret": "JBSWY3DPEHPK3PXP",
+            "digits": 7
+        }
+    ]
+}

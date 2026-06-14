@@ -5,6 +5,75 @@ All notable changes to 2FA-Vault will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.2.0] - 2026-06-14
+
+### Added
+
+**📝 Account Notes (Phase 1)**
+- Free-text `notes` field on two-factor accounts (nullable, client-encrypted like the secret)
+- Surfaced in account create/edit forms and the account detail view
+
+**⭐ Favorites / Pinned Accounts (Phase 1)**
+- `is_pinned` boolean on `twofaccounts`; pinned accounts sort to the top of lists
+- Pin/unpin from the account list and detail view
+
+**📋 Personal Audit Log (Phase 1)**
+- `personal_activity_logs` table with per-user activity entries
+- `PersonalActivityLogController`: `GET /api/v1/user/activity` (paginated) and `DELETE /api/v1/user/activity` (clear)
+- Personal activity view under user settings
+
+**💾 Auto-Backup System (Phase 3)**
+- `AutoBackupJob` queued job registered on the scheduler; per-user configurable schedule and destinations
+- `UserBackupDestination` model + `BackupDestinationController`: CRUD at `/api/v1/user/backup-destinations`, plus `POST /api/v1/user/backup-destinations/{id}/test` for connection verification
+- User-facing auto-backup settings page
+
+**✉️ Email Invitations (Phase 1)**
+- Admin-managed `UserInvitation` model + `UserInvitationController`: `GET/POST /api/v1/user/invitations` and `DELETE /api/v1/user/invitations/{id}` (admin only)
+- Invitation lifecycle management in the admin panel
+
+**📥 Import Formats (Phase 2)**
+- New migrators: Raivo JSON, andOTP, FreeOTP+, Authy (Authy marked BETA in the UI)
+- Importer registration and format auto-detection
+
+**🩺 Vault Health — Weak Secrets (Phase 4, frontend)**
+- Client-side weak-secret detection surfaced in the existing Vault Health UI
+- Flags short-digit / low-entropy / shared secrets for review
+
+**🔐 Session Management (Phase 1)**
+- `user_sessions` table tracking active sessions (device, IP, last-active)
+- `UserSessionController`: `GET /api/v1/user/sessions` and `DELETE /api/v1/user/sessions/{id}` to revoke a session
+- Sessions management page under user settings
+
+**📊 Prometheus Metrics (Phase 2)**
+- `/metrics` endpoint exposing metrics in Prometheus text exposition format
+- Auth via configurable IP allowlist or bearer token
+
+**🗂️ Secure Notes (Phase 1)**
+- `secure_notes` table with client-encrypted, pinnable notes
+- `SecureNoteController`: CRUD at `/api/v1/secure-notes` plus `POST /api/v1/secure-notes/{id}/pin`
+- Secure Notes view under user settings
+
+### Changed
+- `TwoFAccount` responses now include `notes` and `is_pinned`
+- Admin panel expanded with Email Invitations management
+- User settings expanded with Auto-Backup, Sessions, Personal Activity, and Secure Notes sections
+
+### Database Migrations (2026-06-14)
+- `add_notes_to_twofaccounts_table`
+- `add_is_pinned_to_twofaccounts_table`
+- `create_personal_activity_logs_table`
+- `create_user_sessions_table`
+- `create_user_backup_destinations_table`
+- `create_secure_notes_table`
+
+### Tests
+- ~66 new tests across the v1.2.0 features
+- 1590 total PHPUnit tests passing, 0 failures (up from 1524)
+- Playwright e2e tests deferred (require a running app/browser) — noted as follow-up
+
+### Known Issues
+- Browser extension `npm run build` fails on a pre-existing stale `@2fauth/ui` dist in `2FA-Vault-Components` (missing `StackLayout` export). Not caused by this release; tracked in the components repo.
+
 ## [1.1.2] - 2026-06-10
 
 ### Added
@@ -404,4 +473,6 @@ https://github.com/TranAnSE/2FA-Vault/blob/master/CHANGELOG.md
 [1.0.0]: https://github.com/yourusername/2FA-Vault/releases/tag/v1.0.0
 [1.1.0]: https://github.com/yourusername/2FA-Vault/releases/tag/v1.1.0
 [1.1.1]: https://github.com/yourusername/2FA-Vault/releases/tag/v1.1.1
-[Unreleased]: https://github.com/yourusername/2FA-Vault/compare/v1.1.1...HEAD
+[1.1.2]: https://github.com/yourusername/2FA-Vault/releases/tag/v1.1.2
+[1.2.0]: https://github.com/yourusername/2FA-Vault/releases/tag/v1.2.0
+[Unreleased]: https://github.com/yourusername/2FA-Vault/compare/v1.2.0...HEAD
