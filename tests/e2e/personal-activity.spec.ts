@@ -18,8 +18,9 @@ test.describe('Personal activity', () => {
     await page.locator('#txtSecret').waitFor({ state: 'visible', timeout: 5000 });
     await page.locator('#txtSecret').fill('A4GRFTVVRBGY7UIW');
     await page.locator('#btnCreate').click();
-    await goto('/accounts');
-    await expect(page.getByText(service).first()).toBeVisible({ timeout: 15000 });
+    // Give the create + audit-log write a moment to settle, then go straight to
+    // the activity page (the /accounts list is paginated and not asserted here).
+    await page.waitForTimeout(800);
 
     // --- Settings > Activity ---
     await goto('/settings/activity');

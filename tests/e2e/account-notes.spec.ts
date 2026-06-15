@@ -18,13 +18,13 @@ test.describe('Account notes', () => {
 
     // --- Create account with notes ---
     await goto('/account/create');
-    await page.locator('input[name="service"]').waitFor({ state: 'visible', timeout: 15000 });
-    await page.locator('input[name="service"]').fill(service);
-    await page.locator('input[name="account"]').fill('notes@test.local');
-    // Select TOTP so the secret field appears (FormToggle renders the choice text).
-    await page.getByText('TOTP', { exact: true }).click();
-    await page.locator('input[name="secret"]').waitFor({ state: 'visible', timeout: 5000 });
-    await page.locator('input[name="secret"]').fill('A4GRFTVVRBGY7UIW');
+    await page.locator('#txtService').waitFor({ state: 'visible', timeout: 15000 });
+    await page.locator('#txtService').fill(service);
+    await page.locator('#txtAccount').fill('notes@test.local');
+    // Select TOTP so the secret field appears.
+    await page.getByRole('radio', { name: 'TOTP' }).click();
+    await page.locator('#txtSecret').waitFor({ state: 'visible', timeout: 5000 });
+    await page.locator('#txtSecret').fill('A4GRFTVVRBGY7UIW');
 
     // Fill the notes textarea. The "Notes" <label> has no `for` and the
     // <textarea> has no id, so getByLabel cannot associate them — target the
@@ -60,7 +60,7 @@ test.describe('Account notes', () => {
     expect(created, 'created account should appear in the API list').toBeTruthy();
 
     await goto(`/account/${created.id}/edit`);
-    await page.locator('input[name="service"]').waitFor({ state: 'visible', timeout: 15000 });
+    await page.locator('#txtService').waitFor({ state: 'visible', timeout: 15000 });
 
     // --- Notes visible (persisted) ---
     const notesAfterCreate = page.locator('.field', { has: page.locator('.label', { hasText: /^Notes$/ }) }).locator('textarea').first();
@@ -75,7 +75,7 @@ test.describe('Account notes', () => {
 
     // --- Verify the update persisted ---
     await goto(`/account/${created.id}/edit`);
-    await page.locator('input[name="service"]').waitFor({ state: 'visible', timeout: 15000 });
+    await page.locator('#txtService').waitFor({ state: 'visible', timeout: 15000 });
     const notesAfterEdit = page.locator('.field', { has: page.locator('.label', { hasText: /^Notes$/ }) }).locator('textarea').first();
     await expect(notesAfterEdit).toHaveValue(updatedNotes, { timeout: 10000 });
   });
