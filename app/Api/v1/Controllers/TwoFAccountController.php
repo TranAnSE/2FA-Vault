@@ -16,12 +16,14 @@ use App\Api\v1\Resources\TwoFAccountCollection;
 use App\Api\v1\Resources\TwoFAccountExportCollection;
 use App\Api\v1\Resources\TwoFAccountReadResource;
 use App\Api\v1\Resources\TwoFAccountStoreResource;
+use App\Enums\PersonalAction;
 use App\Facades\Groups;
 use App\Facades\TwoFAccounts;
 use App\Helpers\Helpers;
 use App\Http\Controllers\Controller;
 use App\Models\TwoFAccount;
 use App\Models\User;
+use App\Services\PersonalActivityLogger;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Http\Request;
 use Illuminate\Support\Arr;
@@ -30,6 +32,10 @@ use Illuminate\Validation\ValidationException;
 
 class TwoFAccountController extends Controller
 {
+    public function __construct(protected PersonalActivityLogger $activityLogger)
+    {
+    }
+
     /**
      * List all resources
      *
@@ -172,6 +178,8 @@ class TwoFAccountController extends Controller
             ]);
         }
 
+        $this->activityLogger->log($request->user(), PersonalAction::ACCOUNT_CREATED, [], $twofaccount->id);
+
         return (new TwoFAccountReadResource($twofaccount->refresh()))
             ->response()
             ->setStatusCode(201);
@@ -206,6 +214,8 @@ class TwoFAccountController extends Controller
             }
             $twofaccount->refresh();
         }
+
+        $this->activityLogger->log($request->user(), PersonalAction::ACCOUNT_UPDATED, [], $twofaccount->id);
 
         return (new TwoFAccountReadResource($twofaccount))
             ->response()
@@ -422,7 +432,10 @@ class TwoFAccountController extends Controller
     {
         $this->authorize('delete', $twofaccount);
 
+        $accountId = $twofaccount->id;
         $twofaccount->delete();
+
+        $this->activityLogger->log(request()->user(), PersonalAction::ACCOUNT_DELETED, [], $accountId);
 
         return response()->json(null, 204);
     }

@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Auth;
 use App\Api\v1\Resources\UserResource;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\LoginRequest;
+use App\Models\UserSession;
 use Carbon\Carbon;
 use Illuminate\Foundation\Auth\AuthenticatesUsers;
 use Illuminate\Http\Request;
@@ -91,6 +92,11 @@ class LoginController extends Controller
     {
         $userId = $request->user()->id;
 
+        // Drop the session record for this device
+        UserSession::where('user_id', $userId)
+            ->where('token_id', $request->session()->getId())
+            ->delete();
+
         $this->guard()->logout();
         $request->session()->invalidate();
         $request->session()->regenerateToken();
@@ -115,6 +121,16 @@ class LoginController extends Controller
         $user = $this->guard()->user();
 
         $this->authenticated($request, $user);
+
+        // Record the active session for the session-management feature.
+        // token_id holds the Laravel session id (web-guard) or a Passport token id.
+        UserSession::create([
+            'user_id'        => $user->id,
+            'token_id'       => $request->session()->getId(),
+            'ip_address'     => $request->ip(),
+            'user_agent'     => $request->userAgent(),
+            'last_active_at' => now(),
+        ]);
 
         return response()->json(
             array_merge([

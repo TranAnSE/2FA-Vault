@@ -19,7 +19,13 @@ export function useAccountEncryption() {
         if (!cryptoStore.isVaultUnlocked || !secret) return secret
 
         try {
-            return await cryptoService.encryptSecret(secret)
+            // cryptoService.encryptSecret returns {ciphertext, iv, authTag}.
+            // The server expects the encrypted secret as a JSON STRING of that
+            // object (see EncryptionService::setEncryptedSecret @param). Without
+            // JSON.stringify the form posts an object and validation rejects it
+            // with "The secret field must be a string." (422).
+            const encrypted = await cryptoService.encryptSecret(secret, cryptoStore.encryptionKey)
+            return JSON.stringify(encrypted)
         } catch (error) {
             notify.error({ text: t('notification.encryption_failed') })
             return null
@@ -34,7 +40,11 @@ export function useAccountEncryption() {
         if (!cryptoStore.isVaultUnlocked || !secret) return secret
 
         try {
-            return await cryptoService.decryptSecret(secret)
+            // The server stores/returns the encrypted secret as a JSON STRING
+            // ({ciphertext, iv, authTag}). cryptoService.decryptSecret expects
+            // the parsed object, so parse first (mirrors cryptoStore.decryptData).
+            const encryptedData = typeof secret === 'string' ? JSON.parse(secret) : secret
+            return await cryptoService.decryptSecret(encryptedData, cryptoStore.encryptionKey)
         } catch (error) {
             console.error('Failed to decrypt secret:', error)
             return secret

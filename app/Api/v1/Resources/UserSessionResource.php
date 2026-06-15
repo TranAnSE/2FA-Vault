@@ -22,9 +22,18 @@ class UserSessionResource extends JsonResource
      */
     public function toArray($request)
     {
+        // Correlate to the current request's session (same-origin SPA carries the
+        // Laravel session cookie). Safe-guarded: API/stateless requests have none.
+        try {
+            $currentSessionId = $request->hasSession() ? $request->session()->getId() : null;
+        } catch (\Throwable $e) {
+            $currentSessionId = null;
+        }
+
         return [
             'id'             => $this->id,
             'token_id'       => $this->token_id ? (substr($this->token_id, 0, 8) . '…') : null,
+            'is_current'     => $currentSessionId !== null && $currentSessionId === $this->token_id,
             'ip_address'     => $this->ip_address,
             'user_agent'     => $this->user_agent,
             'last_active_at' => $this->last_active_at ? $this->last_active_at->toIso8601String() : null,

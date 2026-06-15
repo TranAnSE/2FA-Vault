@@ -97,7 +97,7 @@
                         </p>
                         <p class="is-size-7 has-text-grey">{{ s.ip_address || '—' }}</p>
                         <p class="is-size-7 has-text-grey" style="max-width:320px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ s.user_agent || '—' }}</p>
-                        <p class="is-size-7 has-text-grey">{{ $t('label.last_active') }}: {{ s.last_used_at ? new Date(s.last_used_at).toLocaleString() : '—' }}</p>
+                        <p class="is-size-7 has-text-grey">{{ $t('label.last_active') }}: {{ s.last_active_at ? new Date(s.last_active_at).toLocaleString() : '—' }}</p>
                     </div>
                 </div>
                 <div>

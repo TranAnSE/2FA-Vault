@@ -24,9 +24,15 @@ class UserSessionController extends Controller
         /** @var User $user */
         $user = $request->user();
 
+        // LEFT JOIN so sessions without a Passport token (web-guard / Laravel session
+        // auth) still appear. A session is active if its oauth token is unrevoked OR
+        // it has no oauth token at all.
         $sessions = $user->sessions()
-            ->join('oauth_access_tokens', 'user_sessions.token_id', '=', 'oauth_access_tokens.id')
-            ->where('oauth_access_tokens.revoked', false)
+            ->leftJoin('oauth_access_tokens', 'user_sessions.token_id', '=', 'oauth_access_tokens.id')
+            ->where(function ($query) {
+                $query->whereNull('oauth_access_tokens.id')
+                    ->orWhere('oauth_access_tokens.revoked', false);
+            })
             ->select('user_sessions.*')
             ->latest('user_sessions.last_active_at')
             ->paginate(50);

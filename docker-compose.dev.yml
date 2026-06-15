@@ -11,7 +11,7 @@ services:
     container_name: 2fa-vault-dev-app
     restart: unless-stopped
     ports:
-      - "8088:8000"  # Laravel server (using 8088 to avoid conflicts)
+      - "8089:8000"  # Laravel server (8088 taken by zshield-backend)
       - "5174:5173"  # Vite dev server (using 5174 to avoid conflicts)
     volumes:
       # Mount entire project for live reloading
@@ -30,7 +30,7 @@ services:
       - APP_NAME=2FA-Vault-Dev
       - APP_ENV=local
       - APP_DEBUG=true
-      - APP_URL=http://localhost:8088
+      - APP_URL=http://localhost:8089
       - APP_KEY=${APP_KEY:-base64:5mXva9j/GNGOgeXSAkJdp8AhBPDSiNhYiy24tJZyzrw=}
       
       # Database (SQLite for simplicity in dev)

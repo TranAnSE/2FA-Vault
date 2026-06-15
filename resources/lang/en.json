@@ -1020,7 +1020,7 @@
     "passwords.throttled": "Please wait before retrying.",
     "passwords.token": "This password reset token is invalid.",
     "passwords.user": "We can't find a user with that email address.",
-    "placeholder.invite_email": "name@example.com",
+    "placeholder.invite_email": "name{'@'}example.com",
     "placeholder.note_content": "Write your note here (Markdown supported)...",
     "placeholder.note_title": "Note title",
     "placeholder.search_notes": "Search notes...",
