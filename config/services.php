@@ -70,4 +70,12 @@ return [
         ],
     ],
 
+    // HaveIBeenPwned breach monitoring. The API key is only required for the
+    // authenticated breached-account (email) lookup; the public breaches list
+    // used for service/domain checks needs no key. Never logged or returned.
+    'hibp' => [
+        'key'    => env('HIBP_API_KEY'),
+        'base_url' => env('HIBP_BASE_URL', 'https://haveibeenpwned.com/api/v3'),
+    ],
+
 ];

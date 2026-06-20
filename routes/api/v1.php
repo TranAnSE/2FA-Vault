@@ -4,6 +4,8 @@ use App\Api\v1\Controllers\FeatureFlagController;
 use App\Api\v1\Controllers\GroupController;
 use App\Api\v1\Controllers\InvitationController;
 use App\Api\v1\Controllers\PersonalActivityController;
+use App\Api\v1\Controllers\AccountHealthController;
+use App\Api\v1\Controllers\BreachController;
 use App\Api\v1\Controllers\SecureNoteController;
 use App\Api\v1\Controllers\TagController;
 use App\Api\v1\Controllers\UserBackupDestinationController;
@@ -57,6 +59,14 @@ Route::group(['middleware' => ['auth:api-guard', 'enforceMandatoryEncryption']],
     Route::put('user/preferences/{preferenceName}', [UserController::class, 'setPreference'])->name('user.preferences.set');
 
     Route::delete('twofaccounts', [TwoFAccountController::class, 'batchDestroy'])->name('twofaccounts.batchDestroy');
+
+    // Account health scoring (must precede apiResource to avoid {id} capture)
+    Route::get('twofaccounts/health/summary', [AccountHealthController::class, 'summary'])->name('twofaccounts.health.summary');
+    Route::get('twofaccounts/{twofaccount}/health', [AccountHealthController::class, 'show'])->where('twofaccount', '[0-9]+')->name('twofaccounts.health.show');
+
+    // Breach monitoring (HIBP). Email check is opt-in gated by the breachMonitoring preference.
+    Route::post('breach/check-email', [BreachController::class, 'checkEmail'])->name('breach.checkEmail');
+    Route::get('breach/check-service', [BreachController::class, 'checkService'])->name('breach.checkService');
     Route::patch('twofaccounts/withdraw', [TwoFAccountController::class, 'withdraw'])->name('twofaccounts.withdraw');
     Route::post('twofaccounts/reorder', [TwoFAccountController::class, 'reorder'])->name('twofaccounts.reorder');
     Route::post('twofaccounts/migration', [TwoFAccountController::class, 'migrate'])->name('twofaccounts.migrate');

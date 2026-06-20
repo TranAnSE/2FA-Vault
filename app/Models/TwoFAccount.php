@@ -47,6 +47,7 @@ use SteamTotp\SteamTotp;
  * @property int|null $period
  * @property int|null $counter
  * @property int|null $user_id
+ * @property string|null $recovery_codes Encrypted JSON array of external-service backup codes
  * @property-read \App\Models\User|null $user
  *
  * @method static \Database\Factories\TwoFAccountFactory factory(...$parameters)
@@ -126,6 +127,7 @@ class TwoFAccount extends Model implements Sortable
     protected $fillable = [
         'notes',
         'is_pinned',
+        'recovery_codes',
     ];
 
     /**
@@ -420,6 +422,31 @@ class TwoFAccount extends Model implements Sortable
     }
 
     /**
+     * Get recovery_codes attribute
+     *
+     * Stores an encrypted JSON array of external-service backup codes.
+     * Server-side Crypt in the non-E2EE path; client ciphertext blob under E2EE.
+     *
+     * @param  string|null  $value
+     * @return string|null
+     */
+    public function getRecoveryCodesAttribute($value)
+    {
+        return $this->decryptOrReturn($value);
+    }
+
+    /**
+     * Set recovery_codes attribute
+     *
+     * @param  string|null  $value
+     * @return void
+     */
+    public function setRecoveryCodesAttribute($value)
+    {
+        $this->attributes['recovery_codes'] = $this->encryptOrReturn($value);
+    }
+
+    /**
      * Set algorithm attribute
      *
      * @param  string  $value
@@ -539,6 +566,11 @@ class TwoFAccount extends Model implements Sortable
 
         if (Arr::has($parameters, 'is_pinned')) {
             $this->is_pinned = Arr::get($parameters, 'is_pinned');
+        }
+
+        // recovery_codes (external-service backup codes) — only set when provided
+        if (Arr::has($parameters, 'recovery_codes')) {
+            $this->recovery_codes = Arr::get($parameters, 'recovery_codes');
         }
 
         $this->initGenerator();

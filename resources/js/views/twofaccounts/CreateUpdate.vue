@@ -38,6 +38,7 @@
         group_id: user.preferences.defaultGroup == -1 ? user.preferences.activeGroup : user.preferences.defaultGroup,
         secret: '', algorithm: '', digits: null, counter: null, period: null, image: '',
         notes: '',
+        recovery_codes: '',
     }))
 
     const qrcodeForm = reactive(new Form({ qrcode: null }))
@@ -124,6 +125,17 @@
         } catch (error) {
             notify.error({ text: error.response?.data?.message || t('teams.share_error') })
         } finally { isSharing.value = false }
+    }
+
+    // Copy all recovery codes to the clipboard
+    async function copyRecoveryCodes() {
+        if (!form.recovery_codes) return
+        try {
+            await navigator.clipboard.writeText(form.recovery_codes)
+            notify.success({ text: t('notification.copied_to_clipboard') })
+        } catch (error) {
+            notify.error({ text: t('errors.copy_failed') })
+        }
     }
 
     onMounted(() => {
@@ -435,6 +447,19 @@
                             <textarea class="textarea" v-model="form.notes" maxlength="5000" :placeholder="$t('field.notes')"></textarea>
                         </div>
                         <p class="help">{{ $t('field.notes.help') }}</p>
+                    </div>
+                    <!-- recovery codes (external-service backup codes) -->
+                    <div class="field">
+                        <label class="label">{{ $t('field.recovery_codes') }}</label>
+                        <div class="control">
+                            <textarea class="textarea" v-model="form.recovery_codes" maxlength="10000" :placeholder="$t('field.recovery_codes.placeholder')"></textarea>
+                        </div>
+                        <p class="control">
+                            <button type="button" class="button is-small is-rounded" :disabled="!form.recovery_codes" @click.prevent="copyRecoveryCodes">
+                                {{ $t('label.copy_all') }}
+                            </button>
+                        </p>
+                        <p class="help">{{ $t('field.recovery_codes.help') }}</p>
                     </div>
                     <!-- otp type -->
                     <FormToggle v-model="form.otp_type" :isDisabled="isEditMode" :choices="otp_types" fieldName="otp_type" :errorMessage="form.errors.get('otp_type')" label="field.otp_type" help="field.otp_type.help" :hasOffset="true" />

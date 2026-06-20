@@ -37,8 +37,9 @@ class TwoFAccountUpdateRequest extends FormRequest
             'algorithm' => 'present|string|in:sha1,sha256,sha512,md5',
             'period'    => 'nullable|integer|min:1',
             'counter'   => 'nullable|integer|min:0',
-            'notes'     => 'sometimes|nullable|string',
-            'is_pinned' => 'sometimes|nullable|boolean',
+            'notes'          => 'sometimes|nullable|string',
+            'is_pinned'      => 'sometimes|nullable|boolean',
+            'recovery_codes' => 'sometimes|nullable|string',
         ];
     }
 

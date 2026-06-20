@@ -42,6 +42,8 @@ $preferences = [
     'autoCloseTimeout'       => envUnlessEmpty('USERPREF_DEFAULT__AUTO_CLOSE_TIMEOUT', 2),
     'AutoSaveQrcodedAccount' => envUnlessEmpty('USERPREF_DEFAULT__AUTO_SAVE_QRCODED_ACCOUNT', false),
     'showEmailInFooter'      => envUnlessEmpty('USERPREF_DEFAULT__SHOW_EMAIL_IN_FOOTER', true),
+    // Off by default: email breach checks send the address to HIBP, so require explicit opt-in.
+    'breachMonitoring'       => envUnlessEmpty('USERPREF_DEFAULT__BREACH_MONITORING', false),
 ];
 
 $nonLockablePreferences = [

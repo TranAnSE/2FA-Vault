@@ -32,6 +32,8 @@ const router = createRouter({
         { path: '/account/:twofaccountId/edit', name: 'editAccount', component: () => import('../views/twofaccounts/CreateUpdate.vue'), meta: { middlewares: [authGuard, encryptionGate, syncAppSettings, setReturnTo], watchedByKicker: true }, props: true },
         { path: '/account/:twofaccountId/qrcode', name: 'showQRcode', component: () => import('../views/twofaccounts/QRcode.vue'), meta: { middlewares: [authGuard, encryptionGate, syncAppSettings, setReturnTo], watchedByKicker: true } },
 
+        { path: '/health', name: 'vaultHealth', component: () => import('../views/AccountHealthDashboardView.vue'), meta: { middlewares: [authGuard, encryptionGate, syncAppSettings, setReturnTo], watchedByKicker: true } },
+
         { path: '/secure-notes', name: 'secureNotes', component: () => import('../views/SecureNoteListView.vue'), meta: { middlewares: [authGuard, encryptionGate, syncAppSettings, setReturnTo], watchedByKicker: true } },
         { path: '/secure-notes/new', name: 'createNote', component: () => import('../views/SecureNoteEditorView.vue'), meta: { middlewares: [authGuard, encryptionGate, syncAppSettings, setReturnTo], watchedByKicker: true } },
         { path: '/secure-notes/:noteId', name: 'editNote', component: () => import('../views/SecureNoteEditorView.vue'), meta: { middlewares: [authGuard, encryptionGate, syncAppSettings, setReturnTo], watchedByKicker: true }, props: true },

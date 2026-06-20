@@ -5,6 +5,28 @@ All notable changes to 2FA-Vault will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+**🔐 Recovery Codes Storage**
+- Encrypted `recovery_codes` text column on `twofaccounts` storing an external-service backup-code list (JSON array), encrypted at rest via the same `notes` pattern (server Crypt or client E2EE ciphertext blob)
+- Surfaced in the account create/edit form with a copy-all button; emitted by both the standard and encrypted (`/twofaccounts/encrypted`) account resources so E2EE vaults can read it back
+- `recovery_codes` is optional; omitting it on update preserves the existing value, sending `null`/empty clears it
+
+**🩺 Account Health Scoring**
+- `AccountHealthService`: per-account security score from server-visible metadata only (algorithm, digits, period, last-used freshness) — safe under E2EE
+- `GET /api/v1/twofaccounts/{id}/health` (per-account, policy-guarded) and `GET /api/v1/twofaccounts/health/summary` (vault-wide grade counts, average, weak-account list)
+- Client-side entropy + duplicate-secret scoring (`account-health-client.js`) merged into a combined score when the vault is unlocked; letter-grade badge + `/health` dashboard with a "show weak only" filter
+
+**⌨️ CLI Tool**
+- Extended the `2fav` Bun/TypeScript CLI with `--search` (list alias), `--watch` (TOTP period-aligned refresh), `--copy` (clipboard), and E2EE detection (clear error when a target account uses E2EE, which v1 does not support)
+
+**🛡️ Breach Monitoring (HaveIBeenPwned)**
+- `BreachMonitoringService`: email breach checks (authenticated, opt-in) and service/domain breach checks (public breaches list, no opt-in), 24h hashed cache, retry/backoff on 429/5xx, graceful "unknown" degradation on outage
+- `POST /api/v1/breach/check-email` (hard-gated behind the `breachMonitoring` user preference, off by default — the email leaves the system only with explicit opt-in) and `GET /api/v1/breach/check-service`
+- `breachMonitoring` user preference, HIBP key via `config/services.php` + `HIBP_API_KEY` env, `BreachBadge` component
+
 ## [1.2.0] - 2026-06-14
 
 ### Added
