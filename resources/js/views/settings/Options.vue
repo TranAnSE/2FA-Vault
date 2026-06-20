@@ -365,7 +365,11 @@
                         <FormCheckbox v-model="user.preferences.sortCaseSensitive" @update:model-value="val => savePreference('sortCaseSensitive', val)" fieldName="sortCaseSensitive" :isLocked="appSettings.lockedPreferences.includes('sortCaseSensitive')" label="field.sort_case_sensitive" help="field.sort_case_sensitive.help" />
                         <!-- show email in footer -->
                         <FormCheckbox v-model="user.preferences.showEmailInFooter" @update:model-value="val => savePreference('showEmailInFooter', val)" fieldName="showEmailInFooter" :isLocked="appSettings.lockedPreferences.includes('showEmailInFooter')" label="field.show_email_in_footer" help="field.show_email_in_footer.help" />
-                        
+
+                        <h4 class="title is-4 pt-4">{{ $t('heading.breach_monitoring') }}</h4>
+                        <!-- email breach monitoring opt-in -->
+                        <FormCheckbox v-model="user.preferences.breachMonitoring" @update:model-value="val => savePreference('breachMonitoring', val)" fieldName="breachMonitoring" :isLocked="appSettings.lockedPreferences.includes('breachMonitoring')" label="field.breach_monitoring" help="field.breach_monitoring.help" />
+
                         <h4 class="title is-4 pt-4">{{ $t('heading.groups') }}</h4>
                         <!-- default group -->
                         <FormSelect v-model="user.preferences.defaultGroup" @update:model-value="val => savePreference('defaultGroup', val)" :options="groupsList" fieldName="defaultGroup" label="field.default_group" help="field.default_group.help" />

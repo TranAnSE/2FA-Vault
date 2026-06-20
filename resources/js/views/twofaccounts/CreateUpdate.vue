@@ -70,6 +70,7 @@
 
     // Composables — icon manager must init first so tempIcon ref is available for QR upload
     const { encryptSecret } = useAccountEncryption()
+    // Auto-imported components (BreachCheckButton) are available in template without import.
     const {
         tempIcon, fetchingLogo, iconCollection, iconCollectionVariant,
         iconPack, iconPacks, hasSomeIconPack, isLoading,
@@ -461,6 +462,8 @@
                         </p>
                         <p class="help">{{ $t('field.recovery_codes.help') }}</p>
                     </div>
+                    <!-- breach check (service only; public data, no opt-in needed) -->
+                    <BreachCheckButton v-if="isEditMode" :service="form.service" />
                     <!-- otp type -->
                     <FormToggle v-model="form.otp_type" :isDisabled="isEditMode" :choices="otp_types" fieldName="otp_type" :errorMessage="form.errors.get('otp_type')" label="field.otp_type" help="field.otp_type.help" :hasOffset="true" />
                     <div v-if="form.otp_type != ''">
