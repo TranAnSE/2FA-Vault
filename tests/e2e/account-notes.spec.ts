@@ -34,7 +34,10 @@ test.describe('Account notes', () => {
     await notesTextarea.fill(initialNotes);
 
     await page.locator('#btnCreate').click();
-    await goto('/accounts');
+    // createAccount() posts asynchronously and then calls router.push({ name:
+    // 'accounts' }). If we goto() before that push lands it overrides our
+    // target, so wait for the SPA to reach /accounts first.
+    await expect(page).toHaveURL(/\/accounts/, { timeout: 15000 });
     await expect(page.getByText(service).first()).toBeVisible({ timeout: 15000 });
 
     // --- View detail: open the account for editing ---
@@ -70,7 +73,9 @@ test.describe('Account notes', () => {
     await notesAfterCreate.fill('');
     await notesAfterCreate.fill(updatedNotes);
     await page.locator('#btnUpdate').click();
-    await goto('/accounts');
+    // updateAccount() also finishes with router.push({ name: 'accounts' });
+    // wait for that navigation before proceeding (same race as create above).
+    await expect(page).toHaveURL(/\/accounts/, { timeout: 15000 });
     await expect(page.getByText(service).first()).toBeVisible({ timeout: 15000 });
 
     // --- Verify the update persisted ---

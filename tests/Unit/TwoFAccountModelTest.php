@@ -26,7 +26,7 @@ class TwoFAccountModelTest extends ModelTestCase
     {
         $this->runConfigurationAssertions(
             new TwoFAccount,
-            ['notes', 'is_pinned'],
+            ['notes', 'is_pinned', 'recovery_codes'],
             [],
             ['*'],
             [],

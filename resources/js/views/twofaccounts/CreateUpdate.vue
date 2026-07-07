@@ -68,8 +68,13 @@
         { text: 'sha512', value: 'sha512' }, { text: 'md5', value: 'md5' },
     ]
 
-    // Composables — icon manager must init first so tempIcon ref is available for QR upload
-    const { encryptSecret } = useAccountEncryption()
+    // Composables — icon manager must init first so tempIcon ref is available for QR upload.
+    // Hoisted to the top of <script setup>: useAccountEncryption() calls useI18n() internally,
+    // which requires an active component instance. Calling it inside the onMounted async
+    // callback below would run after setup has returned (getCurrentInstance() === null) and
+    // throw vue-i18n error 26 ("Must be called at the top of a `setup` function"), aborting
+    // the edit form render.
+    const { encryptSecret, decryptSecret } = useAccountEncryption()
     // Auto-imported components (BreachCheckButton) are available in template without import.
     const {
         tempIcon, fetchingLogo, iconCollection, iconCollectionVariant,
@@ -143,10 +148,9 @@
         if (route.name == 'editAccount') {
             showSpinner.value = true
             twofaccountService.get(props.twofaccountId).then(async response => {
-                const { decryptSecret } = useAccountEncryption()
-                if (decryptSecret) {
-                    response.data.secret = await decryptSecret(response.data.secret)
-                }
+                // decryptSecret is the hoisted reference from the top of <script setup>;
+                // do not re-invoke useAccountEncryption() here (see note above the hoist).
+                response.data.secret = await decryptSecret(response.data.secret)
                 form.fill(response.data)
                 if (form.group_id == null) form.group_id = 0
                 form.setOriginal()
