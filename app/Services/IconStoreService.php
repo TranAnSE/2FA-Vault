@@ -114,11 +114,14 @@ class IconStoreService
      */
     protected function mirrorDatabaseToDisk() : void
     {
-        foreach (Icon::all() as $icon) {
-            if (! $this->storeToDisk($icon->name, $icon->content)) {
-                throw new FailedIconStoreDatabaseTogglingException;
+        // Use chunk() so large icon tables do not load every BLOB into memory.
+        Icon::chunk(100, function ($icons) {
+            foreach ($icons as $icon) {
+                if (! $this->storeToDisk($icon->name, $icon->content)) {
+                    throw new FailedIconStoreDatabaseTogglingException;
+                }
             }
-        }
+        });
     }
 
     /**

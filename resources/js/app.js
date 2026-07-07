@@ -2,8 +2,14 @@ import i18n from './i18n'
 import Notifications from '@kyvg/vue3-notification'
 import App from './App.vue'
 import router from './router'
+import { configureErrorHandlerRouter } from '@2fauth/stores'
 
 import '@2fauth/styles/src/app.scss';
+
+// Register the router with the errorHandler store so its show()/notFound()
+// actions can navigate even when invoked from a non-component context (e.g.
+// Axios interceptors in service modules, where `this.$router` is unavailable).
+configureErrorHandlerRouter(router)
 
 const app = createApp(App)
 
