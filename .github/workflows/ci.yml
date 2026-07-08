@@ -51,6 +51,52 @@ jobs:
       - name: Run backend CI gate
         run: composer run ci:backend
 
+  backend-coverage:
+    name: Backend Coverage (report only)
+    runs-on: ubuntu-latest
+    # Decoupled from backend-tests so coverage overhead (2-3x slower) never
+    # gates merges. No minimum threshold is enforced; this job only publishes
+    # an HTML artifact developers can download to inspect coverage.
+    needs: backend-tests
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v5
+
+      - name: Setup PHP with Xdebug
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.4'
+          extensions: bcmath, ctype, dom, fileinfo, gd, json, mbstring, openssl, tokenizer, xml, pdo_sqlite
+          coverage: xdebug
+
+      - name: Copy environment file
+        run: cp .env.testing .env
+
+      - name: Install Composer dependencies
+        run: composer install --no-interaction --prefer-dist
+
+      - name: Prepare Laravel bootstrap directories
+        run: mkdir -p bootstrap/cache storage/framework/{cache,sessions,views} storage/logs
+
+      - name: Generate application key
+        run: php artisan key:generate
+
+      - name: Generate Passport keys
+        run: php artisan passport:keys --force
+
+      - name: Run tests with coverage
+        env:
+          XDEBUG_MODE: coverage
+        run: vendor/bin/phpunit --coverage-html tests/Coverage/html
+
+      - name: Upload coverage report
+        uses: actions/upload-artifact@v4
+        with:
+          name: backend-coverage-html
+          path: tests/Coverage/html
+          retention-days: 14
+
   frontend-build:
     name: Frontend Build (Node)
     runs-on: ubuntu-latest
@@ -192,9 +238,28 @@ jobs:
         working-directory: ./2FA-Vault
         run: npx playwright install --with-deps chromium
 
+      - name: Ensure xvfb available for headed PWA tests
+        # PWA service-worker tests require headed Chromium, which on Linux
+        # needs a virtual display. ubuntu-latest ships xvfb, but install it
+        # defensively so the job does not silently break if the runner image
+        # changes.
+        run: |
+          if ! command -v xvfb-run >/dev/null 2>&1; then
+            sudo apt-get update && sudo apt-get install -y xvfb
+          fi
+          xvfb-run --help >/dev/null 2>&1 && echo "xvfb-run ready" || { echo "xvfb-run unavailable"; exit 1; }
+
       - name: Run E2E smoke gate
         working-directory: ./2FA-Vault
         run: npm run ci:e2e
+
+      - name: Run PWA E2E gate
+        # PWA tests (service worker, offline OTP, manifest/installability)
+        # require a persistent browser context + headed Chromium. On Linux CI
+        # this runs under xvfb-run. The PWA project in playwright.config.ts
+        # sets a 120s per-test timeout and 240s webServer timeout.
+        working-directory: ./2FA-Vault
+        run: xvfb-run --auto-servernum --server-args="-screen 0 1280x1024x24" npm run ci:e2e:pwa
 
       - name: Dump Laravel log on failure
         if: failure()

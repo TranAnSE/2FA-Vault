@@ -1,49 +1,8 @@
-import { createHmac } from 'node:crypto';
 import { test, expect } from './extension-popup.fixture';
 import { webExtensionTestData } from './popup-test-data.fixture';
+import { totpWindow } from '../helpers/totp';
 
 const encryptedTotpSecret = 'A4GRFTVVRBGY7UIW';
-
-function base32ToBuffer(encoded: string): Buffer {
-  const alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567';
-  const bytes: number[] = [];
-  let bits = 0;
-  let value = 0;
-
-  for (const char of encoded.toUpperCase().replace(/=+$/g, '').replace(/\s+/g, '')) {
-    const index = alphabet.indexOf(char);
-    if (index === -1) {
-      continue;
-    }
-
-    value = (value << 5) | index;
-    bits += 5;
-
-    if (bits >= 8) {
-      bytes.push((value >>> (bits - 8)) & 0xff);
-      bits -= 8;
-    }
-  }
-
-  return Buffer.from(bytes);
-}
-
-function totpAt(timestamp: number): string {
-  const counter = Math.floor(Math.floor(timestamp / 1000) / 30);
-  const counterBuffer = Buffer.alloc(8);
-  counterBuffer.writeBigUInt64BE(BigInt(counter));
-
-  const hmac = createHmac('sha1', base32ToBuffer(encryptedTotpSecret)).update(counterBuffer).digest();
-  const offset = hmac[hmac.length - 1] & 0x0f;
-  const binary = (
-    ((hmac[offset] & 0x7f) << 24) |
-    ((hmac[offset + 1] & 0xff) << 16) |
-    ((hmac[offset + 2] & 0xff) << 8) |
-    (hmac[offset + 3] & 0xff)
-  );
-
-  return String(binary % 1_000_000).padStart(6, '0');
-}
 
 test.describe('WebExtension popup encrypted local OTP flow', () => {
   test.setTimeout(120000);
@@ -105,13 +64,7 @@ test.describe('WebExtension popup encrypted local OTP flow', () => {
       throw new Error(`OTP display rendered without digits.\nconsole=\n${unlockConsoleMessages.join('\n')}\npopupHtml=${html.slice(0, 5000)}`);
     }
     const assertionTime = Date.now();
-    const expectedOtps = [
-      totpAt(assertionTime - 60000),
-      totpAt(assertionTime - 30000),
-      totpAt(assertionTime),
-      totpAt(assertionTime + 30000),
-      totpAt(assertionTime + 60000),
-    ];
+    const expectedOtps = totpWindow(encryptedTotpSecret, assertionTime);
 
     expect(expectedOtps).toContain(generatedOtp);
     expect(localOtpRequestUrls.length).toBe(0);
