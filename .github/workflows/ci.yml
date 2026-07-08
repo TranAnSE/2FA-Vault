@@ -24,7 +24,7 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Setup PHP
         uses: shivammathur/setup-php@v2
@@ -57,21 +57,24 @@ jobs:
 
     steps:
       - name: Checkout 2FA-Vault
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           path: 2FA-Vault
 
       - name: Checkout 2FA-Vault-Components
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           repository: ${{ env.COMPONENTS_REPOSITORY }}
           ref: ${{ env.COMPONENTS_REF }}
           path: 2FA-Vault-Components
 
       - name: Setup Node
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v5
         with:
           node-version: '22'
+
+      - name: Enable pnpm
+        run: corepack enable
 
       - name: Verify sibling component dependency layout
         working-directory: ./2FA-Vault
@@ -81,6 +84,16 @@ jobs:
           test -d ../2FA-Vault-Components/packages/formcontrols
           test -d ../2FA-Vault-Components/packages/styles
           test -d ../2FA-Vault-Components/packages/stores
+
+      - name: Install component dependencies and build packages
+        working-directory: ./2FA-Vault-Components
+        run: |
+          pnpm install --frozen-lockfile
+          pnpm run build
+        env:
+          # Components package.json uses pnpm prepack to build each package's
+          # dist/. The main app consumes the built dist/ via workspace links,
+          # so the packages must be built before the frontend can import them.
 
       - name: Install frontend dependencies
         working-directory: ./2FA-Vault
@@ -97,19 +110,19 @@ jobs:
 
     steps:
       - name: Checkout 2FA-Vault
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           path: 2FA-Vault
 
       - name: Checkout 2FA-Vault-Components
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           repository: ${{ env.COMPONENTS_REPOSITORY }}
           ref: ${{ env.COMPONENTS_REF }}
           path: 2FA-Vault-Components
 
       - name: Checkout 2FA-Vault-WebExtension
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           repository: ${{ env.WEBEXT_REPOSITORY }}
           ref: ${{ env.WEBEXT_REF }}
@@ -123,7 +136,7 @@ jobs:
           coverage: none
 
       - name: Setup Node
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v5
         with:
           node-version: '22'
 
@@ -205,7 +218,7 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
