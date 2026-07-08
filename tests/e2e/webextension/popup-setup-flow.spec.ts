@@ -1,6 +1,6 @@
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { chromium, test as base, expect } from '@playwright/test';
+import { chromium, test as base, expect, type Page, type BrowserContext } from '@playwright/test';
 import { ensureWebExtensionEncryptedUserReady } from './bootstrap-webextension-user';
 import { webExtensionTestData } from './popup-test-data.fixture';
 
@@ -12,42 +12,60 @@ import { webExtensionTestData } from './popup-test-data.fixture';
  * body), these tests deliberately exercise the *unconfigured* popup surface:
  * landing → setup form → validation → successful configuration → persistence
  * of the host URL into chrome.storage.local.
+ *
+ * Each test launches a FRESH persistent context so chrome.storage.local is
+ * empty and the popup starts on the Landing route (isConfigured === false).
  */
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const extensionDist = path.resolve(__dirname, '../../../../2FA-Vault-WebExtension/dist/chrome-mv3');
 
-type FreshPopupFixture = { popup: import('@playwright/test').Page; extensionId: string };
+type FreshPopupFixture = { popup: Page; extensionId: string };
 
+/**
+ * Launch a fresh persistent Chromium context with the extension loaded and
+ * return the popup Page plus the extension id. The caller MUST close the
+ * context (typically in a finally block) to avoid leaking browser processes.
+ */
+async function openFreshPopup(): Promise<{ popup: Page; extensionId: string; context: BrowserContext }> {
+  const context = await chromium.launchPersistentContext('', {
+    headless: false,
+    args: [
+      `--disable-extensions-except=${extensionDist}`,
+      `--load-extension=${extensionDist}`,
+    ],
+  });
+
+  let [background] = context.serviceWorkers();
+  if (!background) {
+    background = await context.waitForEvent('serviceworker');
+  }
+  const extensionId = background.url().split('/')[2];
+
+  const popup = await context.newPage();
+  await popup.goto(`chrome-extension://${extensionId}/popup.html`);
+  await popup.waitForURL(/#\/(landing|setup|purpose)/, { timeout: 15000 });
+
+  return { popup, extensionId, context };
+}
+
+// Fixture: each test gets its own fresh popup + extensionId. The context is
+// torn down automatically when the fixture scope ends.
 export const test = base.extend<FreshPopupFixture>({
   popup: async ({}, use) => {
-    // Launch a FRESH persistent context so chrome.storage.local is empty
-    // and the popup starts on the Landing route (isConfigured === false).
-    const context = await chromium.launchPersistentContext('', {
-      headless: false,
-      args: [
-        `--disable-extensions-except=${extensionDist}`,
-        `--load-extension=${extensionDist}`,
-      ],
-    });
-
+    const { popup, context } = await openFreshPopup();
     try {
-      let [background] = context.serviceWorkers();
-      if (!background) {
-        background = await context.waitForEvent('serviceworker');
-      }
-      const extensionId = background.url().split('/')[2];
-
-      const popup = await context.newPage();
-      await popup.goto(`chrome-extension://${extensionId}/popup.html`);
-
-      // Should land on the Landing route when not configured.
-      await popup.waitForURL(/#\/(landing|setup|purpose)/, { timeout: 15000 });
-
-      await use({ popup, extensionId } as unknown as FreshPopupFixture);
+      await use(popup);
     } finally {
-      await context.close();
+      await context.close().catch(() => {});
     }
+  },
+
+  extensionId: async ({ popup }, use) => {
+    // The popup URL is chrome-extension://<id>/popup.html#... — extract the id
+    // from it rather than launching a second context.
+    const match = popup.url().match(/chrome-extension:\/\/([^/]+)\//);
+    await use(match ? match[1] : '');
   },
 });
 
@@ -55,8 +73,7 @@ test.describe('WebExtension popup setup flow', () => {
   test.setTimeout(120000);
 
   test('@requires-webextension-build landing page offers a configure entry point when not configured', async ({ popup }) => {
-    // The Landing view exposes a button to start configuration. The router
-    // may auto-redirect landing → setup; accept either route.
+    // The router may auto-redirect landing → setup; accept either route.
     await popup.waitForURL(/#\/(landing|setup|purpose)/, { timeout: 15000 });
 
     if (/#\/landing/.test(popup.url())) {
@@ -73,8 +90,9 @@ test.describe('WebExtension popup setup flow', () => {
   });
 
   test('@requires-webextension-build rejects an invalid host URL before submitting', async ({ popup }) => {
+    // Navigate to the setup form regardless of current route.
     if (!/#\/setup/.test(popup.url())) {
-      await popup.goto(popup.url().replace(/#.*$/, '#/setup'));
+      await popup.goto(`${popup.url().split('#')[0]}#/setup`);
       await popup.waitForSelector('#frmExtSetup', { timeout: 15000 });
     }
 
@@ -98,7 +116,7 @@ test.describe('WebExtension popup setup flow', () => {
     const { pat } = await ensureWebExtensionEncryptedUserReady();
 
     if (!/#\/setup/.test(popup.url())) {
-      await popup.goto(popup.url().replace(/#.*$/, '#/setup'));
+      await popup.goto(`${popup.url().split('#')[0]}#/setup`);
       await popup.waitForSelector('#frmExtSetup', { timeout: 15000 });
     }
 
@@ -111,17 +129,37 @@ test.describe('WebExtension popup setup flow', () => {
     // vault lock state (accounts / unlock / restrictions).
     await popup.waitForURL(/#\/(accounts|restrictions|unlock)/, { timeout: 30000 });
 
-    // The persisted Pinia settingStore key under the "local:" prefix should
-    // now carry the configured host URL.
-    const stored = await popup.evaluate(async () => {
+    // The Pinia persisted-state plugin serialises each store as a JSON STRING
+    // under its own key (e.g. "settings" -> "{\"hostUrl\":\"...\",...}"). Parse
+    // every stringified value and look for the hostUrl field anywhere in it.
+    const stored = await popup.evaluate(async (expectedHost) => {
       const all = await chrome.storage.local.get(null);
-      const hit = Object.entries(all).find(
-        ([, value]) =>
-          typeof value === 'object' && value !== null && typeof (value as any).hostUrl === 'string',
-      );
-      return hit ? (hit[1] as any).hostUrl : null;
-    });
+      for (const [key, value] of Object.entries(all)) {
+        // Direct object shape.
+        if (value && typeof value === 'object' && typeof value.hostUrl === 'string') {
+          return { key, hostUrl: value.hostUrl };
+        }
+        // Serialised JSON shape (Pinia persisted-state default).
+        if (typeof value === 'string') {
+          try {
+            const parsed = JSON.parse(value);
+            if (parsed && typeof parsed === 'object' && typeof parsed.hostUrl === 'string') {
+              return { key, hostUrl: parsed.hostUrl };
+            }
+          } catch {
+            // not JSON, skip
+          }
+        }
+      }
+      return { key: null, hostUrl: null, dump: all };
+    }, webExtensionTestData.extensionHostUrl);
 
-    expect(stored).toBe(webExtensionTestData.extensionHostUrl);
+    if (stored.hostUrl !== webExtensionTestData.extensionHostUrl) {
+      throw new Error(
+        `hostUrl not found in chrome.storage.local. storage dump=${JSON.stringify(stored.dump ?? stored, null, 2)}`,
+      );
+    }
+
+    expect(stored.hostUrl).toBe(webExtensionTestData.extensionHostUrl);
   });
 });
