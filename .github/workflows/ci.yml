@@ -176,9 +176,13 @@ jobs:
         working-directory: ./2FA-Vault
         run: npm ci --no-audit
 
-      - name: Install component dependencies
+      - name: Install component dependencies and build packages
+        # dist/ is gitignored, so each package must be built (prepack)
+        # before the frontend webServer (Vite) can import it during E2E.
         working-directory: ./2FA-Vault-Components
-        run: pnpm install --frozen-lockfile
+        run: |
+          pnpm install --frozen-lockfile
+          pnpm run build
 
       - name: Install extension dependencies
         working-directory: ./2FA-Vault-WebExtension
