@@ -86,14 +86,13 @@ jobs:
           test -d ../2FA-Vault-Components/packages/stores
 
       - name: Install component dependencies and build packages
+        # Components are consumed by the main app via workspace links, so each
+        # package's dist/ must be built (prepack) before the frontend import
+        # can resolve. dist/ is gitignored and produced on demand.
         working-directory: ./2FA-Vault-Components
         run: |
           pnpm install --frozen-lockfile
           pnpm run build
-        env:
-          # Components package.json uses pnpm prepack to build each package's
-          # dist/. The main app consumes the built dist/ via workspace links,
-          # so the packages must be built before the frontend can import them.
 
       - name: Install frontend dependencies
         working-directory: ./2FA-Vault
