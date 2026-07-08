@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Models\User;
 use App\Models\PushSubscription;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use PHPUnit\Framework\Attributes\Test;
 use Tests\TestCase;
 
 class PushSubscriptionTest extends TestCase
@@ -27,7 +28,7 @@ class PushSubscriptionTest extends TestCase
         ]);
     }
 
-    /** @test */
+    #[Test]
     public function test_user_can_store_subscription()
     {
         $subscriptionData = [
@@ -58,7 +59,7 @@ class PushSubscriptionTest extends TestCase
         $this->assertCount(1, $this->user->pushSubscriptions);
     }
 
-    /** @test */
+    #[Test]
     public function test_store_subscription_requires_authentication()
     {
         $subscriptionData = [
@@ -72,7 +73,7 @@ class PushSubscriptionTest extends TestCase
         $response->assertStatus(401);
     }
 
-    /** @test */
+    #[Test]
     public function test_store_subscription_requires_endpoint()
     {
         $response = $this->actingAs($this->user, 'api-guard')
@@ -85,7 +86,7 @@ class PushSubscriptionTest extends TestCase
             ->assertJsonValidationErrors(['endpoint']);
     }
 
-    /** @test */
+    #[Test]
     public function test_store_subscription_endpoint_must_be_url()
     {
         $response = $this->actingAs($this->user, 'api-guard')
@@ -99,7 +100,7 @@ class PushSubscriptionTest extends TestCase
             ->assertJsonValidationErrors(['endpoint']);
     }
 
-    /** @test */
+    #[Test]
     public function test_store_subscription_requires_public_key()
     {
         $response = $this->actingAs($this->user, 'api-guard')
@@ -112,7 +113,7 @@ class PushSubscriptionTest extends TestCase
             ->assertJsonValidationErrors(['p256dh']);
     }
 
-    /** @test */
+    #[Test]
     public function test_store_subscription_requires_auth_token()
     {
         $response = $this->actingAs($this->user, 'api-guard')
@@ -125,7 +126,7 @@ class PushSubscriptionTest extends TestCase
             ->assertJsonValidationErrors(['auth']);
     }
 
-    /** @test */
+    #[Test]
     public function test_duplicate_subscription_updates_existing()
     {
         $subscriptionData = [
@@ -162,7 +163,7 @@ class PushSubscriptionTest extends TestCase
         ]);
     }
 
-    /** @test */
+    #[Test]
     public function test_user_can_have_multiple_subscriptions()
     {
         $subscription1 = [
@@ -187,7 +188,7 @@ class PushSubscriptionTest extends TestCase
         $this->assertCount(2, $this->user->pushSubscriptions);
     }
 
-    /** @test */
+    #[Test]
     public function test_user_can_remove_subscription()
     {
         // Create subscription first
@@ -214,7 +215,7 @@ class PushSubscriptionTest extends TestCase
         $this->assertCount(0, $this->user->pushSubscriptions);
     }
 
-    /** @test */
+    #[Test]
     public function test_remove_subscription_requires_authentication()
     {
         $response = $this->deleteJson('/api/v1/push/unsubscribe', [
@@ -224,7 +225,7 @@ class PushSubscriptionTest extends TestCase
         $response->assertStatus(401);
     }
 
-    /** @test */
+    #[Test]
     public function test_remove_subscription_requires_endpoint()
     {
         $response = $this->actingAs($this->user, 'api-guard')
@@ -234,7 +235,7 @@ class PushSubscriptionTest extends TestCase
             ->assertJsonValidationErrors(['endpoint']);
     }
 
-    /** @test */
+    #[Test]
     public function test_remove_nonexistent_subscription_returns_404()
     {
         $response = $this->actingAs($this->user, 'api-guard')
@@ -248,7 +249,7 @@ class PushSubscriptionTest extends TestCase
             ]);
     }
 
-    /** @test */
+    #[Test]
     public function test_user_cannot_remove_another_users_subscription()
     {
         $otherUser = User::factory()->create();
@@ -271,7 +272,7 @@ class PushSubscriptionTest extends TestCase
         ]);
     }
 
-    /** @test */
+    #[Test]
     public function test_user_can_list_their_subscriptions()
     {
         PushSubscription::factory()->count(3)->create([
@@ -294,7 +295,7 @@ class PushSubscriptionTest extends TestCase
             ]);
     }
 
-    /** @test */
+    #[Test]
     public function test_list_subscriptions_only_shows_current_users()
     {
         // Create subscriptions for current user
@@ -315,7 +316,7 @@ class PushSubscriptionTest extends TestCase
             ->assertJsonCount(2, 'data');
     }
 
-    /** @test */
+    #[Test]
     public function test_subscriptions_deleted_when_user_deleted()
     {
         PushSubscription::factory()->count(3)->create([
