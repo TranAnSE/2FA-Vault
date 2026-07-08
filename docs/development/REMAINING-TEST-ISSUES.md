@@ -1,5 +1,19 @@
 # Remaining Test Issues
 
+> **⚠ HISTORICAL SNAPSHOT — 2026-04-05.**
+> This document captures the state of the test suite on 2026-04-05. The 42
+> issues below were resolved during the v1.2.0 stabilization sprint
+> (Apr 5 → Jun 14, 2026). As of v1.2.0 the suite reports **1590 tests, 0
+> failures** (see `DEV-STATUS-AND-ROADMAP.md` and `docs/reference/changelog.md`
+> for the current state).
+>
+> The file is retained as a historical record of which issues existed and how
+> they were triaged. Treat the numbers below as superseded — they do **not**
+> reflect the current pass/fail counts. Note also that the internal breakdown
+> below is itself internally inconsistent (summary says 20 fail / 22 error but
+> the P1 list enumerates only 13 failures); the canonical source of truth for
+> the current state is `composer test` output on `master`.
+
 Generated: 2026-04-05
 
 ## Summary

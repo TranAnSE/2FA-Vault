@@ -4,6 +4,7 @@
     backupGlobals="false"
     backupStaticProperties="false"
     bootstrap="vendor/autoload.php"
+    cacheDirectory="storage/framework/cache/phpunit"
     colors="true"
     displayDetailsOnTestsThatTriggerErrors="true"
     displayDetailsOnTestsThatTriggerNotices="true"
@@ -21,7 +22,18 @@
             <directory suffix=".php">app/Protobuf</directory>
         </exclude>
     </source>
+    <!--
+        Coverage is configured so `composer test` collects line coverage when
+        a coverage driver (Xdebug/PCOV) is available, and silently skips it
+        when no driver is loaded. CI publishes the HTML report as an artifact
+        but does NOT gate on a threshold (see .github/workflows/ci.yml). Local
+        one-off HTML coverage: `composer test-coverage-html`.
+    -->
     <coverage>
+        <report>
+            <clover outputFile="tests/Coverage/coverage.xml"/>
+            <html outputDirectory="tests/Coverage/html"/>
+        </report>
     </coverage>
     <testsuites>
         <testsuite name="Unit">

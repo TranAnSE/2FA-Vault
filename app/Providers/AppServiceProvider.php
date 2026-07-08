@@ -69,6 +69,14 @@ class AppServiceProvider extends ServiceProvider
     /**
      * Register the WebDAV Flysystem v3 driver for auto-backup destinations.
      * The adapter package (league/flysystem-webdav) must be installed via composer.
+     *
+     * PHP 8.4 note: sabre/dav 4.x (a transitive dependency) emits
+     * E_DEPRECATED warnings about implicitly nullable parameter types from its
+     * server-side classes (CalDAV/CardDAV/DAVACL/Server tree nodes). This
+     * project only uses \Sabre\DAV\Client (the WebDAV *client*), so the
+     * deprecated code paths are never loaded and the warnings do not fire in
+     * practice. Bumping sabre/dav to 5.x would clear them upstream but is
+     * currently blocked by league/flysystem-webdav's ^4.6.0 constraint.
      */
     private function registerWebDavDriver(): void
     {

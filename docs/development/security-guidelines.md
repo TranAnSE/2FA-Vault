@@ -589,10 +589,13 @@ Currently, we do not offer a bug bounty program. However, we deeply appreciate s
 
 ## ✅ Security Audit & Test Coverage
 
-### Automated Security Testing (97% Coverage)
+### Automated Security Testing
 
 **Security Test Suite:**
-- ✅ 1,339/1,381 tests passing (97% pass rate)
+- ✅ 1590/1590 tests passing, 0 failures (v1.2.0, 2026-06-14)
+  - Earlier snapshots (2026-04-05) reported 1,339/1,381 (97%); the remaining
+    42 issues were resolved during the v1.2.0 stabilization sprint. See
+    `docs/reference/changelog.md` and `DEV-STATUS-AND-ROADMAP.md`.
 - ✅ All encryption endpoints fully tested
 - ✅ Authentication flows comprehensively tested
 - ✅ Authorization/permission policies validated
