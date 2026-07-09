@@ -109,5 +109,14 @@ class Handler extends ExceptionHandler
                 ], 401);
             }
         });
+
+        // Forward unhandled exceptions to Sentry when the SDK is booted
+        // (i.e. SENTRY_DSN is set). When SENTRY_DSN is empty the package does
+        // not register the 'sentry' binding, so this callback is a safe no-op.
+        $this->reportable(function (\Throwable $e) {
+            if (app()->bound('sentry') && config('sentry.dsn')) {
+                \Sentry\Laravel\Integration::captureUnhandledException($e);
+            }
+        })->stop(false);
     }
 }

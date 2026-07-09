@@ -311,10 +311,89 @@ test('User can encrypt and use accounts', async ({ page }) => {
 | Teams | ⚠️ Basic tests | ✅ Complete workflows | 🔴 Todo |
 | Backups | ⚠️ Basic tests | ✅ Import/export/migrate | 🔴 Todo |
 | Auth | ✅ Good coverage | ✅ Maintain | ✅ Done |
-| PWA | 🔴 No tests | ⚠️ Basic tests | 🔴 Todo |
-| Extension | 🔴 No tests | ⚠️ Basic tests | 🔴 Todo |
+| PWA | ✅ SW/offline/manifest tests | ✅ Maintain | 🟡 Core done; installability-event & SW-update TODO |
+| Extension | ✅ popup setup/lock/local-OTP tests | ✅ Maintain | 🟡 Core done; auto-fill/biometric/QR TODO |
 
 ---
+
+## Playwright E2E Suite (implemented)
+
+The browser-automation layer lives in `tests/e2e/` and runs against the
+ephemeral SQLite app started by `tests/e2e/start-e2e-server.mjs` at
+`http://127.0.0.1:8001`. Three Playwright projects are defined in
+`playwright.config.ts`:
+
+| Project              | Test glob                          | Purpose                                              |
+|----------------------|------------------------------------|------------------------------------------------------|
+| `chromium`           | `tests/e2e/**/*.spec.ts` (excl. pwa/webextension) | Core SPA workflows: auth, accounts, groups, encryption, settings |
+| `pwa`                | `tests/e2e/pwa/**/*.spec.ts`       | Service worker lifecycle, offline OTP, installability audit |
+| `webextension-popup` | `tests/e2e/webextension/**/*.spec.ts` | Browser extension popup: setup, lock state, local OTP |
+
+### Running the suites
+
+```bash
+# Core SPA smoke (auth + encryption + settings) — the CI gate
+npm run ci:e2e
+
+# Full SPA suite (local)
+npm run test:e2e
+
+# PWA suite (CI gate)
+npm run ci:e2e:pwa
+# or with visible browser locally
+npm run test:e2e:pwa -- --headed
+
+# Browser extension popup (manual / not in the CI gate)
+npm run test:e2e:webextension
+```
+
+### PWA suite (`tests/e2e/pwa/`)
+
+| Spec                          | Covers                                                                 |
+|-------------------------------|------------------------------------------------------------------------|
+| `service-worker-install.spec.ts` | `/sw.js` registration at scope `/`, active state, app-shell precache, manifest validity, `<link rel=manifest>` |
+| `offline-access.spec.ts`      | Account list survives `setOffline(true)`; OTP generated locally with NO `/otp` request; OTP matches RFC 6238 for the seeded secret; offline reload keeps app shell |
+| `installability.spec.ts`      | Secure context, SW with fetch handler, manifest fulfils Chrome installability criteria (192/512 icons, standalone display, start_url) |
+
+The PWA fixture (`tests/e2e/pwa/fixtures/pwa-context.fixture.ts`) launches a
+**persistent** Chromium context (required for service workers + Cache Storage
++ IndexedDB to survive navigations) in **headed mode** (required for
+`beforeinstallprompt` and SW activation). On Linux CI it runs under `xvfb-run`.
+
+### Browser extension suite (`tests/e2e/webextension/`)
+
+The extension is loaded with the canonical Playwright MV3 pattern
+(`chromium.launchPersistentContext` + `--disable-extensions-except` +
+`--load-extension`) pointing at the sibling repo's built output
+`../2FA-Vault-WebExtension/dist/chrome-mv3`.
+
+| Spec                                | Covers                                                        |
+|-------------------------------------|---------------------------------------------------------------|
+| `popup-encrypted-local-otp.spec.ts` | TOTP generated locally (no `/otp` call); HOTP counter-sync 422 error path |
+| `popup-setup-flow.spec.ts`          | Landing → setup form render; invalid host rejected; successful setup persists `hostUrl` to `chrome.storage.local` |
+| `popup-lock-state.spec.ts`          | Correct master password unlocks; wrong password keeps vault locked; empty submit rejected |
+
+These specs are tagged `@requires-webextension-build` and are **not** part of
+the CI merge gate by default, because they require the sibling extension repo
+to be cloned and built. Run them after `npm run build` in
+`2FA-Vault-WebExtension`.
+
+### Deferred (TODO)
+
+Items deliberately left for a follow-up phase:
+
+- **Extension content scripts** — auto-fill OTP into detected 2FA fields,
+  QR scanning via screenshot relay, detector injection. Need a fixture HTML
+  page with a 2FA form and cross-origin handling.
+- **Extension biometric unlock** — requires a WebAuthn virtual authenticator.
+- **Extension idle-timeout auto-lock** — requires intercepting `chrome.alarms`.
+- **PWA `beforeinstallprompt` event** — unreliable in headless Chromium; we
+  assert installability *prerequisites* instead.
+- **PWA service-worker update flow** — requires bumping the SW cache version
+  mid-test; better covered by a Lighthouse CI step.
+
+---
+
 
 ## Notes
 

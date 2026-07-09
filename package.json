@@ -13,7 +13,9 @@
         "test:e2e:ui": "npx playwright test --ui",
         "test:e2e:headed": "npx playwright test --headed",
         "test:e2e:debug": "npx playwright test --debug",
-        "test:e2e:webextension": "npx playwright test --project=webextension-popup tests/e2e/webextension/popup-encrypted-local-otp.spec.ts"
+        "test:e2e:webextension": "npx playwright test --project=webextension-popup tests/e2e/webextension/popup-encrypted-local-otp.spec.ts",
+        "test:e2e:pwa": "npx playwright test --project=pwa tests/e2e/pwa/service-worker-install.spec.ts tests/e2e/pwa/installability.spec.ts tests/e2e/pwa/offline-access.spec.ts --workers=1",
+        "ci:e2e:pwa": "npm run test:e2e:pwa"
     },
     "devDependencies": {
         "@2fauth/formcontrols": "file:../2FA-Vault-Components/packages/formcontrols",

@@ -296,15 +296,21 @@ RateLimiter::for('login', function (Request $request) {
 
 ### HTTPS Enforcement
 
-In production, ensure:
+2FA-Vault does **not** ship an in-app HTTPS redirect. Terminate HTTPS at your
+reverse proxy / Cloudflare Tunnel / load balancer, then tell Laravel to trust
+the proxy so cookies and `url()` helpers emit `https://`:
 
 ```bash
 # .env
 APP_URL=https://your-domain.com
-FORCE_HTTPS=true
+# Trust the proxy so X-Forwarded-Proto is honored.
+# Use a specific IP list in production; "*" trusts every hop.
+TRUSTED_PROXIES=192.168.1.1,10.0.0.0/8
 ```
 
-And configure your web server (Nginx/Apache) to redirect HTTP to HTTPS.
+The HTTP→HTTPS redirect itself happens upstream (nginx/Traefik/Cloudflare).
+There is no `FORCE_HTTPS` env var — that was a dead variable and has been
+removed; `TRUSTED_PROXIES` is the real mechanism.
 
 ---
 

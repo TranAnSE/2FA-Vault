@@ -132,6 +132,20 @@ Route::withoutMiddleware([
     ]);
 });
 
+/**
+ * Sentry integration test route.
+ * Only registered when explicitly enabled via SENTRY_TEST_ENABLED=true, so it
+ * is never exposed in production by default. Hit it once after configuring
+ * SENTRY_DSN to confirm events arrive in your Sentry dashboard, then unset
+ * SENTRY_TEST_ENABLED again. The thrown exception propagates to the client as
+ * a 500 and is captured by the reportable hook in app/Exceptions/Handler.php.
+ */
+if (filter_var(env('SENTRY_TEST_ENABLED', false), FILTER_VALIDATE_BOOLEAN)) {
+    Route::get('/sentry-test', function () {
+        throw new \RuntimeException('Sentry integration test from 2FA-Vault');
+    });
+}
+
 // Route::get('/notification', function () {
 //     $user = User::find(1);
 //     return (new SignedInWithNewDeviceNotification(AuthLog::find(9)))

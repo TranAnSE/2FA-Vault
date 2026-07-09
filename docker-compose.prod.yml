@@ -1,31 +1,49 @@
-version: '3.8'
+# =============================================================================
+# 2FA-Vault production stack
+# -----------------------------------------------------------------------------
+# Architecture: single app container (Dockerfile bundles nginx + php-fpm via
+# supervisord, exposes port 8000) + MySQL + Redis + db-backup sidecar.
+#
+# HTTPS is terminated OUTSIDE this stack by a reverse proxy / Cloudflare Tunnel.
+# Set TRUSTED_PROXIES so Laravel trusts X-Forwarded-Proto from the proxy.
+#
+# Usage:
+#   1. cp .env.example .env  &&  edit values
+#   2. docker compose -f docker-compose.prod.yml up -d
+#   3. docker compose -f docker-compose.prod.yml logs -f app
+#
+# Healthcheck route is GET /up (not /health).
+# Persistent app data lives in the 2fa-vault-data volume, mounted at /2fauth
+# (lowercase) to match docker/entrypoint.sh symlinks.
+# =============================================================================
 
 services:
   app:
     build:
       context: .
       dockerfile: Dockerfile
+    image: 2fa-vault:prod
     container_name: 2fa-vault-app
     restart: unless-stopped
     ports:
       - "${APP_PORT:-8000}:8000"
     environment:
-      # App Configuration
+      # --- App ---
       - APP_NAME=${APP_NAME:-2FA-Vault}
       - APP_ENV=production
       - APP_KEY=${APP_KEY}
       - APP_DEBUG=false
       - APP_URL=${APP_URL:-http://localhost:8000}
-      
-      # Database
+
+      # --- Database ---
       - DB_CONNECTION=mysql
       - DB_HOST=mysql
       - DB_PORT=3306
       - DB_DATABASE=${DB_DATABASE:-2fa_vault}
       - DB_USERNAME=${DB_USERNAME:-2fa_vault_user}
       - DB_PASSWORD=${DB_PASSWORD}
-      
-      # Redis
+
+      # --- Redis ---
       - REDIS_HOST=redis
       - REDIS_PASSWORD=${REDIS_PASSWORD}
       - REDIS_PORT=6379
@@ -33,34 +51,34 @@ services:
       - REDIS_CACHE_DB=1
       - REDIS_SESSION_DB=2
       - REDIS_QUEUE_DB=3
-      
-      # Cache & Sessions
+
+      # --- Cache & sessions ---
       - CACHE_DRIVER=redis
       - SESSION_DRIVER=redis
       - SESSION_LIFETIME=120
       - QUEUE_CONNECTION=redis
-      
-      # Encryption
+
+      # --- Encryption (Argon2id E2EE) ---
       - ENCRYPTION_ENABLED=true
       - ARGON2_MEMORY=${ARGON2_MEMORY:-65536}
       - ARGON2_TIME=${ARGON2_TIME:-3}
       - ARGON2_THREADS=${ARGON2_THREADS:-4}
-      
-      # Multi-user Settings
+
+      # --- Multi-user ---
       - ALLOW_REGISTRATION=${ALLOW_REGISTRATION:-false}
       - MAX_TEAMS_PER_USER=${MAX_TEAMS_PER_USER:-5}
-      
-      # Web Push (VAPID)
+
+      # --- Web push (VAPID) ---
       - VAPID_PUBLIC_KEY=${VAPID_PUBLIC_KEY}
       - VAPID_PRIVATE_KEY=${VAPID_PRIVATE_KEY}
       - VAPID_SUBJECT=${VAPID_SUBJECT:-mailto:admin@example.com}
-      
-      # PWA
+
+      # --- PWA ---
       - PWA_NAME=${PWA_NAME:-2FA-Vault}
       - PWA_SHORT_NAME=${PWA_SHORT_NAME:-2FA-Vault}
       - PWA_THEME_COLOR=${PWA_THEME_COLOR:-#4F46E5}
-      
-      # Mail (for team invites, notifications)
+
+      # --- Mail ---
       - MAIL_MAILER=${MAIL_MAILER:-smtp}
       - MAIL_HOST=${MAIL_HOST:-smtp.mailtrap.io}
       - MAIL_PORT=${MAIL_PORT:-2525}
@@ -69,38 +87,50 @@ services:
       - MAIL_ENCRYPTION=${MAIL_ENCRYPTION:-tls}
       - MAIL_FROM_ADDRESS=${MAIL_FROM_ADDRESS:-noreply@2fa-vault.example.com}
       - MAIL_FROM_NAME=${MAIL_FROM_NAME:-2FA-Vault}
-      
-      # Logging
-      - LOG_CHANNEL=stack
-      - LOG_LEVEL=info
-      
-      # Rate Limiting
+
+      # --- Logging ---
+      - LOG_CHANNEL=daily
+      - LOG_LEVEL=${LOG_LEVEL:-info}
+
+      # --- Rate limiting ---
       - THROTTLE_LOGIN=${THROTTLE_LOGIN:-5,1}
       - THROTTLE_API=${THROTTLE_API:-60,1}
-      
-      # Security
-      - TRUSTED_PROXIES=*
-      - FORCE_HTTPS=${FORCE_HTTPS:-true}
-    
+
+      # --- Reverse proxy / HTTPS detection ---
+      # HTTPS is terminated by the upstream proxy (Cloudflare Tunnel, Traefik,
+      # host nginx). TRUSTED_PROXIES makes Laravel honor X-Forwarded-Proto.
+      # Use a specific proxy IP list in production instead of "*" when possible.
+      - TRUSTED_PROXIES=${TRUSTED_PROXIES:-*}
+
+      # --- Sentry (optional, leave SENTRY_DSN empty = disabled) ---
+      - SENTRY_DSN=${SENTRY_DSN:-}
+      - SENTRY_ENVIRONMENT=${SENTRY_ENVIRONMENT:-production}
+      - SENTRY_RELEASE=${SENTRY_RELEASE:-}
+      - SENTRY_SAMPLE_RATE=${SENTRY_SAMPLE_RATE:-1.0}
+      - SENTRY_TRACES_SAMPLE_RATE=${SENTRY_TRACES_SAMPLE_RATE:-0.0}
+      - SENTRY_TEST_ENABLED=${SENTRY_TEST_ENABLED:-false}
+
     volumes:
-      - ./storage:/var/www/html/storage
-      - ./public/uploads:/var/www/html/public/uploads
-    
+      # Persistent app data: SQLite (if used), storage/, passport keys.
+      # Path MUST be /2fauth (lowercase) to match docker/entrypoint.sh.
+      - 2fa-vault-data:/2fauth
+
     depends_on:
       mysql:
         condition: service_healthy
       redis:
         condition: service_healthy
-    
+
     networks:
       - 2fa-vault-network
-    
+
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      # Route is /up, not /health (see routes/web.php).
+      test: ["CMD-SHELL", "wget -q -O /dev/null http://localhost:8000/up || exit 1"]
       interval: 30s
       timeout: 10s
       retries: 3
-      start_period: 40s
+      start_period: 60s
 
   mysql:
     image: mysql:8.0
@@ -112,93 +142,84 @@ services:
       - MYSQL_USER=${DB_USERNAME:-2fa_vault_user}
       - MYSQL_PASSWORD=${DB_PASSWORD}
       - MYSQL_ROOT_HOST=%
-    
+
     command: >
-      --default-authentication-plugin=mysql_native_password
       --character-set-server=utf8mb4
       --collation-server=utf8mb4_unicode_ci
+      --default-authentication-plugin=mysql_native_password
       --max_connections=200
       --innodb_buffer_pool_size=256M
       --innodb_log_file_size=64M
-    
+
     volumes:
       - mysql-data:/var/lib/mysql
-      - ./docker/mysql/conf.d:/etc/mysql/conf.d:ro
-    
+      # Shared with db-backup sidecar for dump output and restore input.
+      - mysql-backup:/backup
+
     networks:
       - 2fa-vault-network
-    
+
     healthcheck:
       test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p${DB_ROOT_PASSWORD}"]
       interval: 10s
       timeout: 5s
-      retries: 5
-      start_period: 30s
+      retries: 10
+      start_period: 40s
 
   redis:
     image: redis:7-alpine
     container_name: 2fa-vault-redis
     restart: unless-stopped
     command: >
-      redis-server
+      sh -c "redis-server
       --requirepass ${REDIS_PASSWORD}
       --maxmemory 256mb
       --maxmemory-policy allkeys-lru
       --save 900 1
       --save 300 10
       --save 60 10000
-      --appendonly yes
-    
+      --appendonly yes"
+
     volumes:
       - redis-data:/data
-    
+
     networks:
       - 2fa-vault-network
-    
+
     healthcheck:
-      test: ["CMD", "redis-cli", "--raw", "incr", "ping"]
+      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD}", "ping"]
       interval: 10s
       timeout: 5s
       retries: 5
+      start_period: 10s
 
-  # Nginx reverse proxy (optional, for production HTTPS)
-  nginx:
-    image: nginx:alpine
-    container_name: 2fa-vault-nginx
+  # ---------------------------------------------------------------------------
+  # Automated MySQL backup sidecar.
+  # Dumps the database on a schedule into the mysql-backup volume and prunes
+  # old dumps. Tune via DB_BACKUP_* env vars. See docs/guides/backup-and-restore.md.
+  # Disable by setting DB_BACKUP_ENABLED=false.
+  # ---------------------------------------------------------------------------
+  db-backup:
+    image: databack/mysql-backup:1.0.0
+    container_name: 2fa-vault-db-backup
     restart: unless-stopped
-    ports:
-      - "80:80"
-      - "443:443"
-    
-    volumes:
-      - ./docker/nginx/nginx.conf:/etc/nginx/nginx.conf:ro
-      - ./docker/nginx/conf.d:/etc/nginx/conf.d:ro
-      - ./public:/var/www/html/public:ro
-      - ./docker/nginx/ssl:/etc/nginx/ssl:ro
-      - certbot-webroot:/var/www/certbot:ro
-    
+    profiles: ["backup"]
     depends_on:
-      - app
-    
-    networks:
-      - 2fa-vault-network
-    
-    healthcheck:
-      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost/health"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-
-  # Certbot for Let's Encrypt SSL (optional)
-  certbot:
-    image: certbot/certbot
-    container_name: 2fa-vault-certbot
+      mysql:
+        condition: service_healthy
+    environment:
+      - DB_SERVER=mysql
+      - DB_USER=root
+      - DB_PASS=${DB_ROOT_PASSWORD}
+      - DB_NAMES=${DB_DATABASE:-2fa_vault}
+      - DB_DUMP_FREQ=${DB_BACKUP_FREQ:-1440}
+      - DB_DUMP_BEGIN=${DB_BACKUP_BEGIN:-0300}
+      - DB_DUMP_TARGET=/backup
+      - DB_DUMP_KEEP_LAST=${DB_BACKUP_KEEP:-7}
+      - DB_DUMP_COMPRESS=gzip
+      - DB_DUMP_SAFECHARACTERS=true
     volumes:
-      - ./docker/nginx/ssl:/etc/letsencrypt
-      - certbot-webroot:/var/www/certbot
-    
-    entrypoint: "/bin/sh -c 'trap exit TERM; while :; do certbot renew; sleep 12h & wait $${!}; done;'"
-    
+      - mysql-backup:/backup
     networks:
       - 2fa-vault-network
 
@@ -207,9 +228,15 @@ networks:
     driver: bridge
 
 volumes:
+  # App persistent data (SQLite if used, storage/, passport keys, icons cache).
+  2fa-vault-data:
+    driver: local
+  # MySQL data files.
   mysql-data:
     driver: local
+  # Redis AOF + RDB snapshots.
   redis-data:
     driver: local
-  certbot-webroot:
+  # Shared between mysql and db-backup: dump output / restore input.
+  mysql-backup:
     driver: local

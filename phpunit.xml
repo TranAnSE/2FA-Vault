@@ -4,6 +4,7 @@
     backupGlobals="false"
     backupStaticProperties="false"
     bootstrap="vendor/autoload.php"
+    cacheDirectory="storage/framework/cache/phpunit"
     colors="true"
     displayDetailsOnTestsThatTriggerErrors="true"
     displayDetailsOnTestsThatTriggerNotices="true"
@@ -21,6 +22,15 @@
             <directory suffix=".php">app/Protobuf</directory>
         </exclude>
     </source>
+    <!--
+        The <coverage> element only declares WHAT to measure (the app/ source
+        tree above); it never produces a report unless a coverage driver
+        (Xdebug/PCOV) is present AND a <report> is requested. To keep
+        `composer test` green on runners without a coverage driver, NO
+        <report> is hardcoded here — reports are requested via CLI flags in
+        the CI coverage job and the test-coverage-html composer script.
+        See .github/workflows/ci.yml.
+    -->
     <coverage>
     </coverage>
     <testsuites>

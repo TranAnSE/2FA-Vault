@@ -1,5 +1,18 @@
 # Test Failure Analysis Report
 
+> **⚠ HISTORICAL SNAPSHOT — 2026-04-05.**
+> This report was generated from a single `composer test` run on 2026-04-05.
+> The issues it describes were resolved during the v1.2.0 stabilization sprint
+> (Apr 5 → Jun 14, 2026). As of v1.2.0 the suite reports **1590 tests, 0
+> failures**. See `DEV-STATUS-AND-ROADMAP.md` and `docs/reference/changelog.md`.
+>
+> Known internal inconsistencies in this document (preserved as-is for audit):
+> - The Executive Summary reports `38 failed / 4 errors`, but the per-category
+>   breakdown later claims `169 failures / 12 errors`.
+> - The "By Category" table is duplicated with two conflicting sets of numbers.
+> These do not affect the v1.2.0 outcome and are noted here so future readers
+> do not treat this snapshot as authoritative.
+
 Generated from `composer test` on 2026-04-05
 
 ## Executive Summary

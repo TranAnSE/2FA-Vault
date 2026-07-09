@@ -25,9 +25,22 @@ Current state of 2FA-Vault development from commit ec348113 onwards. Comprehensi
 ✅ Phase 1: E2EE encryption (2be05615, f104eaef, 882bf495) - **BACKEND COMPLETE**
 ✅ Phase 2: Multi-user and team support (bcb358ae, e4992f73) - **BACKEND COMPLETE**
 ✅ Phase 3: Encrypted backup/restore (98de4e3f, cc22f127) - **BACKEND COMPLETE**
-✅ Phase 4: Browser extension (6d1fe53b, d9eb45c6) - **IN PROGRESS**
-✅ Phase 5: PWA with offline support (38c429f0, 6d3818f7, bf9114d4) - **IN PROGRESS**
+🟡 Phase 4: Browser extension (6d1fe53b, d9eb45c6) - **IMPLEMENTED; popup setup/lock/local-OTP E2E tests added; content script/biometric/QR tests TODO**
+🟡 Phase 5: PWA with offline support (38c429f0, 6d3818f7, bf9114d4) - **IMPLEMENTED; SW/offline/manifest E2E tests added; installability-event & SW-update tests TODO**
 ✅ Phase 6: Documentation, tests, production config (067822c4, 1ed59b77) - **DOCUMENTATION COMPLETE**
+
+> **E2E coverage update (2026-07-09).** Playwright browser-automation suites
+> now cover the core runtime behaviour of both phases:
+> - **Extension** (`tests/e2e/webextension/`): popup setup flow (landing →
+>   form → persist hostUrl), lock state (correct/wrong master password,
+>   empty-submit guard), and local TOTP/HOTP generation (no `/otp` call).
+> - **PWA** (`tests/e2e/pwa/`): service worker registration + app-shell
+>   precache, offline account access + local OTP, and installability
+>   prerequisites audit (secure context, SW fetch handler, manifest schema).
+>
+> See `docs/development/e2e-test-requirements.md` for the full suite map and
+> the deferred TODO list (content-script auto-fill, biometric unlock,
+> `beforeinstallprompt` event, SW update flow).
 
 ### Production Readiness
 ✅ **Backend:** E2EE, Teams, Backup - PRODUCTION READY
@@ -36,9 +49,9 @@ Current state of 2FA-Vault development from commit ec348113 onwards. Comprehensi
 ✅ **Tests:** 1590 tests, 0 failures — comprehensive enterprise + v1.2.0 feature coverage
 
 ### Current Issues Identified
-✅ Phase 0 (Test Stabilization): COMPLETE - 95%+ target achieved
-🟡 Phase 4-5: Frontend integration tests pending
-🟡 42 remaining test issues documented for future triage (non-blocking)
+✅ Phase 0 (Test Stabilization): COMPLETE - 95%+ target achieved, then cleared to 0 failures by v1.2.0
+🟡 Phase 4-5: Frontend integration tests pending (browser extension popup, PWA offline)
+✅ The 42 test issues documented in `REMAINING-TEST-ISSUES.md` (snapshot 2026-04-05) have been resolved during the v1.2.0 stabilization sprint. The current suite reports **1590 tests, 0 failures**.
 
 ---
 
