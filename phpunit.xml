@@ -23,17 +23,15 @@
         </exclude>
     </source>
     <!--
-        Coverage is configured so `composer test` collects line coverage when
-        a coverage driver (Xdebug/PCOV) is available, and silently skips it
-        when no driver is loaded. CI publishes the HTML report as an artifact
-        but does NOT gate on a threshold (see .github/workflows/ci.yml). Local
-        one-off HTML coverage: `composer test-coverage-html`.
+        The <coverage> element only declares WHAT to measure (the app/ source
+        tree above); it never produces a report unless a coverage driver
+        (Xdebug/PCOV) is present AND a <report> is requested. To keep
+        `composer test` green on runners without a coverage driver, NO
+        <report> is hardcoded here — reports are requested via CLI flags in
+        the CI coverage job and the test-coverage-html composer script.
+        See .github/workflows/ci.yml.
     -->
     <coverage>
-        <report>
-            <clover outputFile="tests/Coverage/coverage.xml"/>
-            <html outputDirectory="tests/Coverage/html"/>
-        </report>
     </coverage>
     <testsuites>
         <testsuite name="Unit">
