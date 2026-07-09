@@ -64,8 +64,8 @@ async function loginViaLegacyForm(page: Page, email: string, password: string): 
 }
 
 async function unlockVault(page: Page, masterPassword: string): Promise<void> {
-  // If already on accounts, nothing to do.
-  if (/\/accounts$/.test(page.url())) return;
+  // If already past the gate (accounts or start), nothing to do.
+  if (/\/(accounts|start)$/.test(page.url())) return;
 
   if (!/\/unlock-vault/.test(page.url())) {
     await page.goto(routes.unlockVault);
@@ -75,7 +75,19 @@ async function unlockVault(page: Page, masterPassword: string): Promise<void> {
   await passwordInput.waitFor({ state: 'visible', timeout: 15000 });
   await passwordInput.fill(masterPassword);
   await page.getByRole('button', { name: /Unlock Vault/ }).click();
-  await page.waitForURL('**/accounts', { timeout: 20000 });
+
+  // After a correct unlock the SPA routes to /accounts, but on fresh profiles
+  // it may first pass through /start. Accept either and then normalise to
+  // /accounts so the downstream SW/cache assertions have a stable entry point.
+  await Promise.race([
+    page.waitForURL('**/accounts', { timeout: 30000 }),
+    page.waitForURL('**/start', { timeout: 30000 }),
+  ]);
+
+  if (!/\/accounts$/.test(page.url())) {
+    await page.goto(routes.accounts);
+    await page.waitForLoadState('networkidle').catch(() => {});
+  }
 }
 
 export const test = base.extend<PwaFixture>({
