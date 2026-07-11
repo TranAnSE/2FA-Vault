@@ -15,31 +15,31 @@ class WebhookControllerTest extends TestCase
 {
     use RefreshDatabase;
 
-    protected function createEncryptedUser(array $attributes = []): User
+    protected function createEncryptedUser(array $attributes = []) : User
     {
         return User::factory()->create(array_merge([
-            'encryption_enabled'  => true,
-            'encryption_salt'     => 'test_salt',
+            'encryption_enabled'    => true,
+            'encryption_salt'       => 'test_salt',
             'encryption_test_value' => '{"ciphertext":"test","iv":"test","authTag":"test"}',
-            'encryption_version'  => 1,
-            'vault_locked'        => false,
+            'encryption_version'    => 1,
+            'vault_locked'          => false,
         ], $attributes));
     }
 
-    private function createWebhookForUser(User $user, array $overrides = []): Webhook
+    private function createWebhookForUser(User $user, array $overrides = []) : Webhook
     {
         return Webhook::create(array_merge([
-            'user_id'  => $user->id,
-            'name'     => 'Test Hook',
-            'url'      => 'https://example.com/webhook',
-            'events'   => ['account.created'],
+            'user_id'   => $user->id,
+            'name'      => 'Test Hook',
+            'url'       => 'https://example.com/webhook',
+            'events'    => ['account.created'],
             'is_active' => true,
         ], $overrides));
     }
 
-    public function test_user_can_list_webhooks(): void
+    public function test_user_can_list_webhooks() : void
     {
-        $user = $this->createEncryptedUser();
+        $user  = $this->createEncryptedUser();
         $hook1 = $this->createWebhookForUser($user, ['name' => 'Hook A']);
         $hook2 = $this->createWebhookForUser($user, ['name' => 'Hook B']);
 
@@ -51,7 +51,7 @@ class WebhookControllerTest extends TestCase
             ->assertJsonFragment(['name' => 'Hook B']);
     }
 
-    public function test_user_can_create_webhook(): void
+    public function test_user_can_create_webhook() : void
     {
         $user = $this->createEncryptedUser();
 
@@ -71,7 +71,7 @@ class WebhookControllerTest extends TestCase
         ]);
     }
 
-    public function test_cannot_create_webhook_with_invalid_url(): void
+    public function test_cannot_create_webhook_with_invalid_url() : void
     {
         $user = $this->createEncryptedUser();
 
@@ -85,7 +85,41 @@ class WebhookControllerTest extends TestCase
             ->assertJsonValidationErrors(['url']);
     }
 
-    public function test_cannot_create_webhook_with_unknown_event(): void
+    /**
+     * SSRF guard: webhook URLs targeting internal/private ranges must be
+     * rejected at registration time.
+     */
+    public function test_cannot_create_webhook_pointing_to_internal_address() : void
+    {
+        $user = $this->createEncryptedUser();
+
+        $response = $this->actingAs($user, 'api-guard')->postJson('/api/v1/webhooks', [
+            'name'   => 'Internal Hook',
+            'url'    => 'http://169.254.169.254/latest/meta-data',
+            'events' => ['account.created'],
+        ]);
+
+        $response->assertStatus(422)
+            ->assertJsonValidationErrors(['url']);
+    }
+
+    /**
+     * SSRF guard: loopback and RFC1918 ranges must also be rejected on update.
+     */
+    public function test_cannot_update_webhook_to_private_address() : void
+    {
+        $user    = $this->createEncryptedUser();
+        $webhook = $this->createWebhookForUser($user);
+
+        $response = $this->actingAs($user, 'api-guard')->putJson("/api/v1/webhooks/{$webhook->id}", [
+            'url' => 'http://10.0.0.5/internal',
+        ]);
+
+        $response->assertStatus(422)
+            ->assertJsonValidationErrors(['url']);
+    }
+
+    public function test_cannot_create_webhook_with_unknown_event() : void
     {
         $user = $this->createEncryptedUser();
 
@@ -109,14 +143,14 @@ class WebhookControllerTest extends TestCase
         $this->assertNotContains('fake.event', $webhook->events);
     }
 
-    public function test_user_can_update_webhook(): void
+    public function test_user_can_update_webhook() : void
     {
-        $user = $this->createEncryptedUser();
+        $user    = $this->createEncryptedUser();
         $webhook = $this->createWebhookForUser($user);
 
         $response = $this->actingAs($user, 'api-guard')->putJson("/api/v1/webhooks/{$webhook->id}", [
-            'name'  => 'Updated Hook',
-            'url'   => 'https://example.com/updated',
+            'name'      => 'Updated Hook',
+            'url'       => 'https://example.com/updated',
             'is_active' => false,
         ]);
 
@@ -130,9 +164,9 @@ class WebhookControllerTest extends TestCase
         ]);
     }
 
-    public function test_user_can_delete_webhook(): void
+    public function test_user_can_delete_webhook() : void
     {
-        $user = $this->createEncryptedUser();
+        $user    = $this->createEncryptedUser();
         $webhook = $this->createWebhookForUser($user);
 
         $response = $this->actingAs($user, 'api-guard')->deleteJson("/api/v1/webhooks/{$webhook->id}");
@@ -141,11 +175,11 @@ class WebhookControllerTest extends TestCase
         $this->assertDatabaseMissing('webhooks', ['id' => $webhook->id]);
     }
 
-    public function test_user_can_test_webhook(): void
+    public function test_user_can_test_webhook() : void
     {
         Queue::fake();
 
-        $user = $this->createEncryptedUser();
+        $user    = $this->createEncryptedUser();
         $webhook = $this->createWebhookForUser($user);
 
         $response = $this->actingAs($user, 'api-guard')->postJson("/api/v1/webhooks/{$webhook->id}/test");
@@ -156,9 +190,9 @@ class WebhookControllerTest extends TestCase
         Queue::assertPushed(WebhookDeliveryJob::class, 1);
     }
 
-    public function test_user_can_list_deliveries(): void
+    public function test_user_can_list_deliveries() : void
     {
-        $user = $this->createEncryptedUser();
+        $user    = $this->createEncryptedUser();
         $webhook = $this->createWebhookForUser($user);
 
         WebhookDelivery::create([
@@ -180,10 +214,10 @@ class WebhookControllerTest extends TestCase
             ->assertJsonCount(2);
     }
 
-    public function test_webhook_ownership_enforced(): void
+    public function test_webhook_ownership_enforced() : void
     {
-        $owner = $this->createEncryptedUser();
-        $other = $this->createEncryptedUser();
+        $owner   = $this->createEncryptedUser();
+        $other   = $this->createEncryptedUser();
         $webhook = $this->createWebhookForUser($owner);
 
         // Other user cannot view owner's webhook deliveries
@@ -207,7 +241,7 @@ class WebhookControllerTest extends TestCase
             ->assertStatus(404);
     }
 
-    public function test_available_events_endpoint(): void
+    public function test_available_events_endpoint() : void
     {
         $user = $this->createEncryptedUser();
 

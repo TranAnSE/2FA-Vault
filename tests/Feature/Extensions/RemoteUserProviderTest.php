@@ -21,6 +21,17 @@ class RemoteUserProviderTest extends FeatureTestCase
 
     private const USER_EMAIL = 'john@example.com';
 
+    protected function setUp() : void
+    {
+        parent::setUp();
+
+        // The reverse-proxy guard only honours identity headers when the request
+        // originates from a trusted proxy. In tests the client is the synthetic
+        // test IP, so we trust all proxies to exercise the provider logic. The
+        // spoofing-rejection behaviour is covered by a dedicated test below.
+        Config::set('2fauth.config.trustedProxies', '*');
+    }
+
     public function test_user_is_retreived_from_db()
     {
         $dbUser = User::factory()->create([
@@ -232,5 +243,28 @@ class RemoteUserProviderTest extends FeatureTestCase
             'id'    => $dbUser->id,
             'email' => $dbUser->email,
         ]);
+    }
+
+    /**
+     * Security: a forged REMOTE_USER header from a non-trusted source must not
+     * authenticate (GHSA-r9xx-45m8-mw24 / GHSA-mh8r-74x2-r457).
+     */
+    #[Test]
+    public function test_spoofed_remote_user_header_is_rejected_when_request_is_not_from_a_trusted_proxy()
+    {
+        // No trusted proxies configured, so the request is not trusted.
+        Config::set('2fauth.config.trustedProxies', null);
+        Config::set('auth.auth_proxy_headers.user', 'HTTP_REMOTE_USER');
+
+        $this->app['auth']->shouldUse('reverse-proxy-guard');
+
+        $this->json('GET', '/api/v1/groups', [], [
+            'HTTP_REMOTE_USER' => 'attacker',
+        ]);
+
+        $this->assertGuest('reverse-proxy-guard');
+        $this->assertNull($this->app->make('auth')->guard('reverse-proxy-guard')->user());
+        // Crucially, no user should be auto-created from a spoofed header.
+        $this->assertDatabaseCount('users', 0);
     }
 }

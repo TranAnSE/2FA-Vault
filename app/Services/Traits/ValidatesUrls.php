@@ -96,6 +96,7 @@ trait ValidatesUrls
             || $this->isCarrierGradeNatAddress($ip)
             || $this->isMulticast($ip)
             || $this->IsIMDS($ip)
+            || $this->isBlockedNat64($ip)
         ) {
             return false;
         }
@@ -170,5 +171,42 @@ trait ValidatesUrls
     private function IsIMDS(string $ip) : bool
     {
         return $ip === '169.254.169.254';
+    }
+
+    /**
+     * Check if the given IPv6 address embeds a private/reserved IPv4 address
+     * via a NAT64 prefix, which would bypass the IPv4 SSRF guards.
+     *
+     * DNS64/NAT64 (RFC 6052 well-known prefix 64:ff9b::/96 and RFC 8215 local
+     * use prefix 64:ff9b:1::/48) lets IPv6-only hosts reach IPv4 targets.
+     * FILTER_FLAG_NO_PRIV_RANGE and FILTER_FLAG_NO_RES_RANGE do not flag these,
+     * so a hostname resolving to e.g. 64:ff9b:1::a9fe:a9fe would pass as a
+     * public IPv6 address while actually reaching the internal 169.254.169.254
+     * metadata endpoint. See upstream GHSA for the NAT64 SSRF advisory.
+     */
+    private function isBlockedNat64(string $ip) : bool
+    {
+        $bin = @inet_pton($ip);
+
+        if ($bin === false || strlen($bin) !== 16) {
+            return false;
+        }
+
+        $wellKnown = inet_pton('64:ff9b::');   // 64:ff9b::/96  (RFC 6052)
+        $localUse  = inet_pton('64:ff9b:1::'); // 64:ff9b:1::/48 (RFC 8215)
+
+        $isNat64 = substr($bin, 0, 12) === substr($wellKnown, 0, 12)
+            || substr($bin, 0, 6) === substr($localUse, 0, 6);
+
+        if (! $isNat64) {
+            return false;
+        }
+
+        // Extract the embedded IPv4 address from the last 4 bytes and check it.
+        // unpack('N') always yields a non-negative 32-bit int, so long2ip()
+        // always returns a dotted-quad string here.
+        $embeddedV4 = long2ip(unpack('N', substr($bin, 12, 4))[1]);
+
+        return ! $this->isPublicIp($embeddedV4);
     }
 }

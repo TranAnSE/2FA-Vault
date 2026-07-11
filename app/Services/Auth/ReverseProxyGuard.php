@@ -41,6 +41,16 @@ class ReverseProxyGuard implements Guard
             return $this->user;
         }
 
+        // Security: only honour identity headers when the request comes from a
+        // trusted proxy. Without this gate, any client able to reach the app
+        // directly could forge the REMOTE_USER header and impersonate (or even
+        // auto-create an admin) user. See GHSA-r9xx-45m8-mw24 / GHSA-mh8r-74x2-r457.
+        if (! request()->isFromTrustedProxy()) {
+            Log::warning('Reverse proxy authentication rejected: request does not come from a trusted proxy.');
+
+            return $this->user = null;
+        }
+
         // Get the user identifier from $_SERVER or apache filtered headers
         $remoteUserHeader = config('auth.auth_proxy_headers.user');
         $remoteUserHeader = $remoteUserHeader ?: 'REMOTE_USER';

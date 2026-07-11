@@ -20,6 +20,15 @@ class AuthenticateMiddlewareTest extends FeatureTestCase
 
     private const USER_EMAIL = 'john@example.com';
 
+    protected function setUp() : void
+    {
+        parent::setUp();
+
+        // The reverse-proxy guard only honours identity headers from trusted
+        // proxies. Trust the synthetic test client so proxy-mode tests work.
+        Config::set('2fauth.config.trustedProxies', '*');
+    }
+
     #[Test]
     public function test_it_always_authenticates_with_reverse_proxy_guard()
     {

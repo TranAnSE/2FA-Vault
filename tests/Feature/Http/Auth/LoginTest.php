@@ -75,6 +75,10 @@ class LoginTest extends FeatureTestCase
 
         $this->user  = User::factory()->create();
         $this->admin = User::factory()->administrator()->create();
+
+        // The reverse-proxy guard only honours identity headers from trusted
+        // proxies. Trust the synthetic test client so proxy-mode tests work.
+        Config::set('2fauth.config.trustedProxies', '*');
     }
 
     #[Test]
