@@ -21,6 +21,7 @@ use App\Facades\Groups;
 use App\Facades\TwoFAccounts;
 use App\Helpers\Helpers;
 use App\Http\Controllers\Controller;
+use App\Models\OtpLog;
 use App\Models\TwoFAccount;
 use App\Models\User;
 use App\Services\PersonalActivityLogger;
@@ -32,9 +33,7 @@ use Illuminate\Validation\ValidationException;
 
 class TwoFAccountController extends Controller
 {
-    public function __construct(protected PersonalActivityLogger $activityLogger)
-    {
-    }
+    public function __construct(protected PersonalActivityLogger $activityLogger) {}
 
     /**
      * List all resources
@@ -263,6 +262,7 @@ class TwoFAccountController extends Controller
         }
 
         $twofaccount->refresh();
+
         return (new TwoFAccountReadResource($twofaccount))
             ->response()
             ->setStatusCode(200);
@@ -384,7 +384,43 @@ class TwoFAccountController extends Controller
             $twofaccount->fillWithOtpParameters($validatedData, true);
         }
 
-        return response()->json($twofaccount->getOTP(), 200);
+        $otp = $twofaccount->getOTP();
+
+        // Audit: record that an OTP was generated. Only persisted for a real
+        // (stored) account so transient URI/parameter previews are not logged.
+        if ($id !== null) {
+            $user = $request->user();
+            if ($user !== null) {
+                $this->logOtpGeneration($user, $twofaccount);
+            }
+        }
+
+        return response()->json($otp, 200);
+    }
+
+    /**
+     * Persist an OTP generation audit entry.
+     *
+     * Requester and owner are identical for a user's own accounts; the duality
+     * becomes meaningful for shared accounts (Đợt 5 Hybrid Sharing).
+     */
+    private function logOtpGeneration(User $user, TwoFAccount $twofaccount) : void
+    {
+        // Fire-and-forget: logging must not block OTP delivery.
+        try {
+            OtpLog::create([
+                'requester_id'   => $user->id,
+                'owner_id'       => $twofaccount->user_id ?? $user->id,
+                'twofaccount_id' => $twofaccount->id,
+                'otp_type'       => $twofaccount->otp_type,
+                'counter'        => $twofaccount->counter,
+                'ip_address'     => request()->ip(),
+                'user_agent'     => request()->userAgent(),
+                'generated_at'   => now(),
+            ]);
+        } catch (\Throwable) { // @codeCoverageIgnore
+            // Silent failure — OTP generation must always succeed for the user.
+        }
     }
 
     /**

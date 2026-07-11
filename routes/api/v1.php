@@ -1,29 +1,30 @@
 <?php
 
-use App\Api\v1\Controllers\FeatureFlagController;
-use App\Api\v1\Controllers\GroupController;
-use App\Api\v1\Controllers\InvitationController;
-use App\Api\v1\Controllers\PersonalActivityController;
 use App\Api\v1\Controllers\AccountHealthController;
 use App\Api\v1\Controllers\BreachController;
-use App\Api\v1\Controllers\SecureNoteController;
-use App\Api\v1\Controllers\TagController;
-use App\Api\v1\Controllers\UserBackupDestinationController;
+use App\Api\v1\Controllers\FeatureFlagController;
+use App\Api\v1\Controllers\GroupController;
 use App\Api\v1\Controllers\IconController;
+use App\Api\v1\Controllers\InvitationController;
+use App\Api\v1\Controllers\OtpLogController;
+use App\Api\v1\Controllers\PersonalActivityController;
 use App\Api\v1\Controllers\QrCodeController;
+use App\Api\v1\Controllers\SecureNoteController;
 use App\Api\v1\Controllers\SettingController;
+use App\Api\v1\Controllers\TagController;
 use App\Api\v1\Controllers\TwoFAccountController;
+use App\Api\v1\Controllers\UserBackupDestinationController;
 use App\Api\v1\Controllers\UserController;
 use App\Api\v1\Controllers\UserManagerController;
 use App\Api\v1\Controllers\UserSessionController;
-use App\Http\Controllers\Admin\UserManagementController;
-use App\Http\Controllers\EncryptionController;
 use App\Http\Controllers\Admin\RateLimitDashboardController;
-use App\Http\Controllers\WebhookController;
+use App\Http\Controllers\Admin\UserManagementController;
 use App\Http\Controllers\EmergencyAccessController;
-use App\Http\Controllers\VaultController;
+use App\Http\Controllers\EncryptionController;
 use App\Http\Controllers\TeamActivityController;
 use App\Http\Controllers\TeamController;
+use App\Http\Controllers\VaultController;
+use App\Http\Controllers\WebhookController;
 use Illuminate\Support\Facades\Date;
 use Illuminate\Support\Facades\Route;
 
@@ -49,6 +50,10 @@ Route::group(['middleware' => ['auth:api-guard', 'enforceMandatoryEncryption']],
     // Personal activity routes
     Route::get('user/activity', [PersonalActivityController::class, 'index'])->name('user.activity.index');
     Route::delete('user/activity', [PersonalActivityController::class, 'destroyAll'])->name('user.activity.destroyAll');
+
+    // OTP generation audit log routes
+    Route::get('otp-logs', [OtpLogController::class, 'index'])->name('otp-logs.index');
+    Route::delete('otp-logs', [OtpLogController::class, 'destroyAll'])->name('otp-logs.destroyAll');
 
     // User sessions routes
     Route::get('user/sessions', [UserSessionController::class, 'index'])->name('user.sessions.index');
@@ -124,7 +129,7 @@ Route::group(['middleware' => ['auth:api-guard', 'enforceMandatoryEncryption']],
     Route::post('backups/import', [\App\Http\Controllers\BackupController::class, 'import'])->name('backups.import');
     Route::post('backups/metadata', [\App\Http\Controllers\BackupController::class, 'metadata'])->name('backups.metadata');
     Route::get('backups/info', [\App\Http\Controllers\BackupController::class, 'info'])->name('backups.info');
-    
+
     // Legacy backup routes (backward compatibility)
     Route::match(['get', 'post'], 'backup/export', [\App\Http\Controllers\BackupController::class, 'export'])->name('backup.export');
     Route::post('backup/import', [\App\Http\Controllers\BackupController::class, 'import'])->name('backup.import');
@@ -163,31 +168,31 @@ Route::group(['middleware' => ['auth:api-guard', 'enforceMandatoryEncryption']],
     Route::get('teams/{id}/activity/export', [TeamActivityController::class, 'export'])->name('teams.activity.export');
 
     // Webhooks
-    Route::get('webhooks/events',          [WebhookController::class, 'availableEvents'])->name('webhooks.events');
-    Route::get('webhooks',                 [WebhookController::class, 'index'])->name('webhooks.index');
-    Route::post('webhooks',                [WebhookController::class, 'store'])->name('webhooks.store');
-    Route::put('webhooks/{id}',            [WebhookController::class, 'update'])->name('webhooks.update');
-    Route::delete('webhooks/{id}',         [WebhookController::class, 'destroy'])->name('webhooks.destroy');
-    Route::post('webhooks/{id}/test',      [WebhookController::class, 'test'])->name('webhooks.test');
+    Route::get('webhooks/events', [WebhookController::class, 'availableEvents'])->name('webhooks.events');
+    Route::get('webhooks', [WebhookController::class, 'index'])->name('webhooks.index');
+    Route::post('webhooks', [WebhookController::class, 'store'])->name('webhooks.store');
+    Route::put('webhooks/{id}', [WebhookController::class, 'update'])->name('webhooks.update');
+    Route::delete('webhooks/{id}', [WebhookController::class, 'destroy'])->name('webhooks.destroy');
+    Route::post('webhooks/{id}/test', [WebhookController::class, 'test'])->name('webhooks.test');
     Route::get('webhooks/{id}/deliveries', [WebhookController::class, 'deliveries'])->name('webhooks.deliveries');
 
     // Emergency Access
-    Route::get('emergency-contacts',                      [EmergencyAccessController::class, 'index'])->name('emergency.index');
-    Route::post('emergency-contacts',                     [EmergencyAccessController::class, 'store'])->name('emergency.store');
-    Route::delete('emergency-contacts/{id}',              [EmergencyAccessController::class, 'destroy'])->name('emergency.destroy');
-    Route::get('emergency-contacts/for-me',               [EmergencyAccessController::class, 'contactsForMe'])->name('emergency.forMe');
-    Route::get('emergency-requests/pending',              [EmergencyAccessController::class, 'pendingRequests'])->name('emergency.pending');
+    Route::get('emergency-contacts', [EmergencyAccessController::class, 'index'])->name('emergency.index');
+    Route::post('emergency-contacts', [EmergencyAccessController::class, 'store'])->name('emergency.store');
+    Route::delete('emergency-contacts/{id}', [EmergencyAccessController::class, 'destroy'])->name('emergency.destroy');
+    Route::get('emergency-contacts/for-me', [EmergencyAccessController::class, 'contactsForMe'])->name('emergency.forMe');
+    Route::get('emergency-requests/pending', [EmergencyAccessController::class, 'pendingRequests'])->name('emergency.pending');
     Route::post('emergency-contacts/{contactId}/request', [EmergencyAccessController::class, 'requestAccess'])->name('emergency.request');
     Route::post('emergency-requests/{requestId}/approve', [EmergencyAccessController::class, 'approve'])->name('emergency.approve');
-    Route::post('emergency-requests/{requestId}/deny',    [EmergencyAccessController::class, 'deny'])->name('emergency.deny');
+    Route::post('emergency-requests/{requestId}/deny', [EmergencyAccessController::class, 'deny'])->name('emergency.deny');
 
     // Vaults
-    Route::get('vaults',                              [VaultController::class, 'index'])->name('vaults.index');
-    Route::post('vaults',                             [VaultController::class, 'store'])->name('vaults.store');
-    Route::put('vaults/{id}',                         [VaultController::class, 'update'])->name('vaults.update');
-    Route::delete('vaults/{id}',                      [VaultController::class, 'destroy'])->name('vaults.destroy');
-    Route::post('vaults/{id}/lock',                   [VaultController::class, 'lock'])->name('vaults.lock');
-    Route::post('vaults/{id}/encryption',             [VaultController::class, 'setupEncryption'])->name('vaults.encryption');
+    Route::get('vaults', [VaultController::class, 'index'])->name('vaults.index');
+    Route::post('vaults', [VaultController::class, 'store'])->name('vaults.store');
+    Route::put('vaults/{id}', [VaultController::class, 'update'])->name('vaults.update');
+    Route::delete('vaults/{id}', [VaultController::class, 'destroy'])->name('vaults.destroy');
+    Route::post('vaults/{id}/lock', [VaultController::class, 'lock'])->name('vaults.lock');
+    Route::post('vaults/{id}/encryption', [VaultController::class, 'setupEncryption'])->name('vaults.encryption');
 });
 
 /**
