@@ -20,10 +20,12 @@ class ResetDemoTest extends FeatureTestCase
     #[Test]
     public function test_reset_demo_succeeded()
     {
-        Artisan::call('passport:install', [
-            '--verbose'        => 2,
-            '--no-interaction' => 1,
-        ]);
+        Artisan::call('passport:keys', ['--no-interaction' => 1]);
+
+        // Passport v13's passport:install uses interactive prompts that do not
+        // work under --no-interaction; create the personal access client directly.
+        app(\Laravel\Passport\ClientRepository::class)
+            ->createPersonalAccessGrantClient(config('app.name'), 'users');
 
         Config::set('2fauth.config.isDemoApp', true);
 

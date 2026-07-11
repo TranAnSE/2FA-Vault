@@ -128,7 +128,7 @@ class UserManagerController extends Controller
 
         $this->authorize('update', $user);
 
-        $tokens = $tokenRepository->forUser($user->getAuthIdentifier());
+        $tokens = $tokenRepository->forUser($user);
 
         $tokens->load('client')->filter(function ($token) {
             return $token->client->personal_access_client && ! $token->revoked; /** @phpstan-ignore-line */

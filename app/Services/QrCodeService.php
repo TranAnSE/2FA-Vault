@@ -40,6 +40,30 @@ class QrCodeService
      */
     public static function decode(\Illuminate\Http\UploadedFile $file)
     {
+        // QR detection via the GD extension is memory-intensive on large images.
+        // Allow operators to raise the limit temporarily for the decode step only
+        // (see PHP_MEMORY_LIMIT_TEMP_OVERRIDE), restoring the previous value after.
+        $previousLimit = ini_get('memory_limit');
+        $tempLimit     = config('2fauth.config.phpMemoryLimitTempOverride');
+
+        if ($tempLimit && is_string($tempLimit) && $tempLimit !== '') {
+            @ini_set('memory_limit', $tempLimit);
+        }
+
+        try {
+            return self::doDecode($file);
+        } finally {
+            @ini_set('memory_limit', $previousLimit !== false ? $previousLimit : '');
+        }
+    }
+
+    /**
+     * Perform the actual QR code decoding.
+     *
+     * @return string
+     */
+    private static function doDecode(\Illuminate\Http\UploadedFile $file)
+    {
         $qrcode = app()->make(QrReader::class, [
             'imgSource'  => $file->get(),
             'sourceType' => QrReader::SOURCE_TYPE_BLOB,

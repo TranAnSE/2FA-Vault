@@ -88,7 +88,7 @@ class UserManagerControllerTest extends FeatureTestCase
     }
 
     #[Test]
-    public function test_index_returns_all_users_with_expected_UserManagerResources() : void
+    public function test_index_returns_all_users_with_expected_user_manager_resources() : void
     {
         $response = $this->actingAs($this->admin, 'api-guard')
             ->json('GET', '/api/v1/users')
@@ -129,7 +129,7 @@ class UserManagerControllerTest extends FeatureTestCase
     }
 
     #[Test]
-    public function test_show_returns_the_expected_UserManagerResource() : void
+    public function test_show_returns_the_expected_user_manager_resource() : void
     {
         $response = $this->actingAs($this->admin, 'api-guard')
             ->json('GET', '/api/v1/users/' . $this->user->id)
@@ -164,7 +164,7 @@ class UserManagerControllerTest extends FeatureTestCase
     }
 
     #[Test]
-    public function test_resetPassword_resets_password_and_sends_password_reset_to_user()
+    public function test_reset_password_resets_password_and_sends_password_reset_to_user()
     {
         Notification::fake();
 
@@ -188,7 +188,7 @@ class UserManagerControllerTest extends FeatureTestCase
     }
 
     #[Test]
-    public function test_resetPassword_returns_UserManagerResource()
+    public function test_reset_password_returns_user_manager_resource()
     {
         Notification::fake();
         Carbon::setTestNow(Carbon::now());
@@ -209,7 +209,7 @@ class UserManagerControllerTest extends FeatureTestCase
     }
 
     #[Test]
-    public function test_resetPassword_does_not_notify_when_reset_failed_and_returns_error()
+    public function test_reset_password_does_not_notify_when_reset_failed_and_returns_error()
     {
         Notification::fake();
 
@@ -236,7 +236,7 @@ class UserManagerControllerTest extends FeatureTestCase
     }
 
     #[Test]
-    public function test_resetPassword_returns_error_when_notify_send_failed()
+    public function test_reset_password_returns_error_when_notify_send_failed()
     {
         Notification::fake();
 
@@ -284,7 +284,7 @@ class UserManagerControllerTest extends FeatureTestCase
     }
 
     #[Test]
-    public function test_store_returns_UserManagerResource_of_created_user() : void
+    public function test_store_returns_user_manager_resource_of_created_user() : void
     {
         $path                                    = '/api/v1/users';
         $userDefinition                          = (new UserFactory)->definition();
@@ -302,7 +302,7 @@ class UserManagerControllerTest extends FeatureTestCase
     }
 
     #[Test]
-    public function test_store_returns_UserManagerResource_of_created_admin() : void
+    public function test_store_returns_user_manager_resource_of_created_admin() : void
     {
         $path                                    = '/api/v1/users';
         $userDefinition                          = (new UserFactory)->definition();
@@ -338,12 +338,14 @@ class UserManagerControllerTest extends FeatureTestCase
     }
 
     #[Test]
-    public function test_revokePATs_flushes_pats()
+    public function test_revoke_pa_ts_flushes_pats()
     {
-        Artisan::call('passport:install', [
-            '--verbose'        => 2,
-            '--no-interaction' => 1,
-        ]);
+        Artisan::call('passport:keys', ['--no-interaction' => 1]);
+
+        // Passport v13's passport:install uses interactive prompts that do not
+        // work under --no-interaction; create the personal access client directly.
+        app(\Laravel\Passport\ClientRepository::class)
+            ->createPersonalAccessGrantClient(config('app.name'), 'users');
 
         $tokenRepository = app(TokenRepository::class);
 
@@ -356,7 +358,7 @@ class UserManagerControllerTest extends FeatureTestCase
         $this->actingAs($this->admin, 'api-guard')
             ->json('DELETE', '/api/v1/users/' . $this->user->id . '/pats');
 
-        $tokens = $tokenRepository->forUser($this->user->getAuthIdentifier());
+        $tokens = $tokenRepository->forUser($this->user);
         $tokens = $tokens->load('client')->filter(function ($token) {
             return $token->client->personal_access_client && ! $token->revoked;
         });
@@ -365,7 +367,7 @@ class UserManagerControllerTest extends FeatureTestCase
     }
 
     #[Test]
-    public function test_revokePATs_returns_no_content()
+    public function test_revoke_pa_ts_returns_no_content()
     {
         $this->actingAs($this->admin, 'api-guard')
             ->json('DELETE', '/api/v1/users/' . $this->user->id . '/pats')
@@ -373,7 +375,7 @@ class UserManagerControllerTest extends FeatureTestCase
     }
 
     #[Test]
-    public function test_revokePATs_always_returns_no_content()
+    public function test_revoke_pa_ts_always_returns_no_content()
     {
         // a fresh user has no token
         $user = User::factory()->create();
@@ -384,7 +386,7 @@ class UserManagerControllerTest extends FeatureTestCase
     }
 
     #[Test]
-    public function test_revokeWebauthnCredentials_flushes_credentials()
+    public function test_revoke_webauthn_credentials_flushes_credentials()
     {
         DB::table('webauthn_credentials')->insert([
             'id'                   => '-VOLFKPY-_FuMI_sJ7gMllK76L3VoRUINj6lL_Z3qDg',
@@ -410,7 +412,7 @@ class UserManagerControllerTest extends FeatureTestCase
     }
 
     #[Test]
-    public function test_revokeWebauthnCredentials_returns_no_content()
+    public function test_revoke_webauthn_credentials_returns_no_content()
     {
         DB::table('webauthn_credentials')->insert([
             'id'                   => '-VOLFKPY-_FuMI_sJ7gMllK76L3VoRUINj6lL_Z3qDg',
@@ -433,7 +435,7 @@ class UserManagerControllerTest extends FeatureTestCase
     }
 
     #[Test]
-    public function test_revokeWebauthnCredentials_always_returns_no_content()
+    public function test_revoke_webauthn_credentials_always_returns_no_content()
     {
         DB::table('webauthn_credentials')->delete();
 
@@ -443,7 +445,7 @@ class UserManagerControllerTest extends FeatureTestCase
     }
 
     #[Test]
-    public function test_revokeWebauthnCredentials_resets_useWebauthnOnly_user_preference()
+    public function test_revoke_webauthn_credentials_resets_use_webauthn_only_user_preference()
     {
         $this->user['preferences->useWebauthnOnly'] = true;
         $this->user->save();
@@ -501,7 +503,7 @@ class UserManagerControllerTest extends FeatureTestCase
     }
 
     #[Test]
-    public function test_promote_returns_UserManagerResource() : void
+    public function test_promote_returns_user_manager_resource() : void
     {
         $path    = '/api/v1/users/' . $this->user->id . '/promote';
         $request = Request::create($path, 'PUT');
@@ -531,7 +533,7 @@ class UserManagerControllerTest extends FeatureTestCase
     }
 
     #[Test]
-    public function test_demote_returns_UserManagerResource() : void
+    public function test_demote_returns_user_manager_resource() : void
     {
         $anotherAdmin = User::factory()->administrator()->create();
 

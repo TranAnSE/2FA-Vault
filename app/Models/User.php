@@ -15,6 +15,7 @@ use Illuminate\Support\Facades\App;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Str;
 use Laragear\WebAuthn\WebAuthnAuthentication;
+use Laravel\Passport\Contracts\OAuthenticatable;
 use Laravel\Passport\HasApiTokens;
 
 /**
@@ -71,10 +72,23 @@ use Laravel\Passport\HasApiTokens;
  * @method static \Illuminate\Database\Eloquent\Builder|User whereOauthId($value)
  * @method static \Illuminate\Database\Eloquent\Builder|User whereOauthProvider($value)
  */
-class User extends Authenticatable implements HasLocalePreference, WebAuthnAuthenticatable
+class User extends Authenticatable implements HasLocalePreference, OAuthenticatable, WebAuthnAuthenticatable
 {
     use HasApiTokens, Notifiable;
     use HasAuthenticationLog;
+
+    /**
+     * Passport v13 introspects auth.guards/providers to find the provider
+     * backing the passport-driven guard, but requires the provider driver to be
+     * exactly 'eloquent'. This fork uses the WebAuthn-aware 'eloquent-webauthn'
+     * driver, so we resolve the provider name directly instead.
+     */
+    public function getProviderName() : string
+    {
+        $guard = collect(config('auth.guards'))->where('driver', 'passport')->first();
+
+        return $guard['provider'] ?? 'users';
+    }
 
     /**
      * @use HasFactory<UserFactory>
@@ -400,20 +414,20 @@ class User extends Authenticatable implements HasLocalePreference, WebAuthnAuthe
     /**
      * Check if the user is a member of a team.
      */
-    public function isTeamMember(int $teamId): bool
+    public function isTeamMember(int $teamId) : bool
     {
-        return $this->teams()->where('teams.id', $teamId)->exists() 
+        return $this->teams()->where('teams.id', $teamId)->exists()
             || $this->ownedTeams()->where('id', $teamId)->exists();
     }
 
     /**
      * Check if the user is an admin of a team.
      */
-    public function isTeamAdmin(int $teamId): bool
+    public function isTeamAdmin(int $teamId) : bool
     {
         $team = $this->teams()->where('teams.id', $teamId)->first();
-        
-        if (!$team) {
+
+        if (! $team) {
             return $this->ownedTeams()->where('id', $teamId)->exists();
         }
 
@@ -423,9 +437,8 @@ class User extends Authenticatable implements HasLocalePreference, WebAuthnAuthe
     /**
      * Check if the user is the owner of a team.
      */
-    public function isTeamOwner(int $teamId): bool
+    public function isTeamOwner(int $teamId) : bool
     {
         return $this->ownedTeams()->where('id', $teamId)->exists();
     }
 }
-
