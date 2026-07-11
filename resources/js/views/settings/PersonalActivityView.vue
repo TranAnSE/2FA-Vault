@@ -1,9 +1,11 @@
 <script setup>
+    import tabs from './tabs'
     import personalActivityService from '@/services/personalActivityService'
-    import { useNotify } from '@2fauth/ui'
+    import { useNotify, TabBar } from '@2fauth/ui'
 
     const { t } = useI18n()
     const notify = useNotify()
+    const router = useRouter()
 
     const entries = ref([])
     const meta = ref({ current_page: 1, last_page: 1, total: 0 })
@@ -49,6 +51,8 @@
 </script>
 
 <template>
+    <div>
+        <TabBar :tabs="tabs" :active-tab="'settings.activity'" @tab-selected="(to) => router.push({ name: to })" />
     <div class="container py-5">
         <div class="level mb-4">
             <div class="level-left">
@@ -92,5 +96,6 @@
                 </nav>
             </div>
         </div>
+    </div>
     </div>
 </template>

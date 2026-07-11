@@ -1,9 +1,11 @@
 <script setup>
+    import tabs from './tabs'
     import emergencyService from '@/services/emergencyService'
-    import { useNotify } from '@2fauth/ui'
+    import { useNotify, TabBar } from '@2fauth/ui'
 
     const { t } = useI18n()
     const notify = useNotify()
+    const router = useRouter()
 
     const contacts     = ref([])
     const pendingReqs  = ref([])
@@ -94,6 +96,8 @@
 </script>
 
 <template>
+    <div>
+        <TabBar :tabs="tabs" :active-tab="'settings.emergency'" @tab-selected="(to) => router.push({ name: to })" />
     <div class="container py-5">
         <h2 class="title is-3 mb-2">{{ $t('title.emergency_access') }}</h2>
         <p class="is-size-7 has-text-grey mb-5">{{ $t('message.emergency_access_desc') }}</p>
@@ -162,5 +166,6 @@
                 <span v-else-if="c.status === 'active'" class="tag is-success">{{ $t('label.access_granted') }}</span>
             </div>
         </div>
+    </div>
     </div>
 </template>

@@ -1,9 +1,12 @@
 <script setup>
+    import tabs from './tabs'
     import backupDestinationService from '@/services/backupDestinationService'
     import userService from '@/services/userService'
     import { useUserStore } from '@/stores/user'
-    import { useNotify } from '@2fauth/ui'
+    import { useNotify, TabBar } from '@2fauth/ui'
     import { LucidePlus, LucideTrash2, LucidePencil, LucidePlugZap } from 'lucide-vue-next'
+
+    const router = useRouter()
 
     const { t } = useI18n()
     const notify = useNotify()
@@ -160,6 +163,8 @@
 </script>
 
 <template>
+    <div>
+        <TabBar :tabs="tabs" :active-tab="'settings.backup'" @tab-selected="(to) => router.push({ name: to })" />
     <div class="container py-5">
         <div class="level mb-4">
             <div class="level-left">
@@ -282,5 +287,6 @@
                 </footer>
             </div>
         </div>
+    </div>
     </div>
 </template>

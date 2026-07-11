@@ -1,9 +1,11 @@
 <script setup>
+    import tabs from './tabs'
     import webhookService from '@/services/webhookService'
-    import { useNotify } from '@2fauth/ui'
+    import { useNotify, TabBar } from '@2fauth/ui'
 
     const { t } = useI18n()
     const notify = useNotify()
+    const router = useRouter()
 
     const webhooks     = ref([])
     const events       = ref([])
@@ -75,6 +77,8 @@
 </script>
 
 <template>
+    <div>
+        <TabBar :tabs="tabs" :active-tab="'settings.webhooks'" @tab-selected="(to) => router.push({ name: to })" />
     <div class="container py-5">
         <div class="level mb-4">
             <div class="level-left">
@@ -164,5 +168,6 @@
                 </section>
             </div>
         </div>
+    </div>
     </div>
 </template>
