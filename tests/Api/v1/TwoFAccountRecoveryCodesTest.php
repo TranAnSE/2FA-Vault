@@ -6,6 +6,7 @@ use App\Facades\Settings;
 use App\Models\TwoFAccount;
 use App\Models\User;
 use Illuminate\Support\Facades\DB;
+use Laravel\Passport\Passport;
 use PHPUnit\Framework\Attributes\Test;
 use Tests\FeatureTestCase;
 
@@ -53,7 +54,8 @@ class TwoFAccountRecoveryCodesTest extends FeatureTestCase
 
         $codes = '["abcd-1234","efgh-5678"]';
 
-        $response = $this->actingAs($this->user, 'api-guard')
+        Passport::actingAs($this->user, [], 'api-guard');
+        $response = $this
             ->json('POST', '/api/v1/twofaccounts', $this->storePayload(['recovery_codes' => $codes]))
             ->assertCreated();
 
@@ -74,7 +76,8 @@ class TwoFAccountRecoveryCodesTest extends FeatureTestCase
         $account = TwoFAccount::factory()->for($this->user)->create();
         $account->forceFill(['recovery_codes' => '["code-one"]'])->save();
 
-        $this->actingAs($this->user, 'api-guard')
+        Passport::actingAs($this->user, [], 'api-guard');
+        $this
             ->json('GET', '/api/v1/twofaccounts/' . $account->id . '?withSecret=1')
             ->assertOk()
             ->assertJsonFragment(['recovery_codes' => '["code-one"]']);
@@ -87,7 +90,8 @@ class TwoFAccountRecoveryCodesTest extends FeatureTestCase
         $account->forceFill(['recovery_codes' => '["keep-me"]'])->save();
 
         // Update with all required fields but omit recovery_codes
-        $this->actingAs($this->user, 'api-guard')
+        Passport::actingAs($this->user, [], 'api-guard');
+        $this
             ->json('PATCH', '/api/v1/twofaccounts/' . $account->id, [
                 'service'   => 'GitHub',
                 'account'   => 'octocat',
@@ -108,7 +112,8 @@ class TwoFAccountRecoveryCodesTest extends FeatureTestCase
         $account = TwoFAccount::factory()->for($this->user)->create();
         $account->forceFill(['recovery_codes' => '["clear-me"]'])->save();
 
-        $this->actingAs($this->user, 'api-guard')
+        Passport::actingAs($this->user, [], 'api-guard');
+        $this
             ->json('PATCH', '/api/v1/twofaccounts/' . $account->id, [
                 'service'        => 'GitHub',
                 'account'        => 'octocat',
@@ -132,7 +137,8 @@ class TwoFAccountRecoveryCodesTest extends FeatureTestCase
         $account  = TwoFAccount::factory()->for($owner)->create();
         $account->forceFill(['recovery_codes' => '["secret-code"]'])->save();
 
-        $this->actingAs($intruder, 'api-guard')
+        Passport::actingAs($intruder, [], 'api-guard');
+        $this
             ->json('GET', '/api/v1/twofaccounts/' . $account->id)
             ->assertForbidden();
     }

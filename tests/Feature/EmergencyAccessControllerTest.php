@@ -6,69 +6,72 @@ use App\Models\EmergencyAccessRequest;
 use App\Models\EmergencyContact;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Laravel\Passport\Passport;
 use Tests\TestCase;
 
 class EmergencyAccessControllerTest extends TestCase
 {
     use RefreshDatabase;
 
-    protected function createEncryptedUser(array $attributes = []): User
+    protected function createEncryptedUser(array $attributes = []) : User
     {
         return User::factory()->create(array_merge([
-            'encryption_enabled' => true,
-            'encryption_salt' => 'test_salt',
+            'encryption_enabled'    => true,
+            'encryption_salt'       => 'test_salt',
             'encryption_test_value' => '{"ciphertext":"test","iv":"test","authTag":"test"}',
-            'encryption_version' => 1,
-            'vault_locked' => false,
+            'encryption_version'    => 1,
+            'vault_locked'          => false,
         ], $attributes));
     }
 
-    public function test_user_can_list_contacts(): void
+    public function test_user_can_list_contacts() : void
     {
         $owner = $this->createEncryptedUser();
 
         EmergencyContact::factory()->create([
             'owner_id' => $owner->id,
-            'status' => 'confirmed',
+            'status'   => 'confirmed',
         ]);
         EmergencyContact::factory()->create([
             'owner_id' => $owner->id,
-            'status' => 'active',
+            'status'   => 'active',
         ]);
 
-        $response = $this->actingAs($owner, 'api-guard')
+        Passport::actingAs($owner, [], 'api-guard');
+        $response = $this
             ->getJson('/api/v1/emergency-contacts');
 
         $response->assertStatus(200)
             ->assertJsonCount(2);
     }
 
-    public function test_user_can_designate_contact(): void
+    public function test_user_can_designate_contact() : void
     {
-        $owner = $this->createEncryptedUser();
+        $owner   = $this->createEncryptedUser();
         $trusted = $this->createEncryptedUser(['email' => 'trusted@example.com']);
 
-        $response = $this->actingAs($owner, 'api-guard')
+        Passport::actingAs($owner, [], 'api-guard');
+        $response = $this
             ->postJson('/api/v1/emergency-contacts', [
-                'email' => 'trusted@example.com',
-                'wait_days' => 30,
+                'email'       => 'trusted@example.com',
+                'wait_days'   => 30,
                 'access_type' => 'view_only',
             ]);
 
         $response->assertStatus(201)
             ->assertJsonFragment([
-                'email' => 'trusted@example.com',
+                'email'       => 'trusted@example.com',
                 'access_type' => 'view_only',
             ]);
 
         $this->assertDatabaseHas('emergency_contacts', [
             'owner_id' => $owner->id,
-            'email' => 'trusted@example.com',
-            'status' => 'confirmed',
+            'email'    => 'trusted@example.com',
+            'status'   => 'confirmed',
         ]);
     }
 
-    public function test_returns_422_on_6th_contact(): void
+    public function test_returns_422_on_6th_contact() : void
     {
         $owner = $this->createEncryptedUser();
 
@@ -76,75 +79,79 @@ class EmergencyAccessControllerTest extends TestCase
         for ($i = 0; $i < 5; $i++) {
             EmergencyContact::factory()->create([
                 'owner_id' => $owner->id,
-                'email' => "contact{$i}@example.com",
-                'status' => 'confirmed',
+                'email'    => "contact{$i}@example.com",
+                'status'   => 'confirmed',
             ]);
         }
 
-        $response = $this->actingAs($owner, 'api-guard')
+        Passport::actingAs($owner, [], 'api-guard');
+        $response = $this
             ->postJson('/api/v1/emergency-contacts', [
-                'email' => 'sixth@example.com',
-                'wait_days' => 30,
+                'email'       => 'sixth@example.com',
+                'wait_days'   => 30,
                 'access_type' => 'view_only',
             ]);
 
         $response->assertStatus(422);
     }
 
-    public function test_user_can_revoke_contact(): void
+    public function test_user_can_revoke_contact() : void
     {
-        $owner = $this->createEncryptedUser();
+        $owner   = $this->createEncryptedUser();
         $contact = EmergencyContact::factory()->create([
             'owner_id' => $owner->id,
-            'status' => 'confirmed',
+            'status'   => 'confirmed',
         ]);
 
-        $response = $this->actingAs($owner, 'api-guard')
+        Passport::actingAs($owner, [], 'api-guard');
+        $response = $this
             ->deleteJson("/api/v1/emergency-contacts/{$contact->id}");
 
         $response->assertStatus(204);
 
         $this->assertDatabaseHas('emergency_contacts', [
-            'id' => $contact->id,
+            'id'     => $contact->id,
             'status' => 'revoked',
         ]);
     }
 
-    public function test_grantee_can_request_access(): void
+    public function test_grantee_can_request_access() : void
     {
-        $owner = $this->createEncryptedUser();
+        $owner   = $this->createEncryptedUser();
         $grantee = $this->createEncryptedUser();
 
         $contact = EmergencyContact::factory()->create([
-            'owner_id' => $owner->id,
+            'owner_id'        => $owner->id,
             'trusted_user_id' => $grantee->id,
-            'status' => 'confirmed',
+            'status'          => 'confirmed',
         ]);
 
-        $response = $this->actingAs($grantee, 'api-guard')
+        Passport::actingAs($grantee, [], 'api-guard');
+        $response = $this
             ->postJson("/api/v1/emergency-contacts/{$contact->id}/request");
 
         $response->assertStatus(201)
             ->assertJsonFragment([
                 'contact_id' => $contact->id,
-                'status' => 'pending',
+                'status'     => 'pending',
             ]);
     }
 
-    public function test_owner_can_approve_request(): void
+    public function test_owner_can_approve_request() : void
     {
-        $owner = $this->createEncryptedUser();
+        $owner   = $this->createEncryptedUser();
         $contact = EmergencyContact::factory()->create([
             'owner_id' => $owner->id,
-            'status' => 'confirmed',
+            'status'   => 'confirmed',
         ]);
 
         $request = EmergencyAccessRequest::factory()->create([
             'contact_id' => $contact->id,
-            'status' => 'pending',
+            'status'     => 'pending',
         ]);
 
-        $response = $this->actingAs($owner, 'api-guard')
+        Passport::actingAs($owner, [], 'api-guard');
+        $response = $this
             ->postJson("/api/v1/emergency-requests/{$request->id}/approve", [
                 'encrypted_key' => 'aes-256-gcm-key-data',
             ]);
@@ -153,93 +160,96 @@ class EmergencyAccessControllerTest extends TestCase
             ->assertJsonFragment(['message' => 'Access approved']);
 
         $this->assertDatabaseHas('emergency_access_requests', [
-            'id' => $request->id,
+            'id'     => $request->id,
             'status' => 'approved',
         ]);
 
         $this->assertDatabaseHas('emergency_contacts', [
-            'id' => $contact->id,
+            'id'     => $contact->id,
             'status' => 'active',
         ]);
     }
 
-    public function test_owner_can_deny_request(): void
+    public function test_owner_can_deny_request() : void
     {
-        $owner = $this->createEncryptedUser();
+        $owner   = $this->createEncryptedUser();
         $contact = EmergencyContact::factory()->create([
             'owner_id' => $owner->id,
         ]);
 
         $request = EmergencyAccessRequest::factory()->create([
             'contact_id' => $contact->id,
-            'status' => 'pending',
+            'status'     => 'pending',
         ]);
 
-        $response = $this->actingAs($owner, 'api-guard')
+        Passport::actingAs($owner, [], 'api-guard');
+        $response = $this
             ->postJson("/api/v1/emergency-requests/{$request->id}/deny");
 
         $response->assertStatus(200)
             ->assertJsonFragment(['message' => 'Access denied']);
 
         $this->assertDatabaseHas('emergency_access_requests', [
-            'id' => $request->id,
+            'id'     => $request->id,
             'status' => 'denied',
         ]);
     }
 
-    public function test_owner_can_list_pending_requests(): void
+    public function test_owner_can_list_pending_requests() : void
     {
-        $owner = $this->createEncryptedUser();
+        $owner   = $this->createEncryptedUser();
         $contact = EmergencyContact::factory()->create([
             'owner_id' => $owner->id,
         ]);
 
         EmergencyAccessRequest::factory()->create([
             'contact_id' => $contact->id,
-            'status' => 'pending',
+            'status'     => 'pending',
         ]);
         EmergencyAccessRequest::factory()->create([
             'contact_id' => $contact->id,
-            'status' => 'approved',
+            'status'     => 'approved',
         ]);
 
-        $response = $this->actingAs($owner, 'api-guard')
+        Passport::actingAs($owner, [], 'api-guard');
+        $response = $this
             ->getJson('/api/v1/emergency-requests/pending');
 
         $response->assertStatus(200)
             ->assertJsonCount(1);
     }
 
-    public function test_user_can_list_contacts_where_they_are_trusted(): void
+    public function test_user_can_list_contacts_where_they_are_trusted() : void
     {
-        $owner = $this->createEncryptedUser();
+        $owner   = $this->createEncryptedUser();
         $grantee = $this->createEncryptedUser();
 
         EmergencyContact::factory()->create([
-            'owner_id' => $owner->id,
+            'owner_id'        => $owner->id,
             'trusted_user_id' => $grantee->id,
-            'status' => 'confirmed',
+            'status'          => 'confirmed',
         ]);
         EmergencyContact::factory()->create([
-            'owner_id' => $owner->id,
+            'owner_id'        => $owner->id,
             'trusted_user_id' => $grantee->id,
-            'status' => 'active',
+            'status'          => 'active',
         ]);
         // Revoked contact should not appear
         EmergencyContact::factory()->create([
-            'owner_id' => $owner->id,
+            'owner_id'        => $owner->id,
             'trusted_user_id' => $grantee->id,
-            'status' => 'revoked',
+            'status'          => 'revoked',
         ]);
 
-        $response = $this->actingAs($grantee, 'api-guard')
+        Passport::actingAs($grantee, [], 'api-guard');
+        $response = $this
             ->getJson('/api/v1/emergency-contacts/for-me');
 
         $response->assertStatus(200)
             ->assertJsonCount(2);
     }
 
-    public function test_unauthorized_user_cannot_access_contacts(): void
+    public function test_unauthorized_user_cannot_access_contacts() : void
     {
         $response = $this->getJson('/api/v1/emergency-contacts');
 

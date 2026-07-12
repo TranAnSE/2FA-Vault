@@ -5,6 +5,7 @@ namespace Tests\Api\v1;
 use App\Models\TwoFAccount;
 use App\Models\User;
 use Illuminate\Support\Carbon;
+use Laravel\Passport\Passport;
 use PHPUnit\Framework\Attributes\Test;
 use Tests\FeatureTestCase;
 
@@ -39,7 +40,8 @@ class AccountHealthTest extends FeatureTestCase
             'last_used_at' => Carbon::now()->subDays(5),
         ]);
 
-        $this->actingAs($this->user, 'api-guard')
+        Passport::actingAs($this->user, [], 'api-guard');
+        $this
             ->json('GET', '/api/v1/twofaccounts/' . $account->id . '/health')
             ->assertOk()
             ->assertJsonStructure([
@@ -54,7 +56,8 @@ class AccountHealthTest extends FeatureTestCase
     {
         $account = TwoFAccount::factory()->for($this->anotherUser)->create();
 
-        $this->actingAs($this->user, 'api-guard')
+        Passport::actingAs($this->user, [], 'api-guard');
+        $this
             ->json('GET', '/api/v1/twofaccounts/' . $account->id . '/health')
             ->assertForbidden();
     }
@@ -73,7 +76,8 @@ class AccountHealthTest extends FeatureTestCase
             'algorithm' => 'md5', 'last_used_at' => Carbon::now()->subDays(400),
         ]);
 
-        $this->actingAs($this->user, 'api-guard')
+        Passport::actingAs($this->user, [], 'api-guard');
+        $this
             ->json('GET', '/api/v1/twofaccounts/health/summary')
             ->assertOk()
             ->assertJsonFragment(['total' => 2])
@@ -92,7 +96,8 @@ class AccountHealthTest extends FeatureTestCase
     public function test_health_route_not_captured_by_api_resource_show() : void
     {
         // The /health/summary literal must resolve to the controller, not 404
-        $this->actingAs($this->user, 'api-guard')
+        Passport::actingAs($this->user, [], 'api-guard');
+        $this
             ->json('GET', '/api/v1/twofaccounts/health/summary')
             ->assertOk();
     }

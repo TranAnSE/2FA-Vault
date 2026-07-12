@@ -6,6 +6,7 @@ use App\Models\User;
 use App\Models\UserBackupDestination;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Storage;
+use Laravel\Passport\Passport;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
 use Tests\TestCase;
@@ -31,11 +32,12 @@ class BackupDestinationTest extends TestCase
         Storage::fake('local');
         $user = User::factory()->create();
 
-        $response = $this->actingAs($user, 'api-guard')->postJson('/api/v1/user/backup-destinations', [
-            'label' => 'Local vault',
-            'type' => 'local',
+        Passport::actingAs($user, [], 'api-guard');
+        $response = $this->postJson('/api/v1/user/backup-destinations', [
+            'label'     => 'Local vault',
+            'type'      => 'local',
             'is_active' => true,
-            'config' => ['path' => 'backups', 'secret_key' => 'SUPER_SECRET'],
+            'config'    => ['path' => 'backups', 'secret_key' => 'SUPER_SECRET'],
         ]);
 
         $response->assertStatus(201)
@@ -54,14 +56,15 @@ class BackupDestinationTest extends TestCase
     {
         $user = User::factory()->create();
         UserBackupDestination::create([
-            'user_id' => $user->id,
-            'label' => 'My backup',
-            'type' => 'local',
-            'config' => ['path' => 'backups', 'secret_key' => 'LEAK_ME_IF_BUG'],
+            'user_id'   => $user->id,
+            'label'     => 'My backup',
+            'type'      => 'local',
+            'config'    => ['path' => 'backups', 'secret_key' => 'LEAK_ME_IF_BUG'],
             'is_active' => true,
         ]);
 
-        $response = $this->actingAs($user, 'api-guard')->getJson('/api/v1/user/backup-destinations');
+        Passport::actingAs($user, [], 'api-guard');
+        $response = $this->getJson('/api/v1/user/backup-destinations');
 
         $response->assertStatus(200)->assertJsonMissing(['secret_key' => 'LEAK_ME_IF_BUG']);
     }
@@ -69,14 +72,15 @@ class BackupDestinationTest extends TestCase
     #[Test]
     public function test_user_cannot_list_other_users_destinations()
     {
-        $owner = User::factory()->create();
+        $owner    = User::factory()->create();
         $intruder = User::factory()->create();
         UserBackupDestination::create([
             'user_id' => $owner->id, 'label' => 'Owner backup', 'type' => 'local',
-            'config' => ['path' => 'b'], 'is_active' => true,
+            'config'  => ['path' => 'b'], 'is_active' => true,
         ]);
 
-        $this->actingAs($intruder, 'api-guard')
+        Passport::actingAs($intruder, [], 'api-guard');
+        $this
             ->getJson('/api/v1/user/backup-destinations')
             ->assertStatus(200)
             ->assertJsonMissing(['label' => 'Owner backup']);
@@ -86,16 +90,17 @@ class BackupDestinationTest extends TestCase
     public function test_user_can_update_own_destination()
     {
         Storage::fake('local');
-        $user = User::factory()->create();
+        $user        = User::factory()->create();
         $destination = UserBackupDestination::create([
             'user_id' => $user->id, 'label' => 'Old', 'type' => 'local',
-            'config' => ['path' => 'old'], 'is_active' => true,
+            'config'  => ['path' => 'old'], 'is_active' => true,
         ]);
 
-        $this->actingAs($user, 'api-guard')
+        Passport::actingAs($user, [], 'api-guard');
+        $this
             ->putJson('/api/v1/user/backup-destinations/' . $destination->id, [
-                'label' => 'New',
-                'type' => 'local',
+                'label'  => 'New',
+                'type'   => 'local',
                 'config' => ['path' => 'new'],
             ])
             ->assertStatus(200)
@@ -107,13 +112,14 @@ class BackupDestinationTest extends TestCase
     #[Test]
     public function test_user_can_delete_own_destination()
     {
-        $user = User::factory()->create();
+        $user        = User::factory()->create();
         $destination = UserBackupDestination::create([
             'user_id' => $user->id, 'label' => 'Doomed', 'type' => 'local',
-            'config' => ['path' => 'b'], 'is_active' => true,
+            'config'  => ['path' => 'b'], 'is_active' => true,
         ]);
 
-        $this->actingAs($user, 'api-guard')
+        Passport::actingAs($user, [], 'api-guard');
+        $this
             ->deleteJson('/api/v1/user/backup-destinations/' . $destination->id)
             ->assertStatus(204);
 
@@ -123,14 +129,15 @@ class BackupDestinationTest extends TestCase
     #[Test]
     public function test_user_cannot_delete_other_users_destination()
     {
-        $owner = User::factory()->create();
-        $intruder = User::factory()->create();
+        $owner       = User::factory()->create();
+        $intruder    = User::factory()->create();
         $destination = UserBackupDestination::create([
             'user_id' => $owner->id, 'label' => 'X', 'type' => 'local',
-            'config' => ['path' => 'b'], 'is_active' => true,
+            'config'  => ['path' => 'b'], 'is_active' => true,
         ]);
 
-        $this->actingAs($intruder, 'api-guard')
+        Passport::actingAs($intruder, [], 'api-guard');
+        $this
             ->deleteJson('/api/v1/user/backup-destinations/' . $destination->id)
             ->assertNotFound();
     }
@@ -139,13 +146,14 @@ class BackupDestinationTest extends TestCase
     public function test_test_connection_succeeds_for_valid_local_destination()
     {
         Storage::fake('local');
-        $user = User::factory()->create();
+        $user        = User::factory()->create();
         $destination = UserBackupDestination::create([
             'user_id' => $user->id, 'label' => 'Local', 'type' => 'local',
-            'config' => ['path' => 'backups'], 'is_active' => true,
+            'config'  => ['path' => 'backups'], 'is_active' => true,
         ]);
 
-        $this->actingAs($user, 'api-guard')
+        Passport::actingAs($user, [], 'api-guard');
+        $this
             ->postJson('/api/v1/user/backup-destinations/' . $destination->id . '/test')
             ->assertStatus(200)
             ->assertJsonPath('ok', true);

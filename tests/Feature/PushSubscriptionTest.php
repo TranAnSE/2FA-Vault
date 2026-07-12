@@ -2,9 +2,10 @@
 
 namespace Tests\Feature;
 
-use App\Models\User;
 use App\Models\PushSubscription;
+use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Laravel\Passport\Passport;
 use PHPUnit\Framework\Attributes\Test;
 use Tests\TestCase;
 
@@ -14,17 +15,17 @@ class PushSubscriptionTest extends TestCase
 
     private User $user;
 
-    protected function setUp(): void
+    protected function setUp() : void
     {
         parent::setUp();
-        
+
         $this->user = User::factory()->create([
-            'email' => 'test@example.com',
-            'encryption_enabled' => true,
-            'encryption_salt' => 'test_salt',
+            'email'                 => 'test@example.com',
+            'encryption_enabled'    => true,
+            'encryption_salt'       => 'test_salt',
             'encryption_test_value' => '{"ciphertext":"test","iv":"test","authTag":"test"}',
-            'encryption_version' => 1,
-            'vault_locked' => false,
+            'encryption_version'    => 1,
+            'vault_locked'          => false,
         ]);
     }
 
@@ -33,11 +34,12 @@ class PushSubscriptionTest extends TestCase
     {
         $subscriptionData = [
             'endpoint' => 'https://fcm.googleapis.com/fcm/send/example-endpoint-id',
-            'p256dh' => 'BEl62iUYgUivxIkv69yViEuiBIa-Ib37gp_rvQ...',
-            'auth' => 'tBHItJI5svbpez7KI4CCXg==',
+            'p256dh'   => 'BEl62iUYgUivxIkv69yViEuiBIa-Ib37gp_rvQ...',
+            'auth'     => 'tBHItJI5svbpez7KI4CCXg==',
         ];
 
-        $response = $this->actingAs($this->user, 'api-guard')
+        Passport::actingAs($this->user, [], 'api-guard');
+        $response = $this
             ->postJson('/api/v1/push/subscribe', $subscriptionData);
 
         $response->assertStatus(201)
@@ -49,10 +51,10 @@ class PushSubscriptionTest extends TestCase
 
         // Verify subscription was stored in database
         $this->assertDatabaseHas('push_subscriptions', [
-            'user_id' => $this->user->id,
+            'user_id'  => $this->user->id,
             'endpoint' => $subscriptionData['endpoint'],
-            'p256dh' => $subscriptionData['p256dh'],
-            'auth' => $subscriptionData['auth'],
+            'p256dh'   => $subscriptionData['p256dh'],
+            'auth'     => $subscriptionData['auth'],
         ]);
 
         // Verify user relationship
@@ -64,8 +66,8 @@ class PushSubscriptionTest extends TestCase
     {
         $subscriptionData = [
             'endpoint' => 'https://fcm.googleapis.com/fcm/send/example-endpoint-id',
-            'p256dh' => 'BEl62iUYgUivxIkv69yViEuiBIa-Ib37gp_rvQ...',
-            'auth' => 'tBHItJI5svbpez7KI4CCXg==',
+            'p256dh'   => 'BEl62iUYgUivxIkv69yViEuiBIa-Ib37gp_rvQ...',
+            'auth'     => 'tBHItJI5svbpez7KI4CCXg==',
         ];
 
         $response = $this->postJson('/api/v1/push/subscribe', $subscriptionData);
@@ -76,10 +78,11 @@ class PushSubscriptionTest extends TestCase
     #[Test]
     public function test_store_subscription_requires_endpoint()
     {
-        $response = $this->actingAs($this->user, 'api-guard')
+        Passport::actingAs($this->user, [], 'api-guard');
+        $response = $this
             ->postJson('/api/v1/push/subscribe', [
                 'p256dh' => 'BEl62iUYgUivxIkv69yViEuiBIa-Ib37gp_rvQ...',
-                'auth' => 'tBHItJI5svbpez7KI4CCXg==',
+                'auth'   => 'tBHItJI5svbpez7KI4CCXg==',
             ]);
 
         $response->assertStatus(422)
@@ -89,11 +92,12 @@ class PushSubscriptionTest extends TestCase
     #[Test]
     public function test_store_subscription_endpoint_must_be_url()
     {
-        $response = $this->actingAs($this->user, 'api-guard')
+        Passport::actingAs($this->user, [], 'api-guard');
+        $response = $this
             ->postJson('/api/v1/push/subscribe', [
                 'endpoint' => 'not-a-valid-url',
-                'p256dh' => 'BEl62iUYgUivxIkv69yViEuiBIa-Ib37gp_rvQ...',
-                'auth' => 'tBHItJI5svbpez7KI4CCXg==',
+                'p256dh'   => 'BEl62iUYgUivxIkv69yViEuiBIa-Ib37gp_rvQ...',
+                'auth'     => 'tBHItJI5svbpez7KI4CCXg==',
             ]);
 
         $response->assertStatus(422)
@@ -103,10 +107,11 @@ class PushSubscriptionTest extends TestCase
     #[Test]
     public function test_store_subscription_requires_public_key()
     {
-        $response = $this->actingAs($this->user, 'api-guard')
+        Passport::actingAs($this->user, [], 'api-guard');
+        $response = $this
             ->postJson('/api/v1/push/subscribe', [
                 'endpoint' => 'https://fcm.googleapis.com/fcm/send/example-endpoint-id',
-                'auth' => 'tBHItJI5svbpez7KI4CCXg==',
+                'auth'     => 'tBHItJI5svbpez7KI4CCXg==',
             ]);
 
         $response->assertStatus(422)
@@ -116,10 +121,11 @@ class PushSubscriptionTest extends TestCase
     #[Test]
     public function test_store_subscription_requires_auth_token()
     {
-        $response = $this->actingAs($this->user, 'api-guard')
+        Passport::actingAs($this->user, [], 'api-guard');
+        $response = $this
             ->postJson('/api/v1/push/subscribe', [
                 'endpoint' => 'https://fcm.googleapis.com/fcm/send/example-endpoint-id',
-                'p256dh' => 'BEl62iUYgUivxIkv69yViEuiBIa-Ib37gp_rvQ...',
+                'p256dh'   => 'BEl62iUYgUivxIkv69yViEuiBIa-Ib37gp_rvQ...',
             ]);
 
         $response->assertStatus(422)
@@ -131,22 +137,24 @@ class PushSubscriptionTest extends TestCase
     {
         $subscriptionData = [
             'endpoint' => 'https://fcm.googleapis.com/fcm/send/example-endpoint-id',
-            'p256dh' => 'BEl62iUYgUivxIkv69yViEuiBIa-Ib37gp_rvQ...',
-            'auth' => 'tBHItJI5svbpez7KI4CCXg==',
+            'p256dh'   => 'BEl62iUYgUivxIkv69yViEuiBIa-Ib37gp_rvQ...',
+            'auth'     => 'tBHItJI5svbpez7KI4CCXg==',
         ];
 
         // Store first subscription
-        $this->actingAs($this->user, 'api-guard')
+        Passport::actingAs($this->user, [], 'api-guard');
+        $this
             ->postJson('/api/v1/push/subscribe', $subscriptionData);
 
         // Store same subscription again with updated keys
         $updatedData = [
             'endpoint' => $subscriptionData['endpoint'],
-            'p256dh' => 'NewPublicKey123...',
-            'auth' => 'NewAuthToken123==',
+            'p256dh'   => 'NewPublicKey123...',
+            'auth'     => 'NewAuthToken123==',
         ];
 
-        $response = $this->actingAs($this->user, 'api-guard')
+        Passport::actingAs($this->user, [], 'api-guard');
+        $response = $this
             ->postJson('/api/v1/push/subscribe', $updatedData);
 
         $response->assertStatus(201);
@@ -156,10 +164,10 @@ class PushSubscriptionTest extends TestCase
 
         // Verify subscription was updated
         $this->assertDatabaseHas('push_subscriptions', [
-            'user_id' => $this->user->id,
+            'user_id'  => $this->user->id,
             'endpoint' => $updatedData['endpoint'],
-            'p256dh' => $updatedData['p256dh'],
-            'auth' => $updatedData['auth'],
+            'p256dh'   => $updatedData['p256dh'],
+            'auth'     => $updatedData['auth'],
         ]);
     }
 
@@ -168,20 +176,22 @@ class PushSubscriptionTest extends TestCase
     {
         $subscription1 = [
             'endpoint' => 'https://fcm.googleapis.com/fcm/send/endpoint-1',
-            'p256dh' => 'PublicKey1...',
-            'auth' => 'AuthToken1==',
+            'p256dh'   => 'PublicKey1...',
+            'auth'     => 'AuthToken1==',
         ];
 
         $subscription2 = [
             'endpoint' => 'https://fcm.googleapis.com/fcm/send/endpoint-2',
-            'p256dh' => 'PublicKey2...',
-            'auth' => 'AuthToken2==',
+            'p256dh'   => 'PublicKey2...',
+            'auth'     => 'AuthToken2==',
         ];
 
-        $this->actingAs($this->user, 'api-guard')
+        Passport::actingAs($this->user, [], 'api-guard');
+        $this
             ->postJson('/api/v1/push/subscribe', $subscription1);
 
-        $this->actingAs($this->user, 'api-guard')
+        Passport::actingAs($this->user, [], 'api-guard');
+        $this
             ->postJson('/api/v1/push/subscribe', $subscription2);
 
         // Verify both subscriptions exist
@@ -193,11 +203,12 @@ class PushSubscriptionTest extends TestCase
     {
         // Create subscription first
         $subscription = PushSubscription::factory()->create([
-            'user_id' => $this->user->id,
+            'user_id'  => $this->user->id,
             'endpoint' => 'https://fcm.googleapis.com/fcm/send/example-endpoint-id',
         ]);
 
-        $response = $this->actingAs($this->user, 'api-guard')
+        Passport::actingAs($this->user, [], 'api-guard');
+        $response = $this
             ->deleteJson('/api/v1/push/unsubscribe', [
                 'endpoint' => $subscription->endpoint,
             ]);
@@ -228,7 +239,8 @@ class PushSubscriptionTest extends TestCase
     #[Test]
     public function test_remove_subscription_requires_endpoint()
     {
-        $response = $this->actingAs($this->user, 'api-guard')
+        Passport::actingAs($this->user, [], 'api-guard');
+        $response = $this
             ->deleteJson('/api/v1/push/unsubscribe', []);
 
         $response->assertStatus(422)
@@ -238,7 +250,8 @@ class PushSubscriptionTest extends TestCase
     #[Test]
     public function test_remove_nonexistent_subscription_returns_404()
     {
-        $response = $this->actingAs($this->user, 'api-guard')
+        Passport::actingAs($this->user, [], 'api-guard');
+        $response = $this
             ->deleteJson('/api/v1/push/unsubscribe', [
                 'endpoint' => 'https://fcm.googleapis.com/fcm/send/nonexistent-endpoint',
             ]);
@@ -253,13 +266,14 @@ class PushSubscriptionTest extends TestCase
     public function test_user_cannot_remove_another_users_subscription()
     {
         $otherUser = User::factory()->create();
-        
+
         $otherSubscription = PushSubscription::factory()->create([
-            'user_id' => $otherUser->id,
+            'user_id'  => $otherUser->id,
             'endpoint' => 'https://fcm.googleapis.com/fcm/send/other-user-endpoint',
         ]);
 
-        $response = $this->actingAs($this->user, 'api-guard')
+        Passport::actingAs($this->user, [], 'api-guard');
+        $response = $this
             ->deleteJson('/api/v1/push/unsubscribe', [
                 'endpoint' => $otherSubscription->endpoint,
             ]);
@@ -279,7 +293,8 @@ class PushSubscriptionTest extends TestCase
             'user_id' => $this->user->id,
         ]);
 
-        $response = $this->actingAs($this->user, 'api-guard')
+        Passport::actingAs($this->user, [], 'api-guard');
+        $response = $this
             ->getJson('/api/v1/push/subscriptions');
 
         $response->assertStatus(200)
@@ -309,7 +324,8 @@ class PushSubscriptionTest extends TestCase
             'user_id' => $otherUser->id,
         ]);
 
-        $response = $this->actingAs($this->user, 'api-guard')
+        Passport::actingAs($this->user, [], 'api-guard');
+        $response = $this
             ->getJson('/api/v1/push/subscriptions');
 
         $response->assertStatus(200)

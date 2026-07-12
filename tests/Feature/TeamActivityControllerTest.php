@@ -7,6 +7,7 @@ use App\Models\Team;
 use App\Models\TeamActivityLog;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Laravel\Passport\Passport;
 use Tests\TestCase;
 
 /**
@@ -19,29 +20,33 @@ class TeamActivityControllerTest extends TestCase
     use RefreshDatabase;
 
     private User $owner;
+
     private User $admin;
+
     private User $member;
+
     private User $outsider;
+
     private Team $team;
 
-    protected function createEncryptedUser(array $attributes = []): User
+    protected function createEncryptedUser(array $attributes = []) : User
     {
         return User::factory()->create(array_merge([
-            'encryption_enabled'   => true,
-            'encryption_salt'      => 'test_salt',
+            'encryption_enabled'    => true,
+            'encryption_salt'       => 'test_salt',
             'encryption_test_value' => '{"ciphertext":"test","iv":"test","authTag":"test"}',
-            'encryption_version'   => 1,
-            'vault_locked'         => false,
+            'encryption_version'    => 1,
+            'vault_locked'          => false,
         ], $attributes));
     }
 
-    protected function setUp(): void
+    protected function setUp() : void
     {
         parent::setUp();
 
-        $this->owner = $this->createEncryptedUser();
-        $this->admin = $this->createEncryptedUser();
-        $this->member = $this->createEncryptedUser();
+        $this->owner    = $this->createEncryptedUser();
+        $this->admin    = $this->createEncryptedUser();
+        $this->member   = $this->createEncryptedUser();
         $this->outsider = $this->createEncryptedUser();
 
         $this->team = Team::factory()->create(['owner_id' => $this->owner->id]);
@@ -53,7 +58,7 @@ class TeamActivityControllerTest extends TestCase
     /**
      * Seed activity log entries for filter/pagination tests.
      */
-    private function seedActivityLogs(): void
+    private function seedActivityLogs() : void
     {
         TeamActivityLog::create([
             'team_id'    => $this->team->id,
@@ -78,11 +83,12 @@ class TeamActivityControllerTest extends TestCase
     /**
      * Test team owner can view activity log.
      */
-    public function test_team_owner_can_view_activity_log(): void
+    public function test_team_owner_can_view_activity_log() : void
     {
         $this->seedActivityLogs();
 
-        $response = $this->actingAs($this->owner, 'api-guard')
+        Passport::actingAs($this->owner, [], 'api-guard');
+        $response = $this
             ->getJson("/api/v1/teams/{$this->team->id}/activity");
 
         $response->assertStatus(200);
@@ -98,11 +104,12 @@ class TeamActivityControllerTest extends TestCase
     /**
      * Test team admin can view activity log.
      */
-    public function test_team_admin_can_view_activity_log(): void
+    public function test_team_admin_can_view_activity_log() : void
     {
         $this->seedActivityLogs();
 
-        $response = $this->actingAs($this->admin, 'api-guard')
+        Passport::actingAs($this->admin, [], 'api-guard');
+        $response = $this
             ->getJson("/api/v1/teams/{$this->team->id}/activity");
 
         $response->assertStatus(200);
@@ -112,11 +119,12 @@ class TeamActivityControllerTest extends TestCase
     /**
      * Test team member (regular role) cannot view activity log.
      */
-    public function test_team_member_cannot_view_activity_log(): void
+    public function test_team_member_cannot_view_activity_log() : void
     {
         $this->seedActivityLogs();
 
-        $response = $this->actingAs($this->member, 'api-guard')
+        Passport::actingAs($this->member, [], 'api-guard');
+        $response = $this
             ->getJson("/api/v1/teams/{$this->team->id}/activity");
 
         $response->assertStatus(403);
@@ -125,11 +133,12 @@ class TeamActivityControllerTest extends TestCase
     /**
      * Test non-member cannot view activity log.
      */
-    public function test_non_member_cannot_view_activity_log(): void
+    public function test_non_member_cannot_view_activity_log() : void
     {
         $this->seedActivityLogs();
 
-        $response = $this->actingAs($this->outsider, 'api-guard')
+        Passport::actingAs($this->outsider, [], 'api-guard');
+        $response = $this
             ->getJson("/api/v1/teams/{$this->team->id}/activity");
 
         $response->assertStatus(403);
@@ -138,12 +147,13 @@ class TeamActivityControllerTest extends TestCase
     /**
      * Test activity log can be filtered by action.
      */
-    public function test_activity_log_filters_by_action(): void
+    public function test_activity_log_filters_by_action() : void
     {
         $this->seedActivityLogs();
 
         // Filter for member.invited only
-        $response = $this->actingAs($this->owner, 'api-guard')
+        Passport::actingAs($this->owner, [], 'api-guard');
+        $response = $this
             ->getJson("/api/v1/teams/{$this->team->id}/activity?actions=member.invited");
 
         $response->assertStatus(200);
@@ -151,7 +161,8 @@ class TeamActivityControllerTest extends TestCase
         $response->assertJsonPath('data.0.action', 'member.invited');
 
         // Filter for multiple actions
-        $response = $this->actingAs($this->owner, 'api-guard')
+        Passport::actingAs($this->owner, [], 'api-guard');
+        $response = $this
             ->getJson("/api/v1/teams/{$this->team->id}/activity?actions=team.created,account.shared");
 
         $response->assertStatus(200);
@@ -164,18 +175,20 @@ class TeamActivityControllerTest extends TestCase
      * CSP middleware calls withHeaders() which is incompatible with
      * StreamedResponse — disable it for the export endpoint test.
      */
-    public function test_export_requires_owner_role(): void
+    public function test_export_requires_owner_role() : void
     {
         $this->seedActivityLogs();
 
         // Admin cannot export (no stream involved — 403 returned before streamDownload)
-        $response = $this->actingAs($this->admin, 'api-guard')
+        Passport::actingAs($this->admin, [], 'api-guard');
+        $response = $this
             ->getJson("/api/v1/teams/{$this->team->id}/activity/export");
 
         $response->assertStatus(403);
 
         // Owner can export — bypass CSP middleware for StreamedResponse compatibility
-        $response = $this->actingAs($this->owner, 'api-guard')
+        Passport::actingAs($this->owner, [], 'api-guard');
+        $response = $this
             ->withoutMiddleware(\App\Http\Middleware\AddContentSecurityPolicyHeaders::class)
             ->getJson("/api/v1/teams/{$this->team->id}/activity/export");
 

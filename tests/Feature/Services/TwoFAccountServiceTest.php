@@ -8,6 +8,7 @@ use App\Models\TwoFAccount;
 use App\Models\User;
 use App\Services\TwoFAccountService;
 use Illuminate\Support\Facades\Exceptions;
+use Laravel\Passport\Passport;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
 use Tests\Data\MigrationTestData;
@@ -200,7 +201,7 @@ class TwoFAccountServiceTest extends FeatureTestCase
     #[Test]
     public function test_migrate_from_gauth_returns_flagged_duplicates()
     {
-        $this->actingAs($this->user, 'api-guard');
+        Passport::actingAs($this->user, [], 'api-guard');
 
         $parameters = [
             'service'   => OtpTestData::SERVICE,
@@ -227,7 +228,7 @@ class TwoFAccountServiceTest extends FeatureTestCase
     }
 
     #[Test]
-    public function test_migrate_invalid_migration_from_gauth_returns_InvalidMigrationData_exception()
+    public function test_migrate_invalid_migration_from_gauth_returns_invalid_migration_data_exception()
     {
         $this->expectException(\App\Exceptions\InvalidMigrationDataException::class);
         $twofaccounts = TwoFAccounts::migrate(MigrationTestData::GOOGLE_AUTH_MIGRATION_URI_WITH_INVALID_DATA);
@@ -323,7 +324,7 @@ class TwoFAccountServiceTest extends FeatureTestCase
     }
 
     #[Test]
-    public function test_setUser_sets_twofaccounts_user()
+    public function test_set_user_sets_twofaccounts_user()
     {
         $twofaccountA = TwoFAccount::factory()->create();
         $twofaccountB = TwoFAccount::factory()->create();

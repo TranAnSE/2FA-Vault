@@ -6,6 +6,7 @@ use App\Models\Tag;
 use App\Models\TwoFAccount;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Laravel\Passport\Passport;
 use PHPUnit\Framework\Attributes\Test;
 use Tests\TestCase;
 
@@ -17,14 +18,14 @@ class TagControllerTest extends TestCase
 {
     use RefreshDatabase;
 
-    protected function createEncryptedUser(array $attributes = []): User
+    protected function createEncryptedUser(array $attributes = []) : User
     {
         return User::factory()->create(array_merge([
-            'encryption_enabled'   => true,
-            'encryption_salt'      => 'test_salt',
+            'encryption_enabled'    => true,
+            'encryption_salt'       => 'test_salt',
             'encryption_test_value' => '{"ciphertext":"test","iv":"test","authTag":"test"}',
-            'encryption_version'   => 1,
-            'vault_locked'         => false,
+            'encryption_version'    => 1,
+            'vault_locked'          => false,
         ], $attributes));
     }
 
@@ -35,7 +36,8 @@ class TagControllerTest extends TestCase
         Tag::factory()->for($user)->create(['name' => 'Alpha']);
         Tag::factory()->for($user)->create(['name' => 'Bravo']);
 
-        $response = $this->actingAs($user, 'api-guard')->getJson('/api/v1/tags');
+        Passport::actingAs($user, [], 'api-guard');
+        $response = $this->getJson('/api/v1/tags');
 
         $response->assertStatus(200)
             ->assertJsonCount(2)
@@ -48,7 +50,8 @@ class TagControllerTest extends TestCase
     {
         $user = $this->createEncryptedUser();
 
-        $response = $this->actingAs($user, 'api-guard')->postJson('/api/v1/tags', [
+        Passport::actingAs($user, [], 'api-guard');
+        $response = $this->postJson('/api/v1/tags', [
             'name'  => 'Work',
             'color' => '#ff5500',
         ]);
@@ -71,7 +74,8 @@ class TagControllerTest extends TestCase
     {
         $user = $this->createEncryptedUser();
 
-        $response = $this->actingAs($user, 'api-guard')->postJson('/api/v1/tags', [
+        Passport::actingAs($user, [], 'api-guard');
+        $response = $this->postJson('/api/v1/tags', [
             'name' => 'NoColor',
         ]);
 
@@ -94,7 +98,8 @@ class TagControllerTest extends TestCase
         $user = $this->createEncryptedUser();
         $tag  = Tag::factory()->for($user)->create(['name' => 'Old', 'color' => '#111111']);
 
-        $response = $this->actingAs($user, 'api-guard')->putJson("/api/v1/tags/{$tag->id}", [
+        Passport::actingAs($user, [], 'api-guard');
+        $response = $this->putJson("/api/v1/tags/{$tag->id}", [
             'name'  => 'New',
             'color' => '#abcdef',
         ]);
@@ -106,9 +111,9 @@ class TagControllerTest extends TestCase
             ]);
 
         $this->assertDatabaseHas('tags', [
-            'id'     => $tag->id,
-            'name'   => 'New',
-            'color'  => '#abcdef',
+            'id'    => $tag->id,
+            'name'  => 'New',
+            'color' => '#abcdef',
         ]);
     }
 
@@ -118,7 +123,8 @@ class TagControllerTest extends TestCase
         $user = $this->createEncryptedUser();
         $tag  = Tag::factory()->for($user)->create();
 
-        $response = $this->actingAs($user, 'api-guard')->deleteJson("/api/v1/tags/{$tag->id}");
+        Passport::actingAs($user, [], 'api-guard');
+        $response = $this->deleteJson("/api/v1/tags/{$tag->id}");
 
         $response->assertStatus(204);
         $this->assertDatabaseMissing('tags', ['id' => $tag->id]);
@@ -127,17 +133,19 @@ class TagControllerTest extends TestCase
     #[Test]
     public function test_tag_ownership_enforced()
     {
-        $owner      = $this->createEncryptedUser();
-        $otherUser  = $this->createEncryptedUser();
-        $tag        = Tag::factory()->for($owner)->create();
+        $owner     = $this->createEncryptedUser();
+        $otherUser = $this->createEncryptedUser();
+        $tag       = Tag::factory()->for($owner)->create();
 
         // Other user cannot update
-        $this->actingAs($otherUser, 'api-guard')
+        Passport::actingAs($otherUser, [], 'api-guard');
+        $this
             ->putJson("/api/v1/tags/{$tag->id}", ['name' => 'Hacked'])
             ->assertStatus(403);
 
         // Other user cannot delete
-        $this->actingAs($otherUser, 'api-guard')
+        Passport::actingAs($otherUser, [], 'api-guard');
+        $this
             ->deleteJson("/api/v1/tags/{$tag->id}")
             ->assertStatus(403);
 
@@ -154,7 +162,8 @@ class TagControllerTest extends TestCase
         $account = TwoFAccount::factory()->for($user)->create();
 
         // Sync both tags
-        $response = $this->actingAs($user, 'api-guard')
+        Passport::actingAs($user, [], 'api-guard');
+        $response = $this
             ->postJson("/api/v1/twofaccounts/{$account->id}/tags", [
                 'tags' => [$tag1->id, $tag2->id],
             ]);
@@ -163,7 +172,8 @@ class TagControllerTest extends TestCase
         $this->assertCount(2, $account->fresh()->tags);
 
         // Sync to only one tag (replaces)
-        $response = $this->actingAs($user, 'api-guard')
+        Passport::actingAs($user, [], 'api-guard');
+        $response = $this
             ->postJson("/api/v1/twofaccounts/{$account->id}/tags", [
                 'tags' => [$tag1->id],
             ]);
@@ -173,7 +183,8 @@ class TagControllerTest extends TestCase
         $this->assertEquals($tag1->id, $account->fresh()->tags->first()->id);
 
         // Sync to empty (removes all)
-        $response = $this->actingAs($user, 'api-guard')
+        Passport::actingAs($user, [], 'api-guard');
+        $response = $this
             ->postJson("/api/v1/twofaccounts/{$account->id}/tags", [
                 'tags' => [],
             ]);
@@ -188,7 +199,8 @@ class TagControllerTest extends TestCase
         $user = $this->createEncryptedUser();
 
         // Invalid hex format
-        $this->actingAs($user, 'api-guard')
+        Passport::actingAs($user, [], 'api-guard');
+        $this
             ->postJson('/api/v1/tags', [
                 'name'  => 'BadColor',
                 'color' => 'not-a-hex',
@@ -196,7 +208,8 @@ class TagControllerTest extends TestCase
             ->assertStatus(422);
 
         // Partial hex (too short)
-        $this->actingAs($user, 'api-guard')
+        Passport::actingAs($user, [], 'api-guard');
+        $this
             ->postJson('/api/v1/tags', [
                 'name'  => 'ShortHex',
                 'color' => '#fff',
@@ -204,7 +217,8 @@ class TagControllerTest extends TestCase
             ->assertStatus(422);
 
         // Missing hash prefix
-        $this->actingAs($user, 'api-guard')
+        Passport::actingAs($user, [], 'api-guard');
+        $this
             ->postJson('/api/v1/tags', [
                 'name'  => 'NoHash',
                 'color' => 'aabbcc',
@@ -212,7 +226,8 @@ class TagControllerTest extends TestCase
             ->assertStatus(422);
 
         // Valid hex succeeds
-        $this->actingAs($user, 'api-guard')
+        Passport::actingAs($user, [], 'api-guard');
+        $this
             ->postJson('/api/v1/tags', [
                 'name'  => 'ValidColor',
                 'color' => '#aabbcc',

@@ -7,6 +7,7 @@ use App\Models\User;
 use App\Models\UserInvitation;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Mail;
+use Laravel\Passport\Passport;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
 use Tests\TestCase;
@@ -26,16 +27,17 @@ class InvitationTest extends TestCase
 
         $admin = User::factory()->administrator()->create();
 
-        $response = $this->actingAs($admin, 'api-guard')->postJson('/api/v1/user/invitations', [
+        Passport::actingAs($admin, [], 'api-guard');
+        $response = $this->postJson('/api/v1/user/invitations', [
             'email' => 'invitee@synthetic.example',
-            'role' => 'user',
+            'role'  => 'user',
         ]);
 
         $response->assertStatus(201)
             ->assertJsonFragment(['email' => 'invitee@synthetic.example']);
 
         $this->assertDatabaseHas('user_invitations', [
-            'email' => 'invitee@synthetic.example',
+            'email'         => 'invitee@synthetic.example',
             'invited_by_id' => $admin->id,
         ]);
 
@@ -47,7 +49,8 @@ class InvitationTest extends TestCase
     {
         $user = User::factory()->create();
 
-        $response = $this->actingAs($user, 'api-guard')->postJson('/api/v1/user/invitations', [
+        Passport::actingAs($user, [], 'api-guard');
+        $response = $this->postJson('/api/v1/user/invitations', [
             'email' => 'invitee@synthetic.example',
         ]);
 
@@ -63,7 +66,8 @@ class InvitationTest extends TestCase
         UserInvitation::factory()->accepted()->create();
         UserInvitation::factory()->expired()->create();
 
-        $response = $this->actingAs($admin, 'api-guard')->getJson('/api/v1/user/invitations');
+        Passport::actingAs($admin, [], 'api-guard');
+        $response = $this->getJson('/api/v1/user/invitations');
 
         // Non-paginated resource collection → a bare JSON array of pending invitations.
         $response->assertStatus(200)
@@ -73,10 +77,11 @@ class InvitationTest extends TestCase
     #[Test]
     public function test_admin_can_revoke_invitation()
     {
-        $admin = User::factory()->administrator()->create();
+        $admin      = User::factory()->administrator()->create();
         $invitation = UserInvitation::factory()->create();
 
-        $response = $this->actingAs($admin, 'api-guard')->deleteJson('/api/v1/user/invitations/' . $invitation->id);
+        Passport::actingAs($admin, [], 'api-guard');
+        $response = $this->deleteJson('/api/v1/user/invitations/' . $invitation->id);
 
         $response->assertStatus(204);
         $this->assertDatabaseMissing('user_invitations', ['id' => $invitation->id]);
@@ -86,10 +91,11 @@ class InvitationTest extends TestCase
     public function test_admin_cannot_invite_an_already_registered_email()
     {
         Mail::fake();
-        $admin = User::factory()->administrator()->create();
+        $admin    = User::factory()->administrator()->create();
         $existing = User::factory()->create();
 
-        $response = $this->actingAs($admin, 'api-guard')->postJson('/api/v1/user/invitations', [
+        Passport::actingAs($admin, [], 'api-guard');
+        $response = $this->postJson('/api/v1/user/invitations', [
             'email' => $existing->email,
         ]);
 

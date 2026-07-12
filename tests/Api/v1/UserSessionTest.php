@@ -6,6 +6,7 @@ use App\Models\User;
 use App\Models\UserSession;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
+use Laravel\Passport\Passport;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
 use Tests\TestCase;
@@ -23,27 +24,27 @@ class UserSessionTest extends TestCase
      * The token id is a fixed string used on BOTH rows so the controller's
      * JOIN (user_sessions.token_id = oauth_access_tokens.id) resolves.
      */
-    private function seedSession(User $user, array $overrides = []): UserSession
+    private function seedSession(User $user, array $overrides = []) : UserSession
     {
         $tokenId = $overrides['token_id'] ?? 'token-' . uniqid();
 
         DB::table('oauth_access_tokens')->insert([
-            'id' => $tokenId,
-            'user_id' => $user->id,
-            'client_id' => 1,
-            'name' => 'Test',
-            'scopes' => '[]',
-            'revoked' => $overrides['revoked'] ?? false,
+            'id'         => $tokenId,
+            'user_id'    => $user->id,
+            'client_id'  => 1,
+            'name'       => 'Test',
+            'scopes'     => '[]',
+            'revoked'    => $overrides['revoked'] ?? false,
             'created_at' => now(),
             'updated_at' => now(),
             'expires_at' => now()->addDay(),
         ]);
 
         return UserSession::create([
-            'user_id' => $user->id,
-            'token_id' => $tokenId,
-            'ip_address' => '127.0.0.1',
-            'user_agent' => 'TestAgent',
+            'user_id'        => $user->id,
+            'token_id'       => $tokenId,
+            'ip_address'     => '127.0.0.1',
+            'user_agent'     => 'TestAgent',
             'last_active_at' => now(),
         ]);
     }
@@ -61,7 +62,8 @@ class UserSessionTest extends TestCase
         $user = User::factory()->create();
         $this->seedSession($user);
 
-        $this->actingAs($user, 'api-guard')
+        Passport::actingAs($user, [], 'api-guard');
+        $this
             ->getJson('/api/v1/user/sessions')
             ->assertStatus(200)
             ->assertJsonStructure([
@@ -72,10 +74,11 @@ class UserSessionTest extends TestCase
     #[Test]
     public function test_revoked_tokens_are_excluded_from_list()
     {
-        $user = User::factory()->create();
+        $user    = User::factory()->create();
         $session = $this->seedSession($user, ['revoked' => true]);
 
-        $response = $this->actingAs($user, 'api-guard')->getJson('/api/v1/user/sessions');
+        Passport::actingAs($user, [], 'api-guard');
+        $response = $this->getJson('/api/v1/user/sessions');
 
         $response->assertStatus(200)->assertJsonMissing(['id' => $session->id]);
     }
@@ -83,10 +86,11 @@ class UserSessionTest extends TestCase
     #[Test]
     public function test_user_can_revoke_own_session()
     {
-        $user = User::factory()->create();
+        $user    = User::factory()->create();
         $session = $this->seedSession($user);
 
-        $this->actingAs($user, 'api-guard')
+        Passport::actingAs($user, [], 'api-guard');
+        $this
             ->deleteJson('/api/v1/user/sessions/' . $session->id)
             ->assertStatus(204);
 
@@ -97,11 +101,12 @@ class UserSessionTest extends TestCase
     #[Test]
     public function test_user_cannot_revoke_other_users_session()
     {
-        $owner = User::factory()->create();
+        $owner    = User::factory()->create();
         $intruder = User::factory()->create();
-        $session = $this->seedSession($owner);
+        $session  = $this->seedSession($owner);
 
-        $this->actingAs($intruder, 'api-guard')
+        Passport::actingAs($intruder, [], 'api-guard');
+        $this
             ->deleteJson('/api/v1/user/sessions/' . $session->id)
             ->assertNotFound();
     }

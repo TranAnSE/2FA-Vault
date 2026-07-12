@@ -5,6 +5,7 @@ namespace Tests\Api\v1\Controllers;
 use App\Api\v1\Controllers\QrCodeController;
 use App\Models\TwoFAccount;
 use App\Models\User;
+use Laravel\Passport\Passport;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
 use Tests\Classes\LocalFile;
@@ -16,14 +17,14 @@ use Tests\FeatureTestCase;
 #[CoversClass(QrCodeController::class)]
 class QrCodeControllerTest extends FeatureTestCase
 {
-    protected function createEncryptedUser(array $attributes = []): User
+    protected function createEncryptedUser(array $attributes = []) : User
     {
         return User::factory()->create(array_merge([
-            'encryption_enabled' => true,
-            'encryption_salt' => 'test_salt',
+            'encryption_enabled'    => true,
+            'encryption_salt'       => 'test_salt',
             'encryption_test_value' => '{"ciphertext":"test","iv":"test","authTag":"test"}',
-            'encryption_version' => 1,
-            'vault_locked' => false,
+            'encryption_version'    => 1,
+            'vault_locked'          => false,
         ], $attributes));
     }
 
@@ -61,7 +62,8 @@ class QrCodeControllerTest extends FeatureTestCase
     #[Test]
     public function test_show_qrcode_returns_base64_image()
     {
-        $response = $this->actingAs($this->user, 'api-guard')
+        Passport::actingAs($this->user, [], 'api-guard');
+        $response = $this
             ->json('GET', '/api/v1/twofaccounts/' . $this->twofaccount->id . '/qrcode')
             ->assertJsonStructure([
                 'qrcode',
@@ -74,7 +76,8 @@ class QrCodeControllerTest extends FeatureTestCase
     #[Test]
     public function test_show_missing_qrcode_returns_not_found()
     {
-        $response = $this->actingAs($this->user, 'api-guard')
+        Passport::actingAs($this->user, [], 'api-guard');
+        $response = $this
             ->json('GET', '/api/v1/twofaccounts/1000/qrcode')
             ->assertNotFound()
             ->assertJsonStructure([
@@ -85,7 +88,8 @@ class QrCodeControllerTest extends FeatureTestCase
     #[Test]
     public function test_show_qrcode_of_another_user_is_forbidden()
     {
-        $response = $this->actingAs($this->anotherUser, 'api-guard')
+        Passport::actingAs($this->anotherUser, [], 'api-guard');
+        $response = $this
             ->json('GET', '/api/v1/twofaccounts/' . $this->twofaccount->id . '/qrcode')
             ->assertForbidden()
             ->assertJsonStructure([
@@ -98,8 +102,8 @@ class QrCodeControllerTest extends FeatureTestCase
     {
         $file = LocalFile::fake()->validQrcode();
 
+        Passport::actingAs($this->user, [], 'api-guard');
         $response = $this->withHeaders(['Content-Type' => 'multipart/form-data'])
-            ->actingAs($this->user, 'api-guard')
             ->json('POST', '/api/v1/qrcode/decode', [
                 'qrcode'      => $file,
                 'inputFormat' => 'fileUpload',
@@ -113,7 +117,8 @@ class QrCodeControllerTest extends FeatureTestCase
     #[Test]
     public function test_decode_missing_qrcode_return_validation_error()
     {
-        $response = $this->actingAs($this->user, 'api-guard')
+        Passport::actingAs($this->user, [], 'api-guard');
+        $response = $this
             ->json('POST', '/api/v1/qrcode/decode', [
                 'qrcode' => '',
             ])
@@ -125,8 +130,8 @@ class QrCodeControllerTest extends FeatureTestCase
     {
         $file = LocalFile::fake()->invalidQrcode();
 
+        Passport::actingAs($this->user, [], 'api-guard');
         $response = $this->withHeaders(['Content-Type' => 'multipart/form-data'])
-            ->actingAs($this->user, 'api-guard')
             ->json('POST', '/api/v1/qrcode/decode', [
                 'qrcode'      => $file,
                 'inputFormat' => 'fileUpload',

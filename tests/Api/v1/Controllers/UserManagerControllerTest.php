@@ -22,6 +22,7 @@ use Illuminate\Support\Facades\Notification;
 use Illuminate\Support\Facades\Password;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Str;
+use Laravel\Passport\Passport;
 use Laravel\Passport\TokenRepository;
 use Mockery\MockInterface;
 use PHPUnit\Framework\Attributes\CoversClass;
@@ -90,7 +91,8 @@ class UserManagerControllerTest extends FeatureTestCase
     #[Test]
     public function test_index_returns_all_users_with_expected_user_manager_resources() : void
     {
-        $response = $this->actingAs($this->admin, 'api-guard')
+        Passport::actingAs($this->admin, [], 'api-guard');
+        $response = $this
             ->json('GET', '/api/v1/users')
             ->assertJsonCount(3)
             ->assertJsonStructure([
@@ -131,7 +133,8 @@ class UserManagerControllerTest extends FeatureTestCase
     #[Test]
     public function test_show_returns_the_expected_user_manager_resource() : void
     {
-        $response = $this->actingAs($this->admin, 'api-guard')
+        Passport::actingAs($this->admin, [], 'api-guard');
+        $response = $this
             ->json('GET', '/api/v1/users/' . $this->user->id)
             ->assertJson([
                 'info' => [
@@ -155,7 +158,8 @@ class UserManagerControllerTest extends FeatureTestCase
     #[Test]
     public function test_show_returns_forbidden_to_non_admin_user() : void
     {
-        $this->actingAs($this->user, 'api-guard')
+        Passport::actingAs($this->user, [], 'api-guard');
+        $this
             ->json('GET', '/api/v1/users/' . $this->anotherUser->id)
             ->assertForbidden()
             ->assertJsonStructure([
@@ -172,7 +176,8 @@ class UserManagerControllerTest extends FeatureTestCase
         $user        = User::factory()->create();
         $oldPassword = $user->password;
 
-        $this->actingAs($this->admin, 'api-guard')
+        Passport::actingAs($this->admin, [], 'api-guard');
+        $this
             ->json('PATCH', '/api/v1/users/' . $user->id . '/password/reset')
             ->assertOk();
 
@@ -197,7 +202,8 @@ class UserManagerControllerTest extends FeatureTestCase
         $path    = '/api/v1/users/' . $user->id . '/password/reset';
         $request = Request::create($path, 'PATCH');
 
-        $response = $this->actingAs($this->admin, 'api-guard')
+        Passport::actingAs($this->admin, [], 'api-guard');
+        $response = $this
             ->json('PATCH', $path);
 
         $user->refresh();
@@ -224,7 +230,8 @@ class UserManagerControllerTest extends FeatureTestCase
 
         $user = User::factory()->create();
 
-        $this->actingAs($this->admin, 'api-guard')
+        Passport::actingAs($this->admin, [], 'api-guard');
+        $this
             ->json('PATCH', '/api/v1/users/' . $user->id . '/password/reset')
             ->assertStatus(400)
             ->assertJsonStructure([
@@ -253,7 +260,8 @@ class UserManagerControllerTest extends FeatureTestCase
 
         $user = User::factory()->create();
 
-        $this->actingAs($this->admin, 'api-guard')
+        Passport::actingAs($this->admin, [], 'api-guard');
+        $this
             ->json('PATCH', '/api/v1/users/' . $user->id . '/password/reset')
             ->assertStatus(400)
             ->assertJsonStructure([
@@ -267,7 +275,8 @@ class UserManagerControllerTest extends FeatureTestCase
     #[Test]
     public function test_store_creates_the_user_and_returns_success()
     {
-        $this->actingAs($this->admin, 'api-guard')
+        Passport::actingAs($this->admin, [], 'api-guard');
+        $this
             ->json('POST', '/api/v1/users', [
                 'name'                  => self::USERNAME,
                 'email'                 => self::EMAIL,
@@ -291,7 +300,8 @@ class UserManagerControllerTest extends FeatureTestCase
         $userDefinition['password_confirmation'] = $userDefinition['password'];
         $request                                 = Request::create($path, 'POST');
 
-        $response = $this->actingAs($this->admin, 'api-guard')
+        Passport::actingAs($this->admin, [], 'api-guard');
+        $response = $this
             ->json('POST', $path, $userDefinition)
             ->assertCreated();
 
@@ -310,7 +320,8 @@ class UserManagerControllerTest extends FeatureTestCase
         $userDefinition['password_confirmation'] = $userDefinition['password'];
         $request                                 = Request::create($path, 'POST');
 
-        $response = $this->actingAs($this->admin, 'api-guard')
+        Passport::actingAs($this->admin, [], 'api-guard');
+        $response = $this
             ->json('POST', $path, $userDefinition)
             ->assertCreated();
 
@@ -323,7 +334,8 @@ class UserManagerControllerTest extends FeatureTestCase
     #[Test]
     public function test_store_another_user_returns_forbidden() : void
     {
-        $this->actingAs($this->user, 'api-guard')
+        Passport::actingAs($this->user, [], 'api-guard');
+        $this
             ->json('POST', '/api/v1/users', [
                 'name'                  => self::USERNAME,
                 'email'                 => self::EMAIL,
@@ -349,13 +361,15 @@ class UserManagerControllerTest extends FeatureTestCase
 
         $tokenRepository = app(TokenRepository::class);
 
-        $this->actingAs($this->user, 'api-guard')
+        Passport::actingAs($this->user, [], 'api-guard');
+        $this
             ->json('POST', '/oauth/personal-access-tokens', [
                 'name' => 'RandomTokenName',
             ])
             ->assertOk();
 
-        $this->actingAs($this->admin, 'api-guard')
+        Passport::actingAs($this->admin, [], 'api-guard');
+        $this
             ->json('DELETE', '/api/v1/users/' . $this->user->id . '/pats');
 
         $tokens = $tokenRepository->forUser($this->user);
@@ -369,7 +383,8 @@ class UserManagerControllerTest extends FeatureTestCase
     #[Test]
     public function test_revoke_pa_ts_returns_no_content()
     {
-        $this->actingAs($this->admin, 'api-guard')
+        Passport::actingAs($this->admin, [], 'api-guard');
+        $this
             ->json('DELETE', '/api/v1/users/' . $this->user->id . '/pats')
             ->assertNoContent();
     }
@@ -380,7 +395,8 @@ class UserManagerControllerTest extends FeatureTestCase
         // a fresh user has no token
         $user = User::factory()->create();
 
-        $this->actingAs($this->admin, 'api-guard')
+        Passport::actingAs($this->admin, [], 'api-guard');
+        $this
             ->json('DELETE', '/api/v1/users/' . $user->id . '/pats')
             ->assertNoContent();
     }
@@ -403,7 +419,8 @@ class UserManagerControllerTest extends FeatureTestCase
             'created_at'           => now(),
         ]);
 
-        $this->actingAs($this->admin, 'api-guard')
+        Passport::actingAs($this->admin, [], 'api-guard');
+        $this
             ->json('DELETE', '/api/v1/users/' . $this->user->id . '/credentials');
 
         $this->assertDatabaseMissing('webauthn_credentials', [
@@ -429,7 +446,8 @@ class UserManagerControllerTest extends FeatureTestCase
             'created_at'           => now(),
         ]);
 
-        $this->actingAs($this->admin, 'api-guard')
+        Passport::actingAs($this->admin, [], 'api-guard');
+        $this
             ->json('DELETE', '/api/v1/users/' . $this->user->id . '/credentials')
             ->assertNoContent();
     }
@@ -439,7 +457,8 @@ class UserManagerControllerTest extends FeatureTestCase
     {
         DB::table('webauthn_credentials')->delete();
 
-        $this->actingAs($this->admin, 'api-guard')
+        Passport::actingAs($this->admin, [], 'api-guard');
+        $this
             ->json('DELETE', '/api/v1/users/' . $this->user->id . '/credentials')
             ->assertNoContent();
     }
@@ -450,7 +469,8 @@ class UserManagerControllerTest extends FeatureTestCase
         $this->user['preferences->useWebauthnOnly'] = true;
         $this->user->save();
 
-        $this->actingAs($this->admin, 'api-guard')
+        Passport::actingAs($this->admin, [], 'api-guard');
+        $this
             ->json('DELETE', '/api/v1/users/' . $this->user->id . '/credentials')
             ->assertNoContent();
 
@@ -464,7 +484,8 @@ class UserManagerControllerTest extends FeatureTestCase
     {
         $user = User::factory()->create();
 
-        $this->actingAs($this->admin, 'api-guard')
+        Passport::actingAs($this->admin, [], 'api-guard');
+        $this
             ->json('DELETE', '/api/v1/users/' . $user->id)
             ->assertNoContent();
     }
@@ -472,7 +493,8 @@ class UserManagerControllerTest extends FeatureTestCase
     #[Test]
     public function test_destroy_the_only_admin_returns_forbidden()
     {
-        $this->actingAs($this->admin, 'api-guard')
+        Passport::actingAs($this->admin, [], 'api-guard');
+        $this
             ->json('DELETE', '/api/v1/users/' . $this->admin->id)
             ->assertForbidden();
     }
@@ -480,7 +502,8 @@ class UserManagerControllerTest extends FeatureTestCase
     #[Test]
     public function test_destroy_another_user_returns_forbidden() : void
     {
-        $this->actingAs($this->user, 'api-guard')
+        Passport::actingAs($this->user, [], 'api-guard');
+        $this
             ->json('DELETE', '/api/v1/users/' . $this->anotherUser->id)
             ->assertForbidden()
             ->assertJsonStructure([
@@ -491,7 +514,8 @@ class UserManagerControllerTest extends FeatureTestCase
     #[Test]
     public function test_promote_changes_admin_status() : void
     {
-        $this->actingAs($this->admin, 'api-guard')
+        Passport::actingAs($this->admin, [], 'api-guard');
+        $this
             ->json('PATCH', '/api/v1/users/' . $this->user->id . '/promote', [
                 'is_admin' => true,
             ])
@@ -508,7 +532,8 @@ class UserManagerControllerTest extends FeatureTestCase
         $path    = '/api/v1/users/' . $this->user->id . '/promote';
         $request = Request::create($path, 'PUT');
 
-        $response = $this->actingAs($this->admin, 'api-guard')
+        Passport::actingAs($this->admin, [], 'api-guard');
+        $response = $this
             ->json('PATCH', $path, [
                 'is_admin' => true,
             ]);
@@ -522,7 +547,8 @@ class UserManagerControllerTest extends FeatureTestCase
     #[Test]
     public function test_promote_another_user_returns_forbidden() : void
     {
-        $this->actingAs($this->user, 'api-guard')
+        Passport::actingAs($this->user, [], 'api-guard');
+        $this
             ->json('PATCH', '/api/v1/users/' . $this->anotherUser->id . '/promote', [
                 'is_admin' => true,
             ])
@@ -540,7 +566,8 @@ class UserManagerControllerTest extends FeatureTestCase
         $path    = '/api/v1/users/' . $anotherAdmin->id . '/promote';
         $request = Request::create($path, 'PUT');
 
-        $response = $this->actingAs($this->admin, 'api-guard')
+        Passport::actingAs($this->admin, [], 'api-guard');
+        $response = $this
             ->json('PATCH', $path, [
                 'is_admin' => false,
             ]);
@@ -556,7 +583,8 @@ class UserManagerControllerTest extends FeatureTestCase
     {
         $this->assertTrue(User::admins()->count() == 1);
 
-        $this->actingAs($this->admin, 'api-guard')
+        Passport::actingAs($this->admin, [], 'api-guard');
+        $this
             ->json('PATCH', '/api/v1/users/' . $this->admin->id . '/promote', [
                 'is_admin' => false,
             ])
@@ -574,7 +602,8 @@ class UserManagerControllerTest extends FeatureTestCase
         AuthLog::factory()->for($this->user, 'authenticatable')->failedLogin()->create();
         AuthLog::factory()->for($this->user, 'authenticatable')->create();
 
-        $this->actingAs($this->admin, 'api-guard')
+        Passport::actingAs($this->admin, [], 'api-guard');
+        $this
             ->json('GET', '/api/v1/users/' . $this->user->id . '/authentications')
             ->assertOk()
             ->assertJsonCount(7);
@@ -585,7 +614,8 @@ class UserManagerControllerTest extends FeatureTestCase
     {
         AuthLog::factory()->for($this->user, 'authenticatable')->beforeLastYear()->create();
 
-        $this->actingAs($this->admin, 'api-guard')
+        Passport::actingAs($this->admin, [], 'api-guard');
+        $this
             ->json('GET', '/api/v1/users/' . $this->user->id . '/authentications')
             ->assertOk()
             ->assertJsonCount(0);
@@ -597,7 +627,8 @@ class UserManagerControllerTest extends FeatureTestCase
         AuthLog::factory()->for($this->admin, 'authenticatable')->create();
         AuthLog::factory()->for($this->user, 'authenticatable')->create();
 
-        $response = $this->actingAs($this->admin, 'api-guard')
+        Passport::actingAs($this->admin, [], 'api-guard');
+        $response = $this
             ->json('GET', '/api/v1/users/' . $this->user->id . '/authentications')
             ->assertJsonCount(1);
 
@@ -610,7 +641,8 @@ class UserManagerControllerTest extends FeatureTestCase
     {
         AuthLog::factory()->for($this->user, 'authenticatable')->create();
 
-        $this->actingAs($this->admin, 'api-guard')
+        Passport::actingAs($this->admin, [], 'api-guard');
+        $this
             ->json('GET', '/api/v1/users/' . $this->user->id . '/authentications')
             ->assertJsonStructure([
                 '*' => [
@@ -644,7 +676,8 @@ class UserManagerControllerTest extends FeatureTestCase
             'logout_at' => $now,
         ]);
 
-        $response = $this->actingAs($this->admin, 'api-guard')
+        Passport::actingAs($this->admin, [], 'api-guard');
+        $response = $this
             ->json('GET', '/api/v1/users/' . $this->user->id . '/authentications');
 
         $login_at  = Carbon::parse($response->getData()[0]->login_at);
@@ -661,7 +694,8 @@ class UserManagerControllerTest extends FeatureTestCase
     {
         $this->logUserOut();
 
-        $this->actingAs($this->admin, 'api-guard')
+        Passport::actingAs($this->admin, [], 'api-guard');
+        $this
             ->json('GET', '/api/v1/users/' . $this->user->id . '/authentications')
             ->assertJsonCount(1)
             ->assertJsonFragment([
@@ -674,7 +708,8 @@ class UserManagerControllerTest extends FeatureTestCase
     {
         $this->logUserIn();
 
-        $this->actingAs($this->admin, 'api-guard')
+        Passport::actingAs($this->admin, [], 'api-guard');
+        $this
             ->json('GET', '/api/v1/users/' . $this->user->id . '/authentications')
             ->assertJsonCount(1)
             ->assertJsonFragment([
@@ -690,7 +725,8 @@ class UserManagerControllerTest extends FeatureTestCase
             'password' => 'wrong_password',
         ]);
 
-        $this->actingAs($this->admin, 'api-guard')
+        Passport::actingAs($this->admin, [], 'api-guard');
+        $this
             ->json('GET', '/api/v1/users/' . $this->user->id . '/authentications?period=1')
             ->assertJsonCount(1)
             ->assertJsonFragment([
@@ -706,7 +742,8 @@ class UserManagerControllerTest extends FeatureTestCase
         $this->travelBack();
         $this->logUserIn();
 
-        $response = $this->actingAs($this->admin, 'api-guard')
+        Passport::actingAs($this->admin, [], 'api-guard');
+        $response = $this
             ->json('GET', '/api/v1/users/' . $this->user->id . '/authentications?period=1')
             ->assertJsonCount(1);
 
@@ -723,7 +760,8 @@ class UserManagerControllerTest extends FeatureTestCase
         $this->logUserIn();
         $this->travelBack();
 
-        $response = $this->actingAs($this->admin, 'api-guard')
+        Passport::actingAs($this->admin, [], 'api-guard');
+        $response = $this
             ->json('GET', '/api/v1/users/' . $this->user->id . '/authentications?period=3')
             ->assertJsonCount(1);
 
@@ -740,7 +778,8 @@ class UserManagerControllerTest extends FeatureTestCase
         $this->logUserIn();
         $this->travelBack();
 
-        $response = $this->actingAs($this->admin, 'api-guard')
+        Passport::actingAs($this->admin, [], 'api-guard');
+        $response = $this
             ->json('GET', '/api/v1/users/' . $this->user->id . '/authentications?period=6')
             ->assertJsonCount(1);
 
@@ -757,7 +796,8 @@ class UserManagerControllerTest extends FeatureTestCase
         $this->logUserIn();
         $this->travelBack();
 
-        $response = $this->actingAs($this->admin, 'api-guard')
+        Passport::actingAs($this->admin, [], 'api-guard');
+        $response = $this
             ->json('GET', '/api/v1/users/' . $this->user->id . '/authentications?period=12')
             ->assertJsonCount(1);
 
@@ -773,7 +813,8 @@ class UserManagerControllerTest extends FeatureTestCase
         AuthLog::factory()->for($this->user, 'authenticatable')->duringLastThreeMonth()->create();
         AuthLog::factory()->for($this->user, 'authenticatable')->duringLastMonth()->create();
 
-        $this->actingAs($this->admin, 'api-guard')
+        Passport::actingAs($this->admin, [], 'api-guard');
+        $this
             ->json('GET', '/api/v1/users/' . $this->user->id . '/authentications?limit=' . $limit)
             ->assertOk()
             ->assertJsonCount($limit);
@@ -800,7 +841,8 @@ class UserManagerControllerTest extends FeatureTestCase
             'user_agent' => 'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:109.0) Gecko/20100101 Firefox/115.0',
         ]);
 
-        $this->actingAs($this->admin, 'api-guard')
+        Passport::actingAs($this->admin, [], 'api-guard');
+        $this
             ->json('GET', '/api/v1/users/' . $this->user->id . '/authentications?period=1')
             ->assertJsonFragment([
                 'ip_address' => '127.0.0.1',
@@ -814,7 +856,8 @@ class UserManagerControllerTest extends FeatureTestCase
     #[DataProvider('invalidQueryParameterProvider')]
     public function test_authentications_with_invalid_limit_returns_validation_error($limit) : void
     {
-        $this->actingAs($this->admin, 'api-guard')
+        Passport::actingAs($this->admin, [], 'api-guard');
+        $this
             ->json('GET', '/api/v1/users/' . $this->user->id . '/authentications?limit=' . $limit)
             ->assertInvalid(['limit']);
     }
@@ -823,7 +866,8 @@ class UserManagerControllerTest extends FeatureTestCase
     #[DataProvider('invalidQueryParameterProvider')]
     public function test_authentications_with_invalid_period_returns_validation_error($period) : void
     {
-        $this->actingAs($this->admin, 'api-guard')
+        Passport::actingAs($this->admin, [], 'api-guard');
+        $this
             ->json('GET', '/api/v1/users/' . $this->user->id . '/authentications?period=' . $period)
             ->assertInvalid(['period']);
     }

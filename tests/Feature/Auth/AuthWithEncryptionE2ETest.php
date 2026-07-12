@@ -174,7 +174,8 @@ class AuthWithEncryptionE2ETest extends TestCase
         $this->user->save();
 
         // Failed verification (wrong password)
-        $response = $this->actingAs($this->user, 'api-guard')
+        Passport::actingAs($this->user, [], 'api-guard');
+        $response = $this
             ->postJson('/api/v1/encryption/verify', [
                 'verification_result' => false,
             ]);
