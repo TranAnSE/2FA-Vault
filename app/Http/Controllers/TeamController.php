@@ -14,6 +14,7 @@ use Illuminate\Validation\Rule;
 class TeamController extends Controller
 {
     protected TeamService $teamService;
+
     protected TeamActivityLogger $activityLogger;
 
     public function __construct(TeamService $teamService, TeamActivityLogger $activityLogger)
@@ -39,16 +40,16 @@ class TeamController extends Controller
             ->get()
             ->map(function ($team) use ($user) {
                 return [
-                    'id' => $team->id,
-                    'name' => $team->name,
-                    'owner_id' => $team->owner_id,
-                    'owner_name' => $team->owner->name,
-                    'role' => $team->getUserRole($user->id),
-                    'members_count' => $team->users_count,
+                    'id'                    => $team->id,
+                    'name'                  => $team->name,
+                    'owner_id'              => $team->owner_id,
+                    'owner_name'            => $team->owner->name,
+                    'role'                  => $team->getUserRole($user->id),
+                    'members_count'         => $team->users_count,
                     'shared_accounts_count' => $team->shared_accounts_count,
-                    'pending_invitations' => $team->pending_invitations_count,
-                    'created_at' => $team->created_at,
-                    'invite_code' => $team->owner_id === $user->id ? $team->invite_code : null,
+                    'pending_invitations'   => $team->pending_invitations_count,
+                    'created_at'            => $team->created_at,
+                    'invite_code'           => $team->owner_id === $user->id ? $team->invite_code : null,
                 ];
             });
 
@@ -83,16 +84,16 @@ class TeamController extends Controller
     {
         $team = Team::with(['owner', 'users'])->findOrFail($id);
 
-        if (!Gate::allows('view', $team)) {
+        if (! Gate::allows('view', $team)) {
             return response()->json(['message' => 'Forbidden'], 403);
         }
 
         $members = $team->users->map(function ($user) use ($team) {
             return [
-                'id' => $user->id,
-                'name' => $user->name,
-                'email' => $user->email,
-                'role' => $team->getUserRole($user->id),
+                'id'        => $user->id,
+                'name'      => $user->name,
+                'email'     => $user->email,
+                'role'      => $team->getUserRole($user->id),
                 'joined_at' => $user->pivot->joined_at,
             ];
         });
@@ -100,14 +101,14 @@ class TeamController extends Controller
         $stats = $this->teamService->getTeamStats($team);
 
         return response()->json([
-            'id' => $team->id,
-            'name' => $team->name,
-            'owner_id' => $team->owner_id,
-            'owner_name' => $team->owner->name,
+            'id'          => $team->id,
+            'name'        => $team->name,
+            'owner_id'    => $team->owner_id,
+            'owner_name'  => $team->owner->name,
             'invite_code' => Gate::allows('invite', $team) ? $team->invite_code : null,
-            'members' => $members,
-            'stats' => $stats,
-            'created_at' => $team->created_at,
+            'members'     => $members,
+            'stats'       => $stats,
+            'created_at'  => $team->created_at,
         ]);
     }
 
@@ -156,7 +157,7 @@ class TeamController extends Controller
     {
         $validated = $request->validate([
             'email' => 'required|email',
-            'role' => ['nullable', Rule::in(['admin', 'member', 'viewer'])],
+            'role'  => ['nullable', Rule::in(['admin', 'member', 'viewer'])],
         ]);
 
         $team = Team::findOrFail($id);
@@ -171,7 +172,7 @@ class TeamController extends Controller
             );
 
             return response()->json([
-                'message' => 'Invitation sent successfully',
+                'message'    => 'Invitation sent successfully',
                 'invitation' => $invitation,
             ], 201);
         } catch (\Exception $e) {
@@ -195,10 +196,11 @@ class TeamController extends Controller
 
             return response()->json([
                 'message' => 'Successfully joined team',
-                'team' => $team,
+                'team'    => $team,
             ]);
         } catch (\Exception $e) {
             $statusCode = $e->getMessage() === 'This invitation is not for your email address' ? 403 : 400;
+
             return response()->json(['message' => $e->getMessage()], $statusCode);
         }
     }
@@ -210,7 +212,7 @@ class TeamController extends Controller
     {
         $team = Team::findOrFail($id);
 
-        if (!Gate::allows('invite', $team)) {
+        if (! Gate::allows('invite', $team)) {
             return response()->json(['message' => 'Forbidden'], 403);
         }
 
@@ -219,10 +221,10 @@ class TeamController extends Controller
             ->get()
             ->map(function ($inv) {
                 return [
-                    'id' => $inv->id,
-                    'email' => $inv->email,
-                    'role' => $inv->role,
-                    'status' => $inv->status,
+                    'id'         => $inv->id,
+                    'email'      => $inv->email,
+                    'role'       => $inv->role,
+                    'status'     => $inv->status,
                     'expires_at' => $inv->expires_at,
                     'created_at' => $inv->created_at,
                 ];
@@ -238,7 +240,7 @@ class TeamController extends Controller
     {
         $team = Team::findOrFail($id);
 
-        if (!Gate::allows('invite', $team)) {
+        if (! Gate::allows('invite', $team)) {
             return response()->json(['message' => 'Forbidden'], 403);
         }
 
@@ -268,7 +270,7 @@ class TeamController extends Controller
 
             return response()->json([
                 'message' => 'Successfully joined team',
-                'team' => $team,
+                'team'    => $team,
             ]);
         } catch (\Exception $e) {
             return response()->json(['message' => $e->getMessage()], 400);
@@ -336,6 +338,35 @@ class TeamController extends Controller
     }
 
     /**
+     * Transfer team ownership to another member.
+     */
+    public function transferOwnership(Request $request, $id)
+    {
+        $validated = $request->validate([
+            'new_owner_id' => 'required|integer|exists:users,id',
+        ]);
+
+        $team = Team::findOrFail($id);
+        $this->authorize('transferOwnership', $team);
+        $user = Auth::user();
+
+        try {
+            $team = $this->teamService->transferOwnership($team, $user, $validated['new_owner_id']);
+
+            $this->activityLogger->log(
+                $team,
+                $user,
+                TeamAction::OWNERSHIP_TRANSFERRED,
+                ['new_owner_id' => $validated['new_owner_id']]
+            );
+
+            return response()->json($team);
+        } catch (\Exception $e) {
+            return response()->json(['message' => $e->getMessage()], 403);
+        }
+    }
+
+    /**
      * Share an account with a team (plain, non-E2EE).
      */
     public function shareAccount(Request $request, $id)
@@ -348,7 +379,7 @@ class TeamController extends Controller
         $team = Team::findOrFail($id);
         $user = Auth::user();
 
-        if (!$team->hasMember($user->id)) {
+        if (! $team->hasMember($user->id)) {
             return response()->json(['message' => 'Forbidden'], 403);
         }
 
@@ -382,10 +413,10 @@ class TeamController extends Controller
     public function shareEncrypted(Request $request, $id)
     {
         $validated = $request->validate([
-            'twofaccount_id'          => 'required|integer|exists:twofaccounts,id',
-            'access_level'            => 'nullable|in:read,write',
-            'member_keys'             => 'required|array|min:1',
-            'member_keys.*.member_id' => 'required|integer|exists:users,id',
+            'twofaccount_id'            => 'required|integer|exists:twofaccounts,id',
+            'access_level'              => 'nullable|in:read,write',
+            'member_keys'               => 'required|array|min:1',
+            'member_keys.*.member_id'   => 'required|integer|exists:users,id',
             'member_keys.*.wrapped_key' => 'required|string',
         ]);
 
@@ -418,11 +449,11 @@ class TeamController extends Controller
     {
         $team = Team::findOrFail($id);
 
-        if (!Gate::allows('view', $team)) {
+        if (! Gate::allows('view', $team)) {
             return response()->json(['message' => 'Forbidden'], 403);
         }
 
-        if (!$team->hasMember($userId)) {
+        if (! $team->hasMember($userId)) {
             return response()->json(['message' => 'User is not a team member'], 404);
         }
 
@@ -463,7 +494,7 @@ class TeamController extends Controller
 
         if ($sharedAccount->shared_by !== $user->id) {
             $role = $team->getUserRole($user->id);
-            if (!in_array($role, ['owner', 'admin'])) {
+            if (! in_array($role, ['owner', 'admin'])) {
                 return response()->json(['message' => 'Forbidden'], 403);
             }
         }
@@ -482,7 +513,7 @@ class TeamController extends Controller
     {
         $team = Team::findOrFail($id);
 
-        if (!Gate::allows('view', $team)) {
+        if (! Gate::allows('view', $team)) {
             return response()->json(['message' => 'Forbidden'], 403);
         }
 
@@ -498,7 +529,7 @@ class TeamController extends Controller
             })
             ->unique('twofaccount_id')
             ->values()
-            ->map(function ($sa) use ($requestingUserId) {
+            ->map(function ($sa) {
                 return [
                     'id'              => $sa->id,
                     'twofaccount_id'  => $sa->twofaccount_id,

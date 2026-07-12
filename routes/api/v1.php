@@ -158,6 +158,7 @@ Route::group(['middleware' => ['auth:api-guard', 'enforceMandatoryEncryption']],
     Route::post('teams/{id}/leave', [TeamController::class, 'leave'])->name('teams.leave');
     Route::delete('teams/{id}/members/{userId}', [TeamController::class, 'removeMember'])->name('teams.members.remove');
     Route::put('teams/{id}/members/{userId}/role', [TeamController::class, 'updateMemberRole'])->name('teams.members.updateRole');
+    Route::post('teams/{id}/transfer', [TeamController::class, 'transferOwnership'])->name('teams.transferOwnership');
     Route::get('teams/{id}/shared-accounts', [TeamController::class, 'sharedAccounts'])->name('teams.sharedAccounts.index');
     Route::post('teams/{id}/share', [TeamController::class, 'shareAccount'])->name('teams.shareAccount');
     Route::post('teams/{id}/share-encrypted', [TeamController::class, 'shareEncrypted'])->name('teams.shareEncrypted');

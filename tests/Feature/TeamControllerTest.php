@@ -257,4 +257,58 @@ class TeamControllerTest extends TestCase
 
         $response->assertStatus(403);
     }
+
+    /**
+     * Team ownership transfer: owner can transfer, becomes admin.
+     */
+    public function test_owner_can_transfer_team_ownership() : void
+    {
+        $owner  = $this->createEncryptedUser();
+        $member = $this->createEncryptedUser();
+
+        $team = Team::create([
+            'name'        => 'Transfer Team',
+            'owner_id'    => $owner->id,
+            'invite_code' => \Illuminate\Support\Str::random(16),
+        ]);
+        $team->users()->attach($owner->id, ['role' => 'owner', 'joined_at' => now()]);
+        $team->users()->attach($member->id, ['role' => 'member', 'joined_at' => now()]);
+
+        Passport::actingAs($owner, [], 'api-guard');
+        $response = $this->postJson("/api/v1/teams/{$team->id}/transfer", [
+            'new_owner_id' => $member->id,
+        ]);
+
+        $response->assertStatus(200);
+        $team->refresh();
+        $this->assertSame($member->id, $team->owner_id);
+        $this->assertSame('owner', $team->getUserRole($member->id));
+        $this->assertSame('admin', $team->getUserRole($owner->id));
+    }
+
+    /**
+     * Non-owner cannot transfer team ownership.
+     */
+    public function test_non_owner_cannot_transfer_team_ownership() : void
+    {
+        $owner  = $this->createEncryptedUser();
+        $member = $this->createEncryptedUser();
+        $other  = $this->createEncryptedUser();
+
+        $team = Team::create([
+            'name'        => 'Blocked Team',
+            'owner_id'    => $owner->id,
+            'invite_code' => \Illuminate\Support\Str::random(16),
+        ]);
+        $team->users()->attach($owner->id, ['role' => 'owner', 'joined_at' => now()]);
+        $team->users()->attach($member->id, ['role' => 'member', 'joined_at' => now()]);
+        $team->users()->attach($other->id, ['role' => 'member', 'joined_at' => now()]);
+
+        Passport::actingAs($member, [], 'api-guard');
+        $response = $this->postJson("/api/v1/teams/{$team->id}/transfer", [
+            'new_owner_id' => $other->id,
+        ]);
+
+        $response->assertStatus(403);
+    }
 }

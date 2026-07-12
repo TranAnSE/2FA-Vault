@@ -4,8 +4,8 @@ namespace App\Services;
 
 use App\Models\Team;
 use App\Models\TeamInvitation;
-use App\Models\User;
 use App\Models\TwoFAccount;
+use App\Models\User;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
@@ -21,14 +21,11 @@ class TeamService
     /**
      * Create a new team
      *
-     * @param User $owner
-     * @param string $name
-     * @return Team
      * @throws \Exception
      */
-    public function createTeam(User $owner, string $name): Team
+    public function createTeam(User $owner, string $name) : Team
     {
-        $maxTeams = config('2fauth.maxTeamsPerUser', 10);
+        $maxTeams       = config('2fauth.maxTeamsPerUser', 10);
         $userTeamsCount = Team::accessibleByUser($owner->id)->count();
 
         if ($userTeamsCount >= $maxTeams) {
@@ -36,20 +33,20 @@ class TeamService
         }
 
         $team = Team::create([
-            'name' => $name,
+            'name'     => $name,
             'owner_id' => $owner->id,
         ]);
 
         // Add owner as team member
         $team->users()->attach($owner->id, [
-            'role' => 'owner',
+            'role'      => 'owner',
             'joined_at' => now(),
         ]);
 
         Log::info('Team created', [
-            'team_id' => $team->id,
+            'team_id'  => $team->id,
             'owner_id' => $owner->id,
-            'name' => $name,
+            'name'     => $name,
         ]);
 
         return $team;
@@ -58,24 +55,20 @@ class TeamService
     /**
      * Update team name
      *
-     * @param Team $team
-     * @param User $user
-     * @param string $name
-     * @return Team
      * @throws \Exception
      */
-    public function updateTeam(Team $team, User $user, string $name): Team
+    public function updateTeam(Team $team, User $user, string $name) : Team
     {
-        if (!$this->canUpdateTeam($team, $user)) {
+        if (! $this->canUpdateTeam($team, $user)) {
             throw new \Exception('You do not have permission to update this team.');
         }
 
         $team->update(['name' => $name]);
 
         Log::info('Team updated', [
-            'team_id' => $team->id,
+            'team_id'    => $team->id,
             'updated_by' => $user->id,
-            'name' => $name,
+            'name'       => $name,
         ]);
 
         return $team->refresh();
@@ -84,12 +77,9 @@ class TeamService
     /**
      * Delete a team (soft delete)
      *
-     * @param Team $team
-     * @param User $user
-     * @return bool
      * @throws \Exception
      */
-    public function deleteTeam(Team $team, User $user): bool
+    public function deleteTeam(Team $team, User $user) : bool
     {
         if ($team->owner_id !== $user->id) {
             throw new \Exception('Only the team owner can delete the team.');
@@ -98,7 +88,7 @@ class TeamService
         $team->delete();
 
         Log::info('Team deleted', [
-            'team_id' => $team->id,
+            'team_id'    => $team->id,
             'deleted_by' => $user->id,
         ]);
 
@@ -108,38 +98,33 @@ class TeamService
     /**
      * Invite a user to join a team
      *
-     * @param Team $team
-     * @param User $inviter
-     * @param string $email
-     * @param string $role
-     * @return TeamInvitation
      * @throws \Exception
      */
-    public function inviteUser(Team $team, User $inviter, string $email, string $role = 'member'): TeamInvitation
+    public function inviteUser(Team $team, User $inviter, string $email, string $role = 'member') : TeamInvitation
     {
-        if (!$this->canInviteUsers($team, $inviter)) {
+        if (! $this->canInviteUsers($team, $inviter)) {
             throw new \Exception('You do not have permission to invite users to this team.');
         }
 
-        if (!in_array($role, ['admin', 'member', 'viewer'])) {
+        if (! in_array($role, ['admin', 'member', 'viewer'])) {
             throw new \Exception('Invalid role specified.');
         }
 
         $invitation = TeamInvitation::create([
-            'team_id' => $team->id,
-            'email' => $email,
-            'role' => $role,
-            'token' => Str::random(32),
-            'status' => 'pending',
+            'team_id'    => $team->id,
+            'email'      => $email,
+            'role'       => $role,
+            'token'      => Str::random(32),
+            'status'     => 'pending',
             'expires_at' => now()->addDays(7),
         ]);
 
         Log::info('Team invitation created', [
-            'team_id' => $team->id,
+            'team_id'       => $team->id,
             'invitation_id' => $invitation->id,
-            'email' => $email,
-            'role' => $role,
-            'invited_by' => $inviter->id,
+            'email'         => $email,
+            'role'          => $role,
+            'invited_by'    => $inviter->id,
         ]);
 
         return $invitation;
@@ -148,12 +133,9 @@ class TeamService
     /**
      * Accept a team invitation
      *
-     * @param TeamInvitation $invitation
-     * @param User $user
-     * @return Team
      * @throws \Exception
      */
-    public function acceptInvitation(TeamInvitation $invitation, User $user): Team
+    public function acceptInvitation(TeamInvitation $invitation, User $user) : Team
     {
         if ($invitation->email !== $user->email) {
             throw new \Exception('This invitation is not for your email address.');
@@ -183,7 +165,7 @@ class TeamService
         try {
             // Add user to team
             $team->users()->attach($user->id, [
-                'role' => $invitation->role,
+                'role'      => $invitation->role,
                 'joined_at' => now(),
             ]);
 
@@ -193,9 +175,9 @@ class TeamService
             DB::commit();
 
             Log::info('Team invitation accepted', [
-                'team_id' => $team->id,
+                'team_id'       => $team->id,
                 'invitation_id' => $invitation->id,
-                'user_id' => $user->id,
+                'user_id'       => $user->id,
             ]);
 
             return $team;
@@ -208,12 +190,9 @@ class TeamService
     /**
      * Join a team via invite code
      *
-     * @param string $inviteCode
-     * @param User $user
-     * @return Team
      * @throws \Exception
      */
-    public function joinByInviteCode(string $inviteCode, User $user): Team
+    public function joinByInviteCode(string $inviteCode, User $user) : Team
     {
         $team = Team::where('invite_code', $inviteCode)->firstOrFail();
 
@@ -227,7 +206,7 @@ class TeamService
         }
 
         $team->users()->attach($user->id, [
-            'role' => 'member',
+            'role'      => 'member',
             'joined_at' => now(),
         ]);
 
@@ -242,12 +221,9 @@ class TeamService
     /**
      * Leave a team
      *
-     * @param Team $team
-     * @param User $user
-     * @return bool
      * @throws \Exception
      */
-    public function leaveTeam(Team $team, User $user): bool
+    public function leaveTeam(Team $team, User $user) : bool
     {
         if ($team->owner_id === $user->id) {
             throw new \Exception('Team owner cannot leave. Transfer ownership or delete the team instead.');
@@ -264,17 +240,52 @@ class TeamService
     }
 
     /**
-     * Remove a member from the team
+     * Transfer team ownership to another member.
      *
-     * @param Team $team
-     * @param User $actor
-     * @param int $userIdToRemove
-     * @return bool
+     * The current owner becomes an admin; the target member is promoted to
+     * owner. Only the current owner can call this.
+     *
+     * @param  int  $newOwnerId  The user ID of the target member (must already be a team member)
+     *
      * @throws \Exception
      */
-    public function removeMember(Team $team, User $actor, int $userIdToRemove): bool
+    public function transferOwnership(Team $team, User $currentOwner, int $newOwnerId) : Team
     {
-        if (!$this->canRemoveMembers($team, $actor)) {
+        if ($team->owner_id !== $currentOwner->id) {
+            throw new \Exception('Only the team owner can transfer ownership.');
+        }
+
+        if (! $team->hasMember($newOwnerId)) {
+            throw new \Exception('The target user is not a member of this team.');
+        }
+
+        if ($newOwnerId === $currentOwner->id) {
+            throw new \Exception('You are already the owner of this team.');
+        }
+
+        $team->users()->updateExistingPivot($currentOwner->id, ['role' => 'admin']);
+        $team->users()->updateExistingPivot($newOwnerId, ['role' => 'owner']);
+
+        $team->owner_id = $newOwnerId;
+        $team->save();
+
+        Log::info('Team ownership transferred', [
+            'team_id'      => $team->id,
+            'from_user_id' => $currentOwner->id,
+            'to_user_id'   => $newOwnerId,
+        ]);
+
+        return $team->fresh();
+    }
+
+    /**
+     * Remove a member from the team
+     *
+     * @throws \Exception
+     */
+    public function removeMember(Team $team, User $actor, int $userIdToRemove) : bool
+    {
+        if (! $this->canRemoveMembers($team, $actor)) {
             throw new \Exception('You do not have permission to remove members from this team.');
         }
 
@@ -285,9 +296,9 @@ class TeamService
         $team->users()->detach($userIdToRemove);
 
         Log::info('Member removed from team', [
-            'team_id' => $team->id,
+            'team_id'         => $team->id,
             'removed_user_id' => $userIdToRemove,
-            'removed_by' => $actor->id,
+            'removed_by'      => $actor->id,
         ]);
 
         return true;
@@ -296,20 +307,15 @@ class TeamService
     /**
      * Update member role
      *
-     * @param Team $team
-     * @param User $actor
-     * @param int $targetUserId
-     * @param string $newRole
-     * @return bool
      * @throws \Exception
      */
-    public function updateMemberRole(Team $team, User $actor, int $targetUserId, string $newRole): bool
+    public function updateMemberRole(Team $team, User $actor, int $targetUserId, string $newRole) : bool
     {
         if ($team->owner_id !== $actor->id) {
             throw new \Exception('Only the team owner can update member roles.');
         }
 
-        if (!in_array($newRole, ['admin', 'member', 'viewer'])) {
+        if (! in_array($newRole, ['admin', 'member', 'viewer'])) {
             throw new \Exception('Invalid role specified.');
         }
 
@@ -322,10 +328,10 @@ class TeamService
         ]);
 
         Log::info('Member role updated', [
-            'team_id' => $team->id,
+            'team_id'        => $team->id,
             'target_user_id' => $targetUserId,
-            'new_role' => $newRole,
-            'updated_by' => $actor->id,
+            'new_role'       => $newRole,
+            'updated_by'     => $actor->id,
         ]);
 
         return true;
@@ -334,34 +340,29 @@ class TeamService
     /**
      * Share an account with a team
      *
-     * @param TwoFAccount $account
-     * @param Team $team
-     * @param User $sharer
-     * @param string $accessLevel
-     * @return \App\Models\SharedAccount
      * @throws \Exception
      */
-    public function shareAccountWithTeam(TwoFAccount $account, Team $team, User $sharer, string $accessLevel = 'view'): \App\Models\SharedAccount
+    public function shareAccountWithTeam(TwoFAccount $account, Team $team, User $sharer, string $accessLevel = 'view') : \App\Models\SharedAccount
     {
         if ($account->user_id !== $sharer->id) {
             throw new \Exception('You can only share accounts you own.');
         }
 
-        if (!$team->hasMember($sharer->id)) {
+        if (! $team->hasMember($sharer->id)) {
             throw new \Exception('You must be a member of the team to share accounts with it.');
         }
 
         $sharedAccount = \App\Models\SharedAccount::create([
-            'team_id' => $team->id,
+            'team_id'        => $team->id,
             'twofaccount_id' => $account->id,
-            'shared_by' => $sharer->id,
-            'access_level' => $accessLevel,
+            'shared_by'      => $sharer->id,
+            'access_level'   => $accessLevel,
         ]);
 
         Log::info('Account shared with team', [
-            'account_id' => $account->id,
-            'team_id' => $team->id,
-            'shared_by' => $sharer->id,
+            'account_id'   => $account->id,
+            'team_id'      => $team->id,
+            'shared_by'    => $sharer->id,
             'access_level' => $accessLevel,
         ]);
 
@@ -375,13 +376,13 @@ class TeamService
      *
      * @param  array<array{member_id: int, wrapped_key: string}>  $memberKeys
      */
-    public function shareEncryptedWithMembers(TwoFAccount $account, Team $team, User $sharer, string $accessLevel, array $memberKeys): void
+    public function shareEncryptedWithMembers(TwoFAccount $account, Team $team, User $sharer, string $accessLevel, array $memberKeys) : void
     {
         if ($account->user_id !== $sharer->id) {
             throw new \Exception('You can only share accounts you own.');
         }
 
-        if (!$team->hasMember($sharer->id)) {
+        if (! $team->hasMember($sharer->id)) {
             throw new \Exception('You must be a member of the team to share accounts with it.');
         }
 
@@ -392,7 +393,7 @@ class TeamService
             ->delete();
 
         foreach ($memberKeys as $entry) {
-            if (!$team->hasMember($entry['member_id'])) {
+            if (! $team->hasMember($entry['member_id'])) {
                 continue; // skip non-members silently
             }
 
@@ -407,52 +408,52 @@ class TeamService
         }
 
         Log::info('Account shared with encrypted keys', [
-            'account_id'     => $account->id,
-            'team_id'        => $team->id,
-            'shared_by'      => $sharer->id,
-            'member_count'   => count($memberKeys),
+            'account_id'   => $account->id,
+            'team_id'      => $team->id,
+            'shared_by'    => $sharer->id,
+            'member_count' => count($memberKeys),
         ]);
     }
 
     /**
      * Check if user can update team
      */
-    private function canUpdateTeam(Team $team, User $user): bool
+    private function canUpdateTeam(Team $team, User $user) : bool
     {
         $role = $team->getUserRole($user->id);
+
         return in_array($role, ['admin', 'owner']);
     }
 
     /**
      * Check if user can invite others
      */
-    private function canInviteUsers(Team $team, User $user): bool
+    private function canInviteUsers(Team $team, User $user) : bool
     {
         $role = $team->getUserRole($user->id);
+
         return in_array($role, ['admin', 'owner']);
     }
 
     /**
      * Check if user can remove members
      */
-    private function canRemoveMembers(Team $team, User $user): bool
+    private function canRemoveMembers(Team $team, User $user) : bool
     {
         $role = $team->getUserRole($user->id);
+
         return in_array($role, ['admin', 'owner']);
     }
 
     /**
      * Get team statistics
-     *
-     * @param Team $team
-     * @return array
      */
-    public function getTeamStats(Team $team): array
+    public function getTeamStats(Team $team) : array
     {
         return [
-            'members_count' => $team->users()->count(),
+            'members_count'         => $team->users()->count(),
             'shared_accounts_count' => $team->sharedAccounts()->count(),
-            'invitations_pending' => TeamInvitation::where('team_id', $team->id)
+            'invitations_pending'   => TeamInvitation::where('team_id', $team->id)
                 ->where('status', 'pending')
                 ->count(),
         ];
