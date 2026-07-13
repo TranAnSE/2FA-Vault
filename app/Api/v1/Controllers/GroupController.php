@@ -36,7 +36,12 @@ class GroupController extends Controller
         $user   = $request->user();
         $groups = $user->groups()->withCount('twofaccounts')->get()->sortBy('order_column');
 
-        return GroupResource::collection(Groups::prependTheAllGroup($groups, $request->user()));
+        $groups = Groups::prependTheAllGroup($groups, $request->user());
+
+        // Append virtual sharing groups (shared by me, shared with me).
+        $groups = Groups::prependVirtualSharingGroups($groups, $request->user());
+
+        return GroupResource::collection($groups);
     }
 
     /**

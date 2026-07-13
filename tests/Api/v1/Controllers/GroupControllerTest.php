@@ -115,6 +115,16 @@ class GroupControllerTest extends FeatureTestCase
                     'name'               => $this->userGroupB->name,
                     'twofaccounts_count' => 0,
                 ],
+                '3' => [
+                    'id'                 => \App\Models\Group::SHARED_BY_ME_ID,
+                    'name'               => 'Shared by me',
+                    'twofaccounts_count' => 0,
+                ],
+                '4' => [
+                    'id'                 => \App\Models\Group::SHARED_WITH_ME_ID,
+                    'name'               => 'Shared with me',
+                    'twofaccounts_count' => 0,
+                ],
             ]);
     }
 

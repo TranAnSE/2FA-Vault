@@ -626,6 +626,8 @@
   "label.send_recovery_link": "Send recovery link",
   "label.send_test_notification": "Send test notification",
   "label.share": "Share",
+  "label.shared_by_me": "Shared by me",
+  "label.shared_with_me": "Shared with me",
   "label.sessions": "Sessions",
   "label.show_me": "Show me",
   "label.sign_in": "Sign in",

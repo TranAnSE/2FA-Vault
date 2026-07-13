@@ -45,6 +45,22 @@ class Group extends Model implements Sortable
     use HasFactory, SortableTrait;
 
     /**
+     * Virtual group ID for the "All" pseudo-group (all accounts).
+     */
+    public const ALL_ID = 0;
+
+    /**
+     * Virtual group ID for accounts shared BY the current user.
+     * (Avoids -2 which is TwoFAccount::FAKE_ID used by migrators.)
+     */
+    public const SHARED_BY_ME_ID = -3;
+
+    /**
+     * Virtual group ID for accounts shared WITH the current user.
+     */
+    public const SHARED_WITH_ME_ID = -4;
+
+    /**
      * model's array form.
      *
      * @var list<string>
@@ -130,9 +146,21 @@ class Group extends Model implements Sortable
             $group->id = 0;
 
             return $group;
-        } else {
-            return parent::resolveRouteBinding($value, $field);
         }
+
+        // Virtual sharing groups (no DB row).
+        $virtualNames = [
+            (string) self::SHARED_BY_ME_ID   => __('label.shared_by_me'),
+            (string) self::SHARED_WITH_ME_ID => __('label.shared_with_me'),
+        ];
+        if (isset($virtualNames[$value])) {
+            $group     = new self(['name' => $virtualNames[$value]]);
+            $group->id = (int) $value;
+
+            return $group;
+        }
+
+        return parent::resolveRouteBinding($value, $field);
     }
 
     /**

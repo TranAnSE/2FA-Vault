@@ -82,7 +82,21 @@ class TwoFAccountController extends Controller
                 $query->whereIn('digits', array_map('intval', explode(',', $request->digits)));
             }
             if ($request->filled('group_id')) {
-                $query->where('group_id', (int) $request->group_id);
+                $groupId = (int) $request->group_id;
+
+                // Virtual sharing groups: filter by SharedAccount membership
+                // instead of the group_id column.
+                if ($groupId === \App\Models\Group::SHARED_BY_ME_ID) {
+                    $query->whereHas('sharedAccounts', function ($q) use ($request) {
+                        $q->where('shared_by', $request->user()->id);
+                    });
+                } elseif ($groupId === \App\Models\Group::SHARED_WITH_ME_ID) {
+                    $query->whereHas('sharedAccounts', function ($q) use ($request) {
+                        $q->where('member_id', $request->user()->id);
+                    });
+                } else {
+                    $query->where('group_id', $groupId);
+                }
             }
             if ($request->filled('tags')) {
                 $tagIds = array_filter(array_map('intval', explode(',', $request->tags)));
