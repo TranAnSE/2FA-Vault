@@ -82,6 +82,7 @@ Route::group(['middleware' => ['auth:api-guard', 'enforceMandatoryEncryption']],
     Route::get('twofaccounts/count', [TwoFAccountController::class, 'count'])->name('twofaccounts.count');
     Route::get('twofaccounts/{id}/otp', [TwoFAccountController::class, 'otp'])->where('id', '[0-9]+')->name('twofaccounts.show.otp');
     Route::patch('twofaccounts/{twofaccount}/counter', [TwoFAccountController::class, 'updateCounter'])->name('twofaccounts.update.counter');
+    Route::patch('twofaccounts/{twofaccount}/owner', [TwoFAccountController::class, 'transferOwnership'])->where('twofaccount', '[0-9]+')->name('twofaccounts.transferOwnership');
     Route::post('twofaccounts/otp', [TwoFAccountController::class, 'otp'])->name('twofaccounts.otp');
     Route::apiResource('twofaccounts', TwoFAccountController::class);
 

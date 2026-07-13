@@ -1927,4 +1927,42 @@ class TwoFAccountControllerTest extends FeatureTestCase
                 'message',
             ]);
     }
+
+    /**
+     * Direct account ownership transfer: owner can transfer to another user.
+     */
+    public function test_owner_can_transfer_account_ownership() : void
+    {
+        $account  = TwoFAccount::factory()->for($this->user)->create();
+        $receiver = User::factory()->create();
+
+        Passport::actingAs($this->user, [], 'api-guard');
+        $response = $this->patchJson("/api/v1/twofaccounts/{$account->id}/owner", [
+            'new_owner_id' => $receiver->id,
+        ]);
+
+        $response->assertStatus(200)
+            ->assertJsonPath('new_owner_id', $receiver->id);
+
+        $account->refresh();
+        $this->assertSame($receiver->id, $account->user_id);
+        $this->assertSame($this->user->id, $account->previous_owner_id);
+    }
+
+    /**
+     * Non-owner cannot transfer account ownership.
+     */
+    public function test_non_owner_cannot_transfer_account_ownership() : void
+    {
+        $account  = TwoFAccount::factory()->for($this->user)->create();
+        $other    = User::factory()->create();
+        $receiver = User::factory()->create();
+
+        Passport::actingAs($other, [], 'api-guard');
+        $response = $this->patchJson("/api/v1/twofaccounts/{$account->id}/owner", [
+            'new_owner_id' => $receiver->id,
+        ]);
+
+        $response->assertForbidden();
+    }
 }

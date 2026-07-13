@@ -139,4 +139,34 @@ class TwoFAccountService
 
         return $twofaccounts;
     }
+
+    /**
+     * Transfer ownership of a TwoFAccount to another user.
+     *
+     * The server only reassigns user_id and records previous_owner_id for
+     * audit. Because accounts are E2EE, the client must re-encrypt the
+     * account secret for the new owner BEFORE calling this endpoint (the
+     * server never sees plaintext). After transfer, any existing SharedAccount
+     * rows for this account are removed (the new owner can re-share if needed).
+     */
+    public function transferOwnership(TwoFAccount $twofaccount, User $newOwner) : TwoFAccount
+    {
+        $previousOwnerId = $twofaccount->user_id;
+
+        $twofaccount->previous_owner_id = $previousOwnerId;
+        $twofaccount->user_id           = $newOwner->id;
+        $twofaccount->group_id          = null; // detach from any group
+        $twofaccount->save();
+
+        // Remove existing shares — the new owner controls sharing going forward.
+        \App\Models\SharedAccount::where('twofaccount_id', $twofaccount->id)->delete();
+
+        Log::info('TwoFAccount ownership transferred', [
+            'twofaccount_id' => $twofaccount->id,
+            'previous_owner' => $previousOwnerId,
+            'new_owner'      => $newOwner->id,
+        ]);
+
+        return $twofaccount->fresh();
+    }
 }

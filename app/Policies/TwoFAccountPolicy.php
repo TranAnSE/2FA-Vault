@@ -77,6 +77,23 @@ class TwoFAccountPolicy
     }
 
     /**
+     * Determine whether the user can transfer ownership of the model.
+     * Only the owner can transfer.
+     *
+     * @return bool
+     */
+    public function transferOwnership(User $user, TwoFAccount $twofaccount)
+    {
+        $can = $this->isOwnerOf($user, $twofaccount);
+
+        if (! $can) {
+            Log::notice(sprintf('User ID #%s cannot transfer ownership of twofaccount ID #%s', $user->id, $twofaccount->id));
+        }
+
+        return $can;
+    }
+
+    /**
      * Determine whether the user can view all provided models.
      *
      * @param  \Illuminate\Support\Collection<int, \App\Models\TwoFAccount>  $twofaccounts

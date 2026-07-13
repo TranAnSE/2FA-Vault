@@ -27,6 +27,8 @@ export const useGroups = defineStore('groups', () => {
 
     const withoutTheAllGroup = computed(() => items.value.filter(item => item.id > 0))
     const theAllGroup = computed(() => items.value.find(item => item.id == 0))
+    // Virtual sharing groups (negative IDs) — read-only, not manageable.
+    const virtualGroups = computed(() => items.value.filter(item => item.id < 0))
     const isEmpty = computed(() => withoutTheAllGroup.value.length == 0)
     const count = computed(() => withoutTheAllGroup.value.length)
 
@@ -106,6 +108,7 @@ export const useGroups = defineStore('groups', () => {
         orderedIds,
         withoutTheAllGroup,
         theAllGroup,
+        virtualGroups,
         isEmpty,
         count,
 

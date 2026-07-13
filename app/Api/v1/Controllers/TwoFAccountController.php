@@ -448,6 +448,35 @@ class TwoFAccountController extends Controller
     }
 
     /**
+     * Transfer ownership of a TwoFAccount to another user.
+     *
+     * The server reassigns user_id and records previous_owner_id. Because
+     * accounts are E2EE, the client must have already re-encrypted the
+     * account secret for the new owner before calling this endpoint.
+     *
+     * @return \Illuminate\Http\JsonResponse
+     */
+    public function transferOwnership(Request $request, TwoFAccount $twofaccount)
+    {
+        $validated = $request->validate([
+            'new_owner_id' => 'required|integer|exists:users,id',
+        ]);
+
+        $this->authorize('transferOwnership', $twofaccount);
+
+        $newOwner = User::findOrFail($validated['new_owner_id']);
+
+        $service     = app(\App\Services\TwoFAccountService::class);
+        $twofaccount = $service->transferOwnership($twofaccount, $newOwner);
+
+        return response()->json([
+            'message'        => 'Ownership transferred successfully',
+            'twofaccount_id' => $twofaccount->id,
+            'new_owner_id'   => $newOwner->id,
+        ], 200);
+    }
+
+    /**
      * Withdraw one or more accounts from their group
      *
      * @return \Illuminate\Http\JsonResponse
