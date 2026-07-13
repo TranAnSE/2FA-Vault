@@ -49,7 +49,7 @@ class UserModelTest extends FeatureTestCase
     }
 
     #[Test]
-    public function test_isAdministrator_returns_correct_state()
+    public function test_is_administrator_returns_correct_state()
     {
         $user  = User::factory()->create();
         $admin = User::factory()->administrator()->create();
@@ -59,7 +59,7 @@ class UserModelTest extends FeatureTestCase
     }
 
     #[Test]
-    public function test_promoteToAdministrator_sets_administrator_status()
+    public function test_promote_to_administrator_sets_administrator_status()
     {
         $user = User::factory()->create();
 
@@ -69,7 +69,7 @@ class UserModelTest extends FeatureTestCase
     }
 
     #[Test]
-    public function test_promoteToAdministrator_demote_administrator_status()
+    public function test_promote_to_administrator_demote_administrator_status()
     {
         $admin = User::factory()->administrator()->create();
         // We need another admin to prevent demoting event returning false
@@ -83,7 +83,7 @@ class UserModelTest extends FeatureTestCase
     }
 
     #[Test]
-    public function test_resetPassword_resets_password_with_success()
+    public function test_reset_password_resets_password_with_success()
     {
         $user        = User::factory()->create();
         $oldPassword = $user->password;
@@ -94,7 +94,7 @@ class UserModelTest extends FeatureTestCase
     }
 
     #[Test]
-    public function test_resetPassword_dispatch_event()
+    public function test_reset_password_dispatch_event()
     {
         Event::fake();
         $user = User::factory()->create();
@@ -108,10 +108,12 @@ class UserModelTest extends FeatureTestCase
     #[Test]
     public function test_delete_removes_user_data()
     {
-        Artisan::call('passport:install', [
-            '--verbose'        => 2,
-            '--no-interaction' => 1,
-        ]);
+        Artisan::call('passport:keys', ['--no-interaction' => 1]);
+
+        // Passport v13's passport:install uses interactive prompts that do not
+        // work under --no-interaction; create the personal access client directly.
+        app(\Laravel\Passport\ClientRepository::class)
+            ->createPersonalAccessGrantClient(config('app.name'), 'users');
 
         $user = User::factory()->create();
         TwoFAccount::factory()->for($user)->create();
@@ -193,7 +195,7 @@ class UserModelTest extends FeatureTestCase
     }
 
     #[Test]
-    public function test_getFromCredentialId_retreives_the_user()
+    public function test_get_from_credential_id_retreives_the_user()
     {
         $user = User::factory()->create();
 
@@ -250,7 +252,7 @@ class UserModelTest extends FeatureTestCase
     }
 
     #[Test]
-    public function test_authenticationsByPeriod_returns_last_month_auth_logs()
+    public function test_authentications_by_period_returns_last_month_auth_logs()
     {
         $user = User::factory()->create();
 
@@ -264,7 +266,7 @@ class UserModelTest extends FeatureTestCase
     }
 
     #[Test]
-    public function test_authenticationsByPeriod_returns_last_three_months_auth_logs()
+    public function test_authentications_by_period_returns_last_three_months_auth_logs()
     {
         $user = User::factory()->create();
 
@@ -280,7 +282,7 @@ class UserModelTest extends FeatureTestCase
     }
 
     #[Test]
-    public function test_latestAuthentication_returns_user_latest_auth_logs()
+    public function test_latest_authentication_returns_user_latest_auth_logs()
     {
         $user = User::factory()->create();
 
@@ -294,7 +296,7 @@ class UserModelTest extends FeatureTestCase
     }
 
     #[Test]
-    public function test_latestAuthentication_returns_user_latest_auth_logs_only()
+    public function test_latest_authentication_returns_user_latest_auth_logs_only()
     {
         $user        = User::factory()->create();
         $anotherUser = User::factory()->create();
@@ -309,7 +311,7 @@ class UserModelTest extends FeatureTestCase
     }
 
     #[Test]
-    public function test_lastLoginAt_returns_user_last_auth_date()
+    public function test_last_login_at_returns_user_last_auth_date()
     {
         $user = User::factory()->create();
         $now  = now();
@@ -324,7 +326,7 @@ class UserModelTest extends FeatureTestCase
     }
 
     #[Test]
-    public function test_lastLoginAt_returns_null_if_user_has_no_login()
+    public function test_last_login_at_returns_null_if_user_has_no_login()
     {
         $user = User::factory()->create();
         AuthLog::factory()->logoutOnly()->for($user, 'authenticatable')->create();
@@ -335,7 +337,7 @@ class UserModelTest extends FeatureTestCase
     }
 
     #[Test]
-    public function test_lastSuccessfulLoginAt_returns_user_last_successful_login_date()
+    public function test_last_successful_login_at_returns_user_last_successful_login_date()
     {
         $user = User::factory()->create();
         $now  = now();
@@ -347,7 +349,7 @@ class UserModelTest extends FeatureTestCase
     }
 
     #[Test]
-    public function test_lastSuccessfulLoginAt_returns_null_if_user_has_no_successful_login()
+    public function test_last_successful_login_at_returns_null_if_user_has_no_successful_login()
     {
         $user = User::factory()->create();
         $now  = now();
@@ -359,7 +361,7 @@ class UserModelTest extends FeatureTestCase
     }
 
     #[Test]
-    public function test_lastLoginIp_returns_user_last_login_ip()
+    public function test_last_login_ip_returns_user_last_login_ip()
     {
         $user = User::factory()->create();
         AuthLog::factory()->for($user, 'authenticatable')->create();
@@ -370,7 +372,7 @@ class UserModelTest extends FeatureTestCase
     }
 
     #[Test]
-    public function test_lastLoginIp_returns_null_if_user_has_no_auth_log()
+    public function test_last_login_ip_returns_null_if_user_has_no_auth_log()
     {
         $user = User::factory()->create();
 
@@ -380,7 +382,7 @@ class UserModelTest extends FeatureTestCase
     }
 
     #[Test]
-    public function test_lastSuccessfulLoginIp_returns_user_last_successful_login_ip()
+    public function test_last_successful_login_ip_returns_user_last_successful_login_ip()
     {
         $user = User::factory()->create();
         AuthLog::factory()->for($user, 'authenticatable')->create();
@@ -391,7 +393,7 @@ class UserModelTest extends FeatureTestCase
     }
 
     #[Test]
-    public function test_lastSuccessfulLoginIp_returns_null_if_user_has_no_successful_login()
+    public function test_last_successful_login_ip_returns_null_if_user_has_no_successful_login()
     {
         $user = User::factory()->create();
         AuthLog::factory()->failedLogin()->for($user, 'authenticatable')->create();
@@ -402,7 +404,7 @@ class UserModelTest extends FeatureTestCase
     }
 
     #[Test]
-    public function test_previousLoginAt_returns_user_last_auth_date()
+    public function test_previous_login_at_returns_user_last_auth_date()
     {
         $user      = User::factory()->create();
         $now       = now();
@@ -417,7 +419,7 @@ class UserModelTest extends FeatureTestCase
     }
 
     #[Test]
-    public function test_previousLoginAt_returns_null_if_user_has_no_auth_log()
+    public function test_previous_login_at_returns_null_if_user_has_no_auth_log()
     {
         $user = User::factory()->create();
 
@@ -427,7 +429,7 @@ class UserModelTest extends FeatureTestCase
     }
 
     #[Test]
-    public function test_previousLoginIp_returns_user_last_auth_ip()
+    public function test_previous_login_ip_returns_user_last_auth_ip()
     {
         $user      = User::factory()->create();
         $yesterday = now()->subDay();
@@ -441,7 +443,7 @@ class UserModelTest extends FeatureTestCase
     }
 
     #[Test]
-    public function test_previousLoginIp_returns_null_if_user_has_no_auth_log()
+    public function test_previous_login_ip_returns_null_if_user_has_no_auth_log()
     {
         $user = User::factory()->create();
 

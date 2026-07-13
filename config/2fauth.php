@@ -43,7 +43,7 @@ $preferences = [
     'AutoSaveQrcodedAccount' => envUnlessEmpty('USERPREF_DEFAULT__AUTO_SAVE_QRCODED_ACCOUNT', false),
     'showEmailInFooter'      => envUnlessEmpty('USERPREF_DEFAULT__SHOW_EMAIL_IN_FOOTER', true),
     // Off by default: email breach checks send the address to HIBP, so require explicit opt-in.
-    'breachMonitoring'       => envUnlessEmpty('USERPREF_DEFAULT__BREACH_MONITORING', false),
+    'breachMonitoring' => envUnlessEmpty('USERPREF_DEFAULT__BREACH_MONITORING', false),
 ];
 
 $nonLockablePreferences = [
@@ -62,12 +62,12 @@ return [
     |
     */
 
-    'version' => '6.1.3',
-    'repository' => 'https://github.com/TranAnSE/2FA-Vault',
+    'version'          => '6.1.3',
+    'repository'       => 'https://github.com/TranAnSE/2FA-Vault',
     'latestReleaseUrl' => 'https://api.github.com/repos/TranAnSE/2FA-Vault/releases/latest',
-    'installDocUrl' => 'https://docs.2fa-vault.app/getting-started/installation/self-hosted-server/',
-    'ssoDocUrl' => 'https://docs.2fa-vault.app/security/authentication/sso/',
-    'exportSchemaUrl' => 'https://docs.2fa-vault.app/usage/migration/#export-schema',
+    'installDocUrl'    => 'https://docs.2fa-vault.app/getting-started/installation/self-hosted-server/',
+    'ssoDocUrl'        => 'https://docs.2fa-vault.app/security/authentication/sso/',
+    'exportSchemaUrl'  => 'https://docs.2fa-vault.app/usage/migration/#export-schema',
 
     /*
     |--------------------------------------------------------------------------
@@ -77,15 +77,17 @@ return [
     */
 
     'config' => [
-        'isDemoApp' => env('IS_DEMO_APP', false),
-        'isTestingApp' => env('IS_TESTING_APP', false),
-        'trustedProxies' => env('TRUSTED_PROXIES', null),
-        'outgoingProxy' => env('PROXY_FOR_OUTGOING_REQUESTS', ''),
-        'proxyLogoutUrl' => env('PROXY_LOGOUT_URL', null),
-        'appSubdirectory' => env('APP_SUBDIRECTORY', ''),
-        'authLogRetentionTime' => envUnlessEmpty('AUTHENTICATION_LOG_RETENTION', 365),
-        'contentSecurityPolicy' => envUnlessEmpty('CONTENT_SECURITY_POLICY', true),
+        'isDemoApp'                     => env('IS_DEMO_APP', false),
+        'isTestingApp'                  => env('IS_TESTING_APP', false),
+        'trustedProxies'                => env('TRUSTED_PROXIES', null),
+        'outgoingProxy'                 => env('PROXY_FOR_OUTGOING_REQUESTS', ''),
+        'proxyLogoutUrl'                => env('PROXY_LOGOUT_URL', null),
+        'appSubdirectory'               => env('APP_SUBDIRECTORY', ''),
+        'authLogRetentionTime'          => envUnlessEmpty('AUTHENTICATION_LOG_RETENTION', 365),
+        'otpLogRetentionTime'           => envUnlessEmpty('OTP_LOG_RETENTION', 365),
+        'contentSecurityPolicy'         => envUnlessEmpty('CONTENT_SECURITY_POLICY', true),
         'blockOtpauthImagelinkFetching' => envUnlessEmpty('BLOCK_OPTAUTH_IMAGELINK_FETCHING', true),
+        'phpMemoryLimitTempOverride'    => envUnlessEmpty('PHP_MEMORY_LIMIT_TEMP_OVERRIDE', '512M'),
     ],
 
     /*
@@ -94,7 +96,7 @@ return [
     |--------------------------------------------------------------------------
     |
     */
-    
+
     'proxy_headers' => [
         'forIp' => env('PROXY_HEADER_FOR_IP', null),
     ],
@@ -107,7 +109,7 @@ return [
     */
 
     'api' => [
-        'throttle' => env('THROTTLE_API', 60),
+        'throttle'       => env('THROTTLE_API', 60),
         'throttleImport' => env('THROTTLE_API_DURING_IMPORT', 1000),
     ],
 
@@ -159,21 +161,21 @@ return [
     */
 
     'settings' => [
-        'useEncryption' => false,
+        'useEncryption'              => false,
         'encryptionEnabledByDefault' => env('ENCRYPTION_ENABLED_BY_DEFAULT', true),
         'enforceMandatoryEncryption' => env('ENFORCE_MANDATORY_ENCRYPTION', false),
-        'checkForUpdate' => true,
-        'lastRadarScan' => 0,
-        'latestRelease' => false,
-        'disableRegistration' => false,
-        'enableSso' => true,
-        'useSsoOnly' => false,
-        'allowPatWhileSsoOnly' => false,
-        'restrictRegistration' => false,
-        'restrictList' => '',
-        'restrictRule' => '',
+        'checkForUpdate'             => true,
+        'lastRadarScan'              => 0,
+        'latestRelease'              => false,
+        'disableRegistration'        => false,
+        'enableSso'                  => true,
+        'useSsoOnly'                 => false,
+        'allowPatWhileSsoOnly'       => false,
+        'restrictRegistration'       => false,
+        'restrictList'               => '',
+        'restrictRule'               => '',
         'keepSsoRegistrationEnabled' => false,
-        'storeIconsInDatabase' => false,
+        'storeIconsInDatabase'       => false,
     ],
 
     /*
@@ -184,7 +186,7 @@ return [
     */
 
     'allowRegistration' => env('ALLOW_REGISTRATION', true),
-    'maxTeamsPerUser' => env('MAX_TEAMS_PER_USER', 10),
+    'maxTeamsPerUser'   => env('MAX_TEAMS_PER_USER', 10),
     'maxMembersPerTeam' => env('MAX_MEMBERS_PER_TEAM', 50),
 
     /*
@@ -196,7 +198,6 @@ return [
     */
 
     'preferences' => $preferences,
-    
 
     /*
     |--------------------------------------------------------------------------

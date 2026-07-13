@@ -7,6 +7,7 @@ use App\Models\SecureNote;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
+use Laravel\Passport\Passport;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
 use Tests\TestCase;
@@ -24,9 +25,10 @@ class SecureNoteTest extends TestCase
     {
         $user = User::factory()->create();
 
-        $response = $this->actingAs($user, 'api-guard')->postJson('/api/v1/secure-notes', [
-            'title' => 'My secret',
-            'content' => 'top secret content',
+        Passport::actingAs($user, [], 'api-guard');
+        $response = $this->postJson('/api/v1/secure-notes', [
+            'title'        => 'My secret',
+            'content'      => 'top secret content',
             'content_type' => 'plain',
         ]);
 
@@ -42,11 +44,12 @@ class SecureNoteTest extends TestCase
         // Enable encryption and clear any cached settings before the request.
         Settings::set('useEncryption', true);
 
-        $user = User::factory()->create();
+        $user      = User::factory()->create();
         $plaintext = 'top secret content that must not appear in the DB';
 
-        $this->actingAs($user, 'api-guard')->postJson('/api/v1/secure-notes', [
-            'title' => 'Encrypted note',
+        Passport::actingAs($user, [], 'api-guard');
+        $this->postJson('/api/v1/secure-notes', [
+            'title'   => 'Encrypted note',
             'content' => $plaintext,
         ])->assertStatus(201);
 
@@ -63,12 +66,14 @@ class SecureNoteTest extends TestCase
         $user = User::factory()->create();
         $note = SecureNote::factory()->forUser($user)->create(['title' => 'Visible']);
 
-        $this->actingAs($user, 'api-guard')
+        Passport::actingAs($user, [], 'api-guard');
+        $this
             ->getJson('/api/v1/secure-notes')
             ->assertStatus(200)
             ->assertJsonFragment(['title' => 'Visible']);
 
-        $this->actingAs($user, 'api-guard')
+        Passport::actingAs($user, [], 'api-guard');
+        $this
             ->getJson('/api/v1/secure-notes/' . $note->id)
             ->assertStatus(200)
             ->assertJsonFragment(['title' => 'Visible']);
@@ -77,11 +82,12 @@ class SecureNoteTest extends TestCase
     #[Test]
     public function test_user_cannot_read_other_users_note()
     {
-        $owner = User::factory()->create();
+        $owner    = User::factory()->create();
         $intruder = User::factory()->create();
-        $note = SecureNote::factory()->forUser($owner)->create();
+        $note     = SecureNote::factory()->forUser($owner)->create();
 
-        $this->actingAs($intruder, 'api-guard')
+        Passport::actingAs($intruder, [], 'api-guard');
+        $this
             ->getJson('/api/v1/secure-notes/' . $note->id)
             ->assertForbidden();
     }
@@ -92,9 +98,10 @@ class SecureNoteTest extends TestCase
         $user = User::factory()->create();
         $note = SecureNote::factory()->forUser($user)->create();
 
-        $this->actingAs($user, 'api-guard')
+        Passport::actingAs($user, [], 'api-guard');
+        $this
             ->putJson('/api/v1/secure-notes/' . $note->id, [
-                'title' => 'Updated',
+                'title'   => 'Updated',
                 'content' => 'new content',
             ])
             ->assertStatus(200)
@@ -107,7 +114,8 @@ class SecureNoteTest extends TestCase
         $user = User::factory()->create();
         $note = SecureNote::factory()->forUser($user)->create();
 
-        $this->actingAs($user, 'api-guard')
+        Passport::actingAs($user, [], 'api-guard');
+        $this
             ->deleteJson('/api/v1/secure-notes/' . $note->id)
             ->assertStatus(200);
 

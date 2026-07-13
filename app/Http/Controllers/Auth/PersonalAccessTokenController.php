@@ -3,8 +3,10 @@
 namespace App\Http\Controllers\Auth;
 
 use Illuminate\Http\Request;
+use Illuminate\Http\Response;
 use Illuminate\Support\Facades\Gate;
 use Laravel\Passport\Http\Controllers\PersonalAccessTokenController as PassportPatController;
+use Laravel\Passport\PersonalAccessTokenResult;
 use Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException;
 
 class PersonalAccessTokenController extends PassportPatController
@@ -28,7 +30,7 @@ class PersonalAccessTokenController extends PassportPatController
      *
      * @return \Laravel\Passport\PersonalAccessTokenResult|\Illuminate\Http\JsonResponse
      */
-    public function store(Request $request)
+    public function store(Request $request) : PersonalAccessTokenResult
     {
         if (Gate::denies('manage-pat')) {
             throw new AccessDeniedHttpException(__('error.unsupported_with_sso_only'));
@@ -40,10 +42,9 @@ class PersonalAccessTokenController extends PassportPatController
     /**
      * Delete the given token.
      *
-     * @param  string  $tokenId
      * @return \Illuminate\Http\Response|\Illuminate\Http\JsonResponse
      */
-    public function destroy(Request $request, $tokenId)
+    public function destroy(Request $request, string $tokenId) : Response
     {
         if (Gate::denies('manage-pat')) {
             throw new AccessDeniedHttpException(__('error.unsupported_with_sso_only'));

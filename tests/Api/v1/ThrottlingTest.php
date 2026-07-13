@@ -5,6 +5,7 @@ namespace Tests\Api\v1;
 use App\Models\User;
 use App\Providers\RouteServiceProvider;
 use Illuminate\Support\Facades\Config;
+use Laravel\Passport\Passport;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
@@ -28,7 +29,7 @@ class ThrottlingTest extends FeatureTestCase
 
         Config::set('2fauth.api.throttle', $throttle);
 
-        $this->actingAs($user, 'api-guard');
+        Passport::actingAs($user, [], 'api-guard');
 
         for ($i = 0; $i < $throttle; $i++) {
             $this->json('GET', '/api/v1/twofaccounts/count');
@@ -37,6 +38,7 @@ class ThrottlingTest extends FeatureTestCase
         $this->json('GET', '/api/v1/twofaccounts/count')
             ->assertStatus(429);
     }
+
     #[Test]
     #[DataProvider('DisabledThrottlingProvider')]
     public function test_api_calls_are_not_throttled($throttlingStatus)
@@ -50,7 +52,7 @@ class ThrottlingTest extends FeatureTestCase
         Config::set('2fauth.api.throttle', $throttle);
         Config::set('2fauth.api.throttle', $throttlingStatus);
 
-        $this->actingAs($user, 'api-guard');
+        Passport::actingAs($user, [], 'api-guard');
 
         for ($i = 0; $i < $throttle; $i++) {
             $this->json('GET', '/api/v1/twofaccounts/count');
@@ -66,10 +68,10 @@ class ThrottlingTest extends FeatureTestCase
     public static function DisabledThrottlingProvider()
     {
         return [
-            'NULL_CASE' => [null],
+            'NULL_CASE'  => [null],
             'FALSE_CASE' => [false],
-            'ZERO_CASE' => [0],
-            'EMPTY_CASE' => [""],
+            'ZERO_CASE'  => [0],
+            'EMPTY_CASE' => [''],
         ];
     }
 
@@ -79,39 +81,39 @@ class ThrottlingTest extends FeatureTestCase
         /**
          * @var \App\Models\User|\Illuminate\Contracts\Auth\Authenticatable
          */
-        $user     = User::factory()->create();
-        $throttle = 5;
+        $user           = User::factory()->create();
+        $throttle       = 5;
         $throttleImport = 10;
 
         Config::set('2fauth.api.throttle', $throttle);
         Config::set('2fauth.api.throttleImport', $throttleImport);
 
-        $this->actingAs($user, 'api-guard');
-        
+        Passport::actingAs($user, [], 'api-guard');
+
         for ($i = 0; $i < $throttle; $i++) {
             $this->json('GET', '/api/v1/twofaccounts/count');
         }
 
         $this->json('GET', '/api/v1/twofaccounts/count')
             ->assertStatus(429);
-        
+
         for ($i = 0; $i < $throttleImport; $i++) {
             $this->json('POST', '/api/v1/twofaccounts', [
                 'uri' => OtpTestData::TOTP_SHORT_URI,
             ],
-            [
-                'referer' => 'test.local/account/import'
-            ])
-            ->assertCreated();
+                [
+                    'referer' => 'test.local/account/import',
+                ])
+                ->assertCreated();
         }
 
         $this->json('POST', '/api/v1/twofaccounts', [
             'uri' => OtpTestData::TOTP_SHORT_URI,
         ],
-        [
-            'referer' => 'test.local/account/import'
-        ])
-        ->assertStatus(429);
+            [
+                'referer' => 'test.local/account/import',
+            ])
+            ->assertStatus(429);
     }
 
     #[Test]
@@ -120,25 +122,25 @@ class ThrottlingTest extends FeatureTestCase
         /**
          * @var \App\Models\User|\Illuminate\Contracts\Auth\Authenticatable
          */
-        $user     = User::factory()->create();
-        $throttle = 5;
+        $user           = User::factory()->create();
+        $throttle       = 5;
         $throttleImport = 10;
 
         Config::set('2fauth.api.throttle', $throttle);
         Config::set('2fauth.api.throttleImport', $throttleImport);
 
-        $this->actingAs($user, 'api-guard');
+        Passport::actingAs($user, [], 'api-guard');
 
         for ($i = 0; $i < $throttleImport; $i++) {
             $this->json('POST', '/api/v1/twofaccounts', [
                 'uri' => OtpTestData::TOTP_SHORT_URI,
             ],
-            [
-                'referer' => 'test.local/account/import'
-            ])
-            ->assertCreated();
+                [
+                    'referer' => 'test.local/account/import',
+                ])
+                ->assertCreated();
         }
-        
+
         for ($i = 0; $i < $throttle; $i++) {
             $this->json('GET', '/api/v1/twofaccounts/count');
         }
@@ -153,31 +155,31 @@ class ThrottlingTest extends FeatureTestCase
         /**
          * @var \App\Models\User|\Illuminate\Contracts\Auth\Authenticatable
          */
-        $user     = User::factory()->create();
-        $throttle = 5;
+        $user           = User::factory()->create();
+        $throttle       = 5;
         $throttleImport = 10;
 
         Config::set('2fauth.api.throttle', $throttle);
         Config::set('2fauth.api.throttleImport', $throttleImport);
         Config::set('2fauth.api.throttleImport', null);
 
-        $this->actingAs($user, 'api-guard');
-        
+        Passport::actingAs($user, [], 'api-guard');
+
         for ($i = 0; $i < $throttle; $i++) {
             $this->json('GET', '/api/v1/twofaccounts/count');
         }
 
         $this->json('GET', '/api/v1/twofaccounts/count')
             ->assertStatus(429);
-        
+
         for ($i = 0; $i < $throttleImport + 1; $i++) {
             $this->json('POST', '/api/v1/twofaccounts', [
                 'uri' => OtpTestData::TOTP_SHORT_URI,
             ],
-            [
-                'referer' => 'test.local/account/import'
-            ])
-            ->assertCreated();
+                [
+                    'referer' => 'test.local/account/import',
+                ])
+                ->assertCreated();
         }
     }
 
@@ -187,23 +189,23 @@ class ThrottlingTest extends FeatureTestCase
         /**
          * @var \App\Models\User|\Illuminate\Contracts\Auth\Authenticatable
          */
-        $user     = User::factory()->create();
-        $throttle = null;
+        $user           = User::factory()->create();
+        $throttle       = null;
         $throttleImport = 5;
 
         Config::set('2fauth.api.throttle', $throttle);
         Config::set('2fauth.api.throttleImport', $throttleImport);
 
-        $this->actingAs($user, 'api-guard');
-        
+        Passport::actingAs($user, [], 'api-guard');
+
         for ($i = 0; $i < $throttleImport + 1; $i++) {
             $this->json('POST', '/api/v1/twofaccounts', [
                 'uri' => OtpTestData::TOTP_SHORT_URI,
             ],
-            [
-                'referer' => 'test.local/account/import'
-            ])
-            ->assertCreated();
+                [
+                    'referer' => 'test.local/account/import',
+                ])
+                ->assertCreated();
         }
     }
 }

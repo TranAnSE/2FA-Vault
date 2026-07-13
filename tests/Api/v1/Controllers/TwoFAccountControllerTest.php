@@ -21,6 +21,7 @@ use Illuminate\Http\Testing\FileFactory;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Storage;
+use Laravel\Passport\Passport;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
@@ -46,14 +47,14 @@ use Tests\FeatureTestCase;
 #[CoversClass(TwoFAccountPolicy::class)]
 class TwoFAccountControllerTest extends FeatureTestCase
 {
-    protected function createEncryptedUser(array $attributes = []): User
+    protected function createEncryptedUser(array $attributes = []) : User
     {
         return User::factory()->create(array_merge([
-            'encryption_enabled' => true,
-            'encryption_salt' => 'test_salt',
+            'encryption_enabled'    => true,
+            'encryption_salt'       => 'test_salt',
             'encryption_test_value' => '{"ciphertext":"test","iv":"test","authTag":"test"}',
-            'encryption_version' => 1,
-            'vault_locked' => false,
+            'encryption_version'    => 1,
+            'vault_locked'          => false,
         ], $attributes));
     }
 
@@ -295,7 +296,8 @@ class TwoFAccountControllerTest extends FeatureTestCase
     #[DataProvider('validResourceStructureProvider')]
     public function test_index_returns_user_twofaccounts_only($urlParameter, $expected)
     {
-        $response = $this->actingAs($this->user, 'api-guard')
+        Passport::actingAs($this->user, [], 'api-guard');
+        $response = $this
             ->json('GET', '/api/v1/twofaccounts' . $urlParameter)
             ->assertOk()
             ->assertJsonCount(2, $key = null)
@@ -340,7 +342,8 @@ class TwoFAccountControllerTest extends FeatureTestCase
     #[Test]
     public function test_index_returns_user_accounts_with_given_ids()
     {
-        $response = $this->actingAs($this->anotherUser, 'api-guard')
+        Passport::actingAs($this->anotherUser, [], 'api-guard');
+        $response = $this
             ->json('GET', '/api/v1/twofaccounts?ids=' . $this->twofaccountC->id . ',' . $this->twofaccountE->id)
             ->assertOk()
             ->assertJsonCount(2, $key = null)
@@ -358,7 +361,8 @@ class TwoFAccountControllerTest extends FeatureTestCase
     #[Test]
     public function test_index_returns_only_user_accounts_in_given_ids()
     {
-        $response = $this->actingAs($this->anotherUser, 'api-guard')
+        Passport::actingAs($this->anotherUser, [], 'api-guard');
+        $response = $this
             ->json('GET', '/api/v1/twofaccounts?ids=' . $this->twofaccountA->id . ',' . $this->twofaccountE->id)
             ->assertOk()
             ->assertJsonCount(1, $key = null)
@@ -398,7 +402,8 @@ class TwoFAccountControllerTest extends FeatureTestCase
     #[Test]
     public function test_show_returns_twofaccount_resource_with_secret()
     {
-        $response = $this->actingAs($this->user, 'api-guard')
+        Passport::actingAs($this->user, [], 'api-guard');
+        $response = $this
             ->json('GET', '/api/v1/twofaccounts/' . $this->twofaccountA->id)
             ->assertOk()
             ->assertJsonStructure(self::VALID_RESOURCE_STRUCTURE_WITH_SECRET);
@@ -409,30 +414,31 @@ class TwoFAccountControllerTest extends FeatureTestCase
     {
         $encryptedSecret = json_encode([
             'ciphertext' => base64_encode('client_encrypted_totp_secret'),
-            'iv' => base64_encode(random_bytes(12)),
-            'authTag' => base64_encode(random_bytes(16)),
+            'iv'         => base64_encode(random_bytes(12)),
+            'authTag'    => base64_encode(random_bytes(16)),
         ]);
 
         $encryptedAccount = TwoFAccount::factory()->for($this->user)->create([
-            'secret' => $encryptedSecret,
+            'secret'    => $encryptedSecret,
             'encrypted' => true,
         ]);
 
         $plainAccount = TwoFAccount::factory()->for($this->user)->create([
-            'secret' => OtpTestData::SECRET,
+            'secret'    => OtpTestData::SECRET,
             'encrypted' => false,
         ]);
 
         $otherUserEncryptedAccount = TwoFAccount::factory()->for($this->anotherUser)->create([
             'secret' => json_encode([
                 'ciphertext' => base64_encode('other_user_secret'),
-                'iv' => base64_encode(random_bytes(12)),
-                'authTag' => base64_encode(random_bytes(16)),
+                'iv'         => base64_encode(random_bytes(12)),
+                'authTag'    => base64_encode(random_bytes(16)),
             ]),
             'encrypted' => true,
         ]);
 
-        $this->actingAs($this->user, 'api-guard')
+        Passport::actingAs($this->user, [], 'api-guard');
+        $this
             ->json('GET', '/api/v1/twofaccounts/encrypted')
             ->assertOk()
             ->assertJsonCount(1)
@@ -449,18 +455,19 @@ class TwoFAccountControllerTest extends FeatureTestCase
     {
         $encryptedSecret = json_encode([
             'ciphertext' => base64_encode('client_encrypted_hotp_secret'),
-            'iv' => base64_encode(random_bytes(12)),
-            'authTag' => base64_encode(random_bytes(16)),
+            'iv'         => base64_encode(random_bytes(12)),
+            'authTag'    => base64_encode(random_bytes(16)),
         ]);
 
         $encryptedHotpAccount = TwoFAccount::factory()->for($this->user)->create([
-            'otp_type' => TwoFAccount::HOTP,
-            'secret' => $encryptedSecret,
+            'otp_type'  => TwoFAccount::HOTP,
+            'secret'    => $encryptedSecret,
             'encrypted' => true,
-            'counter' => 7,
+            'counter'   => 7,
         ]);
 
-        $this->actingAs($this->user, 'api-guard')
+        Passport::actingAs($this->user, [], 'api-guard');
+        $this
             ->json('PATCH', '/api/v1/twofaccounts/' . $encryptedHotpAccount->id . '/counter', [
                 'counter' => 8,
             ])
@@ -469,8 +476,8 @@ class TwoFAccountControllerTest extends FeatureTestCase
             ->assertJsonPath('secret', $encryptedSecret);
 
         $this->assertDatabaseHas('twofaccounts', [
-            'id' => $encryptedHotpAccount->id,
-            'secret' => $encryptedSecret,
+            'id'      => $encryptedHotpAccount->id,
+            'secret'  => $encryptedSecret,
             'counter' => 8,
         ]);
     }
@@ -478,7 +485,8 @@ class TwoFAccountControllerTest extends FeatureTestCase
     #[Test]
     public function test_update_counter_rejects_totp_accounts()
     {
-        $this->actingAs($this->user, 'api-guard')
+        Passport::actingAs($this->user, [], 'api-guard');
+        $this
             ->json('PATCH', '/api/v1/twofaccounts/' . $this->twofaccountA->id . '/counter', [
                 'counter' => 8,
             ])
@@ -491,23 +499,25 @@ class TwoFAccountControllerTest extends FeatureTestCase
     {
         $encryptedHotpAccount = TwoFAccount::factory()->for($this->user)->create([
             'otp_type' => TwoFAccount::HOTP,
-            'secret' => json_encode([
+            'secret'   => json_encode([
                 'ciphertext' => base64_encode('client_encrypted_hotp_secret'),
-                'iv' => base64_encode(random_bytes(12)),
-                'authTag' => base64_encode(random_bytes(16)),
+                'iv'         => base64_encode(random_bytes(12)),
+                'authTag'    => base64_encode(random_bytes(16)),
             ]),
             'encrypted' => true,
-            'counter' => 7,
+            'counter'   => 7,
         ]);
 
-        $this->actingAs($this->user, 'api-guard')
+        Passport::actingAs($this->user, [], 'api-guard');
+        $this
             ->json('PATCH', '/api/v1/twofaccounts/' . $encryptedHotpAccount->id . '/counter', [
                 'counter' => 7,
             ])
             ->assertStatus(422)
             ->assertJsonValidationErrorFor('counter');
 
-        $this->actingAs($this->user, 'api-guard')
+        Passport::actingAs($this->user, [], 'api-guard');
+        $this
             ->json('PATCH', '/api/v1/twofaccounts/' . $encryptedHotpAccount->id . '/counter', [
                 'counter' => 6,
             ])
@@ -515,7 +525,7 @@ class TwoFAccountControllerTest extends FeatureTestCase
             ->assertJsonValidationErrorFor('counter');
 
         $this->assertDatabaseHas('twofaccounts', [
-            'id' => $encryptedHotpAccount->id,
+            'id'      => $encryptedHotpAccount->id,
             'counter' => 7,
         ]);
     }
@@ -525,23 +535,25 @@ class TwoFAccountControllerTest extends FeatureTestCase
     {
         $encryptedHotpAccount = TwoFAccount::factory()->for($this->user)->create([
             'otp_type' => TwoFAccount::HOTP,
-            'secret' => json_encode([
+            'secret'   => json_encode([
                 'ciphertext' => base64_encode('client_encrypted_hotp_secret'),
-                'iv' => base64_encode(random_bytes(12)),
-                'authTag' => base64_encode(random_bytes(16)),
+                'iv'         => base64_encode(random_bytes(12)),
+                'authTag'    => base64_encode(random_bytes(16)),
             ]),
             'encrypted' => true,
-            'counter' => 7,
+            'counter'   => 7,
         ]);
 
-        $this->actingAs($this->user, 'api-guard')
+        Passport::actingAs($this->user, [], 'api-guard');
+        $this
             ->json('PATCH', '/api/v1/twofaccounts/' . $encryptedHotpAccount->id . '/counter', [
                 'counter' => 8,
             ])
             ->assertOk()
             ->assertJsonPath('counter', 8);
 
-        $this->actingAs($this->user, 'api-guard')
+        Passport::actingAs($this->user, [], 'api-guard');
+        $this
             ->json('PATCH', '/api/v1/twofaccounts/' . $encryptedHotpAccount->id . '/counter', [
                 'counter' => 8,
             ])
@@ -549,7 +561,7 @@ class TwoFAccountControllerTest extends FeatureTestCase
             ->assertJsonValidationErrorFor('counter');
 
         $this->assertDatabaseHas('twofaccounts', [
-            'id' => $encryptedHotpAccount->id,
+            'id'      => $encryptedHotpAccount->id,
             'counter' => 8,
         ]);
     }
@@ -559,19 +571,20 @@ class TwoFAccountControllerTest extends FeatureTestCase
     {
         $encryptedHotpAccount = TwoFAccount::factory()->for($this->user)->create([
             'otp_type' => TwoFAccount::HOTP,
-            'secret' => json_encode([
+            'secret'   => json_encode([
                 'ciphertext' => base64_encode('client_encrypted_hotp_secret'),
-                'iv' => base64_encode(random_bytes(12)),
-                'authTag' => base64_encode(random_bytes(16)),
+                'iv'         => base64_encode(random_bytes(12)),
+                'authTag'    => base64_encode(random_bytes(16)),
             ]),
             'encrypted' => true,
-            'counter' => 1,
+            'counter'   => 1,
         ]);
         DB::table('twofaccounts')
             ->where('id', $encryptedHotpAccount->id)
             ->update(['counter' => null]);
 
-        $this->actingAs($this->user, 'api-guard')
+        Passport::actingAs($this->user, [], 'api-guard');
+        $this
             ->json('PATCH', '/api/v1/twofaccounts/' . $encryptedHotpAccount->id . '/counter', [
                 'counter' => 1,
             ])
@@ -579,7 +592,7 @@ class TwoFAccountControllerTest extends FeatureTestCase
             ->assertJsonPath('counter', 1);
 
         $this->assertDatabaseHas('twofaccounts', [
-            'id' => $encryptedHotpAccount->id,
+            'id'      => $encryptedHotpAccount->id,
             'counter' => 1,
         ]);
     }
@@ -587,7 +600,8 @@ class TwoFAccountControllerTest extends FeatureTestCase
     #[Test]
     public function test_show_returns_twofaccount_resource_without_secret()
     {
-        $response = $this->actingAs($this->user, 'api-guard')
+        Passport::actingAs($this->user, [], 'api-guard');
+        $response = $this
             ->json('GET', '/api/v1/twofaccounts/' . $this->twofaccountA->id . '?withSecret=0')
             ->assertOk()
             ->assertJsonStructure(self::VALID_RESOURCE_STRUCTURE_WITHOUT_SECRET);
@@ -619,7 +633,8 @@ class TwoFAccountControllerTest extends FeatureTestCase
     #[Test]
     public function test_show_returns_twofaccount_resource_with_otp()
     {
-        $response = $this->actingAs($this->user, 'api-guard')
+        Passport::actingAs($this->user, [], 'api-guard');
+        $response = $this
             ->json('GET', '/api/v1/twofaccounts/' . $this->twofaccountA->id . '?withOtp=1')
             ->assertOk()
             ->assertJsonStructure(self::VALID_RESOURCE_STRUCTURE_WITH_OTP);
@@ -628,7 +643,8 @@ class TwoFAccountControllerTest extends FeatureTestCase
     #[Test]
     public function test_show_returns_twofaccount_resource_without_otp()
     {
-        $response = $this->actingAs($this->user, 'api-guard')
+        Passport::actingAs($this->user, [], 'api-guard');
+        $response = $this
             ->json('GET', '/api/v1/twofaccounts/' . $this->twofaccountA->id . '?withOtp=0')
             ->assertOk()
             ->assertJsonStructure(self::VALID_RESOURCE_STRUCTURE_WITHOUT_SECRET);
@@ -637,7 +653,8 @@ class TwoFAccountControllerTest extends FeatureTestCase
     #[Test]
     public function test_show_missing_twofaccount_returns_not_found()
     {
-        $response = $this->actingAs($this->user, 'api-guard')
+        Passport::actingAs($this->user, [], 'api-guard');
+        $response = $this
             ->json('GET', '/api/v1/twofaccounts/1000')
             ->assertNotFound()
             ->assertJsonStructure([
@@ -648,7 +665,8 @@ class TwoFAccountControllerTest extends FeatureTestCase
     #[Test]
     public function test_show_twofaccount_of_another_user_is_forbidden()
     {
-        $response = $this->actingAs($this->user, 'api-guard')
+        Passport::actingAs($this->user, [], 'api-guard');
+        $response = $this
             ->json('GET', '/api/v1/twofaccounts/' . $this->twofaccountC->id)
             ->assertForbidden()
             ->assertJsonStructure([
@@ -662,7 +680,8 @@ class TwoFAccountControllerTest extends FeatureTestCase
     {
         Settings::set('useEncryption', false);
 
-        $response = $this->actingAs($this->user, 'api-guard')
+        Passport::actingAs($this->user, [], 'api-guard');
+        $response = $this
             ->json('POST', '/api/v1/twofaccounts', $payload)
             ->assertCreated()
             ->assertJsonStructure(self::VALID_RESOURCE_STRUCTURE_WITH_SECRET)
@@ -675,7 +694,8 @@ class TwoFAccountControllerTest extends FeatureTestCase
     {
         Settings::set('useEncryption', true);
 
-        $response = $this->actingAs($this->user, 'api-guard')
+        Passport::actingAs($this->user, [], 'api-guard');
+        $response = $this
             ->json('POST', '/api/v1/twofaccounts', $payload)
             ->assertCreated()
             ->assertJsonStructure(self::VALID_RESOURCE_STRUCTURE_WITH_SECRET)
@@ -734,7 +754,8 @@ class TwoFAccountControllerTest extends FeatureTestCase
     #[Test]
     public function test_store_with_invalid_uri_returns_validation_error()
     {
-        $response = $this->actingAs($this->user, 'api-guard')
+        Passport::actingAs($this->user, [], 'api-guard');
+        $response = $this
             ->json('POST', '/api/v1/twofaccounts', [
                 'uri' => OtpTestData::INVALID_OTPAUTH_URI,
             ])
@@ -748,7 +769,8 @@ class TwoFAccountControllerTest extends FeatureTestCase
         $this->user['preferences->defaultGroup'] = 0;
         $this->user->save();
 
-        $response = $this->actingAs($this->user, 'api-guard')
+        Passport::actingAs($this->user, [], 'api-guard');
+        $response = $this
             ->json('POST', '/api/v1/twofaccounts', array_merge(
                 OtpTestData::ARRAY_OF_FULL_VALID_PARAMETERS_FOR_CUSTOM_TOTP,
                 ['group_id' => $this->userGroupA->id]
@@ -761,7 +783,8 @@ class TwoFAccountControllerTest extends FeatureTestCase
     #[Test]
     public function test_store_with_assignement_to_missing_groupid_returns_validation_error()
     {
-        $response = $this->actingAs($this->user, 'api-guard')
+        Passport::actingAs($this->user, [], 'api-guard');
+        $response = $this
             ->json('POST', '/api/v1/twofaccounts', array_merge(
                 OtpTestData::ARRAY_OF_FULL_VALID_PARAMETERS_FOR_CUSTOM_TOTP,
                 ['group_id' => 9999999]
@@ -776,7 +799,8 @@ class TwoFAccountControllerTest extends FeatureTestCase
         $this->user['preferences->defaultGroup'] = 0;
         $this->user->save();
 
-        $response = $this->actingAs($this->user, 'api-guard')
+        Passport::actingAs($this->user, [], 'api-guard');
+        $response = $this
             ->json('POST', '/api/v1/twofaccounts', array_merge(
                 OtpTestData::ARRAY_OF_FULL_VALID_PARAMETERS_FOR_CUSTOM_TOTP,
                 ['group_id' => null]
@@ -793,7 +817,8 @@ class TwoFAccountControllerTest extends FeatureTestCase
         $this->user['preferences->defaultGroup'] = $this->userGroupA->id;
         $this->user->save();
 
-        $response = $this->actingAs($this->user, 'api-guard')
+        Passport::actingAs($this->user, [], 'api-guard');
+        $response = $this
             ->json('POST', '/api/v1/twofaccounts', array_merge(
                 OtpTestData::ARRAY_OF_FULL_VALID_PARAMETERS_FOR_CUSTOM_TOTP,
                 ['group_id' => null]
@@ -810,7 +835,8 @@ class TwoFAccountControllerTest extends FeatureTestCase
         $this->user['preferences->defaultGroup'] = $this->userGroupA->id;
         $this->user->save();
 
-        $response = $this->actingAs($this->user, 'api-guard')
+        Passport::actingAs($this->user, [], 'api-guard');
+        $response = $this
             ->json('POST', '/api/v1/twofaccounts', array_merge(
                 OtpTestData::ARRAY_OF_FULL_VALID_PARAMETERS_FOR_CUSTOM_TOTP,
                 ['group_id' => 0]
@@ -827,7 +853,8 @@ class TwoFAccountControllerTest extends FeatureTestCase
         $this->user['preferences->defaultGroup'] = $this->userGroupA->id;
         $this->user->save();
 
-        $response = $this->actingAs($this->user, 'api-guard')
+        Passport::actingAs($this->user, [], 'api-guard');
+        $response = $this
             ->json('POST', '/api/v1/twofaccounts', array_merge(
                 OtpTestData::ARRAY_OF_FULL_VALID_PARAMETERS_FOR_CUSTOM_TOTP,
                 ['group_id' => $this->userGroupB->id]
@@ -844,7 +871,8 @@ class TwoFAccountControllerTest extends FeatureTestCase
         $this->user['preferences->defaultGroup'] = $this->userGroupA->id;
         $this->user->save();
 
-        $response = $this->actingAs($this->user, 'api-guard')
+        Passport::actingAs($this->user, [], 'api-guard');
+        $response = $this
             ->json('POST', '/api/v1/twofaccounts', [
                 'uri' => OtpTestData::TOTP_SHORT_URI,
             ])
@@ -862,7 +890,8 @@ class TwoFAccountControllerTest extends FeatureTestCase
         $this->user['preferences->activeGroup'] = $this->userGroupA->id;
         $this->user->save();
 
-        $response = $this->actingAs($this->user, 'api-guard')
+        Passport::actingAs($this->user, [], 'api-guard');
+        $response = $this
             ->json('POST', '/api/v1/twofaccounts', [
                 'uri' => OtpTestData::TOTP_SHORT_URI,
             ])
@@ -878,7 +907,8 @@ class TwoFAccountControllerTest extends FeatureTestCase
         $this->user['preferences->defaultGroup'] = 0;
         $this->user->save();
 
-        $response = $this->actingAs($this->user, 'api-guard')
+        Passport::actingAs($this->user, [], 'api-guard');
+        $response = $this
             ->json('POST', '/api/v1/twofaccounts', [
                 'uri' => OtpTestData::TOTP_SHORT_URI,
             ])
@@ -894,7 +924,8 @@ class TwoFAccountControllerTest extends FeatureTestCase
         $this->user['preferences->defaultGroup'] = 1000;
         $this->user->save();
 
-        $response = $this->actingAs($this->user, 'api-guard')
+        Passport::actingAs($this->user, [], 'api-guard');
+        $response = $this
             ->json('POST', '/api/v1/twofaccounts', [
                 'uri' => OtpTestData::TOTP_SHORT_URI,
             ])
@@ -906,7 +937,8 @@ class TwoFAccountControllerTest extends FeatureTestCase
     #[Test]
     public function test_update_totp_returns_success_with_updated_resource()
     {
-        $response = $this->actingAs($this->user, 'api-guard')
+        Passport::actingAs($this->user, [], 'api-guard');
+        $response = $this
             ->json('PUT', '/api/v1/twofaccounts/' . $this->twofaccountA->id, OtpTestData::ARRAY_OF_FULL_VALID_PARAMETERS_FOR_CUSTOM_TOTP)
             ->assertOk()
             ->assertJsonFragment(self::JSON_FRAGMENTS_FOR_CUSTOM_TOTP);
@@ -915,7 +947,8 @@ class TwoFAccountControllerTest extends FeatureTestCase
     #[Test]
     public function test_update_hotp_returns_success_with_updated_resource()
     {
-        $response = $this->actingAs($this->user, 'api-guard')
+        Passport::actingAs($this->user, [], 'api-guard');
+        $response = $this
             ->json('PUT', '/api/v1/twofaccounts/' . $this->twofaccountA->id, OtpTestData::ARRAY_OF_FULL_VALID_PARAMETERS_FOR_CUSTOM_HOTP)
             ->assertOk()
             ->assertJsonFragment(self::JSON_FRAGMENTS_FOR_CUSTOM_HOTP);
@@ -924,7 +957,8 @@ class TwoFAccountControllerTest extends FeatureTestCase
     #[Test]
     public function test_update_missing_twofaccount_returns_not_found()
     {
-        $response = $this->actingAs($this->user, 'api-guard')
+        Passport::actingAs($this->user, [], 'api-guard');
+        $response = $this
             ->json('PUT', '/api/v1/twofaccounts/1000', OtpTestData::ARRAY_OF_FULL_VALID_PARAMETERS_FOR_CUSTOM_TOTP)
             ->assertNotFound();
     }
@@ -934,7 +968,8 @@ class TwoFAccountControllerTest extends FeatureTestCase
     {
         $this->assertNotEquals(null, $this->twofaccountA->group_id);
 
-        $response = $this->actingAs($this->user, 'api-guard')
+        Passport::actingAs($this->user, [], 'api-guard');
+        $response = $this
             ->json('PUT', '/api/v1/twofaccounts/' . $this->twofaccountA->id, array_merge(
                 OtpTestData::ARRAY_OF_FULL_VALID_PARAMETERS_FOR_CUSTOM_TOTP,
                 ['group_id' => null]
@@ -951,7 +986,8 @@ class TwoFAccountControllerTest extends FeatureTestCase
     {
         $this->assertNotEquals(null, $this->twofaccountA->group_id);
 
-        $response = $this->actingAs($this->user, 'api-guard')
+        Passport::actingAs($this->user, [], 'api-guard');
+        $response = $this
             ->json('PUT', '/api/v1/twofaccounts/' . $this->twofaccountA->id, array_merge(
                 OtpTestData::ARRAY_OF_FULL_VALID_PARAMETERS_FOR_CUSTOM_TOTP,
                 ['group_id' => 0]
@@ -968,7 +1004,8 @@ class TwoFAccountControllerTest extends FeatureTestCase
     {
         $this->assertEquals($this->userGroupA->id, $this->twofaccountA->group_id);
 
-        $response = $this->actingAs($this->user, 'api-guard')
+        Passport::actingAs($this->user, [], 'api-guard');
+        $response = $this
             ->json('PUT', '/api/v1/twofaccounts/' . $this->twofaccountA->id, array_merge(
                 OtpTestData::ARRAY_OF_FULL_VALID_PARAMETERS_FOR_CUSTOM_TOTP,
                 ['group_id' => $this->userGroupB->id]
@@ -983,7 +1020,8 @@ class TwoFAccountControllerTest extends FeatureTestCase
     #[Test]
     public function test_update_with_assignement_to_missing_groupid_returns_validation_error()
     {
-        $response = $this->actingAs($this->user, 'api-guard')
+        Passport::actingAs($this->user, [], 'api-guard');
+        $response = $this
             ->json('PUT', '/api/v1/twofaccounts/' . $this->twofaccountA->id, array_merge(
                 OtpTestData::ARRAY_OF_FULL_VALID_PARAMETERS_FOR_CUSTOM_TOTP,
                 ['group_id' => 9999999]
@@ -996,7 +1034,8 @@ class TwoFAccountControllerTest extends FeatureTestCase
     {
         $twofaccount = TwoFAccount::factory()->create();
 
-        $response = $this->actingAs($this->user, 'api-guard')
+        Passport::actingAs($this->user, [], 'api-guard');
+        $response = $this
             ->json('PUT', '/api/v1/twofaccounts/' . $this->twofaccountA->id, self::ARRAY_OF_INVALID_PARAMETERS)
             ->assertStatus(422);
     }
@@ -1004,7 +1043,8 @@ class TwoFAccountControllerTest extends FeatureTestCase
     #[Test]
     public function test_update_twofaccount_of_another_user_is_forbidden()
     {
-        $response = $this->actingAs($this->user, 'api-guard')
+        Passport::actingAs($this->user, [], 'api-guard');
+        $response = $this
             ->json('PUT', '/api/v1/twofaccounts/' . $this->twofaccountC->id, OtpTestData::ARRAY_OF_FULL_VALID_PARAMETERS_FOR_CUSTOM_HOTP)
             ->assertForbidden()
             ->assertJsonStructure([
@@ -1029,7 +1069,8 @@ class TwoFAccountControllerTest extends FeatureTestCase
         $twofaccount        = TwoFAccount::factory()->for($this->user)->create($attributes);
         $attributes['icon'] = '';
 
-        $response = $this->actingAs($this->user, 'api-guard')
+        Passport::actingAs($this->user, [], 'api-guard');
+        $response = $this
             ->json('PUT', '/api/v1/twofaccounts/' . $twofaccount->id, $attributes);
 
         $this->assertNull($response->json('icon'));
@@ -1038,7 +1079,8 @@ class TwoFAccountControllerTest extends FeatureTestCase
     #[Test]
     public function test_migrate_valid_gauth_payload_returns_success_with_consistent_resources()
     {
-        $response = $this->actingAs($this->user, 'api-guard')
+        Passport::actingAs($this->user, [], 'api-guard');
+        $response = $this
             ->json('POST', '/api/v1/twofaccounts/migration', [
                 'payload'    => MigrationTestData::GOOGLE_AUTH_MIGRATION_URI,
                 'withSecret' => 1,
@@ -1072,7 +1114,8 @@ class TwoFAccountControllerTest extends FeatureTestCase
     #[Test]
     public function test_migrate_with_invalid_gauth_payload_returns_validation_error()
     {
-        $response = $this->actingAs($this->user, 'api-guard')
+        Passport::actingAs($this->user, [], 'api-guard');
+        $response = $this
             ->json('POST', '/api/v1/twofaccounts/migration', [
                 'uri' => MigrationTestData::INVALID_GOOGLE_AUTH_MIGRATION_URI,
             ])
@@ -1094,7 +1137,8 @@ class TwoFAccountControllerTest extends FeatureTestCase
             'icon'       => '',
         ]);
 
-        $response = $this->actingAs($this->user, 'api-guard')
+        Passport::actingAs($this->user, [], 'api-guard');
+        $response = $this
             ->json('POST', '/api/v1/twofaccounts/migration?withSecret=1', [
                 'payload' => MigrationTestData::GOOGLE_AUTH_MIGRATION_URI,
             ])
@@ -1140,7 +1184,8 @@ class TwoFAccountControllerTest extends FeatureTestCase
             'icon'       => '',
         ]);
 
-        $response = $this->actingAs($this->user, 'api-guard')
+        Passport::actingAs($this->user, [], 'api-guard');
+        $response = $this
             ->json('POST', '/api/v1/twofaccounts/migration?withSecret=1', [
                 'payload' => MigrationTestData::GOOGLE_AUTH_MIGRATION_URI,
             ])
@@ -1172,7 +1217,8 @@ class TwoFAccountControllerTest extends FeatureTestCase
     #[Test]
     public function test_migrate_invalid_gauth_payload_returns_bad_request()
     {
-        $response = $this->actingAs($this->user, 'api-guard')
+        Passport::actingAs($this->user, [], 'api-guard');
+        $response = $this
             ->json('POST', '/api/v1/twofaccounts/migration', [
                 'payload' => MigrationTestData::GOOGLE_AUTH_MIGRATION_URI_WITH_INVALID_DATA,
             ])
@@ -1187,8 +1233,8 @@ class TwoFAccountControllerTest extends FeatureTestCase
     {
         $file = LocalFile::fake()->validAegisJsonFile();
 
+        Passport::actingAs($this->user, [], 'api-guard');
         $response = $this->withHeaders(['Content-Type' => 'multipart/form-data'])
-            ->actingAs($this->user, 'api-guard')
             ->json('POST', '/api/v1/twofaccounts/migration', [
                 'file'       => $file,
                 'withSecret' => 1,
@@ -1234,8 +1280,8 @@ class TwoFAccountControllerTest extends FeatureTestCase
     #[DataProvider('invalidAegisJsonFileProvider')]
     public function test_migrate_invalid_aegis_json_file_returns_bad_request($file)
     {
+        Passport::actingAs($this->user, [], 'api-guard');
         $response = $this->withHeaders(['Content-Type' => 'multipart/form-data'])
-            ->actingAs($this->user, 'api-guard')
             ->json('POST', '/api/v1/twofaccounts/migration', [
                 'file' => $file,
             ])
@@ -1261,8 +1307,8 @@ class TwoFAccountControllerTest extends FeatureTestCase
     #[DataProvider('validPlainTextFileProvider')]
     public function test_migrate_valid_plain_text_file_returns_success($file)
     {
+        Passport::actingAs($this->user, [], 'api-guard');
         $response = $this->withHeaders(['Content-Type' => 'multipart/form-data'])
-            ->actingAs($this->user, 'api-guard')
             ->json('POST', '/api/v1/twofaccounts/migration', [
                 'file'       => $file,
                 'withSecret' => 1,
@@ -1323,8 +1369,8 @@ class TwoFAccountControllerTest extends FeatureTestCase
     #[DataProvider('invalidPlainTextFileProvider')]
     public function test_migrate_invalid_plain_text_file_returns_bad_request($file)
     {
+        Passport::actingAs($this->user, [], 'api-guard');
         $response = $this->withHeaders(['Content-Type' => 'multipart/form-data'])
-            ->actingAs($this->user, 'api-guard')
             ->json('POST', '/api/v1/twofaccounts/migration', [
                 'file' => $file,
             ])
@@ -1355,7 +1401,8 @@ class TwoFAccountControllerTest extends FeatureTestCase
     #[Test]
     public function test_reorder_returns_success()
     {
-        $response = $this->actingAs($this->user, 'api-guard')
+        Passport::actingAs($this->user, [], 'api-guard');
+        $response = $this
             ->json('POST', '/api/v1/twofaccounts/reorder', [
                 'orderedIds' => [$this->twofaccountB->id, $this->twofaccountA->id],
             ])
@@ -1375,7 +1422,8 @@ class TwoFAccountControllerTest extends FeatureTestCase
     #[Test]
     public function test_reorder_with_invalid_data_returns_validation_error()
     {
-        $response = $this->actingAs($this->user, 'api-guard')
+        Passport::actingAs($this->user, [], 'api-guard');
+        $response = $this
             ->json('POST', '/api/v1/twofaccounts/reorder', [
                 'orderedIds' => '3,2,1',
             ])
@@ -1385,7 +1433,8 @@ class TwoFAccountControllerTest extends FeatureTestCase
     #[Test]
     public function test_reorder_twofaccounts_of_another_user_is_forbidden()
     {
-        $response = $this->actingAs($this->user, 'api-guard')
+        Passport::actingAs($this->user, [], 'api-guard');
+        $response = $this
             ->json('POST', '/api/v1/twofaccounts/reorder', [
                 'orderedIds' => [$this->twofaccountB->id, $this->twofaccountD->id],
             ])
@@ -1398,7 +1447,8 @@ class TwoFAccountControllerTest extends FeatureTestCase
     #[Test]
     public function test_preview_returns_success_with_resource()
     {
-        $response = $this->actingAs($this->user, 'api-guard')
+        Passport::actingAs($this->user, [], 'api-guard');
+        $response = $this
             ->json('POST', '/api/v1/twofaccounts/preview', [
                 'uri' => OtpTestData::TOTP_FULL_CUSTOM_URI,
             ])
@@ -1409,7 +1459,8 @@ class TwoFAccountControllerTest extends FeatureTestCase
     #[Test]
     public function test_preview_with_invalid_data_returns_validation_error()
     {
-        $response = $this->actingAs($this->user, 'api-guard')
+        Passport::actingAs($this->user, [], 'api-guard');
+        $response = $this
             ->json('POST', '/api/v1/twofaccounts/preview', [
                 'uri' => OtpTestData::INVALID_OTPAUTH_URI,
             ])
@@ -1421,7 +1472,8 @@ class TwoFAccountControllerTest extends FeatureTestCase
     {
         $this->user['preferences->getOfficialIcons'] = true;
 
-        $response = $this->actingAs($this->user, 'api-guard')
+        Passport::actingAs($this->user, [], 'api-guard');
+        $response = $this
             ->json('POST', '/api/v1/twofaccounts/preview', [
                 'uri' => OtpTestData::TOTP_URI_WITH_UNREACHABLE_IMAGE,
             ])
@@ -1435,7 +1487,8 @@ class TwoFAccountControllerTest extends FeatureTestCase
     {
         $this->user['preferences->getOfficialIcons'] = false;
 
-        $response = $this->actingAs($this->user, 'api-guard')
+        Passport::actingAs($this->user, [], 'api-guard');
+        $response = $this
             ->json('POST', '/api/v1/twofaccounts/preview', [
                 'uri' => OtpTestData::TOTP_URI_WITH_UNREACHABLE_IMAGE,
             ])
@@ -1450,7 +1503,8 @@ class TwoFAccountControllerTest extends FeatureTestCase
     {
         $this->user['preferences->getOfficialIcons'] = true;
 
-        $response = $this->actingAs($this->user, 'api-guard')
+        Passport::actingAs($this->user, [], 'api-guard');
+        $response = $this
             ->json('POST', '/api/v1/twofaccounts/preview', [
                 'uri' => OtpTestData::TOTP_URI_WITH_INFECTED_SVG_IMAGE,
             ])
@@ -1466,7 +1520,8 @@ class TwoFAccountControllerTest extends FeatureTestCase
         $this->twofaccountA = TwoFAccount::factory()->for($this->user)->create(self::JSON_FRAGMENTS_FOR_DEFAULT_TOTP);
         $this->twofaccountB = TwoFAccount::factory()->for($this->user)->create(self::JSON_FRAGMENTS_FOR_DEFAULT_HOTP);
 
-        $this->actingAs($this->user, 'api-guard')
+        Passport::actingAs($this->user, [], 'api-guard');
+        $this
             ->json('GET', '/api/v1/twofaccounts/export?ids=' . $this->twofaccountA->id . ',' . $this->twofaccountB->id)
             ->assertOk()
             ->assertJsonStructure(self::VALID_EXPORT_STRUTURE)
@@ -1480,7 +1535,8 @@ class TwoFAccountControllerTest extends FeatureTestCase
         $this->twofaccountA = TwoFAccount::factory()->for($this->user)->create(self::JSON_FRAGMENTS_FOR_DEFAULT_TOTP);
         $this->twofaccountB = TwoFAccount::factory()->for($this->user)->create(self::JSON_FRAGMENTS_FOR_DEFAULT_HOTP);
 
-        $this->actingAs($this->user, 'api-guard')
+        Passport::actingAs($this->user, [], 'api-guard');
+        $this
             ->json('GET', '/api/v1/twofaccounts/export?ids=' . $this->twofaccountA->id . ',' . $this->twofaccountB->id . '&otpauth=1')
             ->assertOk()
             ->assertJsonStructure(self::VALID_EXPORT_AS_URIS_STRUTURE)
@@ -1494,7 +1550,8 @@ class TwoFAccountControllerTest extends FeatureTestCase
         $this->twofaccountA = TwoFAccount::factory()->for($this->user)->create(self::JSON_FRAGMENTS_FOR_DEFAULT_TOTP);
         $this->twofaccountB = TwoFAccount::factory()->for($this->user)->create(self::JSON_FRAGMENTS_FOR_DEFAULT_HOTP);
 
-        $this->actingAs($this->user, 'api-guard')
+        Passport::actingAs($this->user, [], 'api-guard');
+        $this
             ->json('GET', '/api/v1/twofaccounts/export?ids=' . $this->twofaccountA->id . ',' . $this->twofaccountB->id . '&otpauth=0')
             ->assertOk()
             ->assertJsonStructure(self::VALID_EXPORT_STRUTURE)
@@ -1509,7 +1566,8 @@ class TwoFAccountControllerTest extends FeatureTestCase
 
         $ids = DB::table('twofaccounts')->where('user_id', $this->user->id)->pluck('id')->implode(',');
 
-        $response = $this->actingAs($this->user, 'api-guard')
+        Passport::actingAs($this->user, [], 'api-guard');
+        $response = $this
             ->json('GET', '/api/v1/twofaccounts/export?ids=' . $ids)
             ->assertStatus(400)
             ->assertJsonStructure([
@@ -1523,7 +1581,8 @@ class TwoFAccountControllerTest extends FeatureTestCase
     {
         $this->twofaccountA = TwoFAccount::factory()->for($this->user)->create(self::JSON_FRAGMENTS_FOR_DEFAULT_TOTP);
 
-        $response = $this->actingAs($this->user, 'api-guard')
+        Passport::actingAs($this->user, [], 'api-guard');
+        $response = $this
             ->json('GET', '/api/v1/twofaccounts/export?ids=' . $this->twofaccountA->id . ',1000')
             ->assertJsonFragment(self::JSON_FRAGMENTS_FOR_DEFAULT_TOTP);
     }
@@ -1531,7 +1590,8 @@ class TwoFAccountControllerTest extends FeatureTestCase
     #[Test]
     public function test_export_twofaccount_of_another_user_is_forbidden()
     {
-        $response = $this->actingAs($this->user, 'api-guard')
+        Passport::actingAs($this->user, [], 'api-guard');
+        $response = $this
             ->json('GET', '/api/v1/twofaccounts/export?ids=' . $this->twofaccountC->id)
             ->assertForbidden()
             ->assertJsonStructure([
@@ -1549,7 +1609,8 @@ class TwoFAccountControllerTest extends FeatureTestCase
             ]
         ));
 
-        $response = $this->actingAs($this->user, 'api-guard')
+        Passport::actingAs($this->user, [], 'api-guard');
+        $response = $this
             ->json('GET', '/api/v1/twofaccounts/export?ids=' . $this->twofaccountA->id)
             ->assertJsonFragment([
                 'icon'      => 'icon_without_file_on_disk.png',
@@ -1573,7 +1634,8 @@ class TwoFAccountControllerTest extends FeatureTestCase
             'icon'       => '',
         ]);
 
-        $response = $this->actingAs($this->user, 'api-guard')
+        Passport::actingAs($this->user, [], 'api-guard');
+        $response = $this
             ->json('GET', '/api/v1/twofaccounts/' . $twofaccount->id . '/otp')
             ->assertOk()
             ->assertJsonStructure(self::VALID_OTP_RESOURCE_STRUCTURE_FOR_TOTP)
@@ -1586,7 +1648,8 @@ class TwoFAccountControllerTest extends FeatureTestCase
     #[Test]
     public function test_get_otp_by_posting_totp_uri_returns_consistent_resource()
     {
-        $response = $this->actingAs($this->user, 'api-guard')
+        Passport::actingAs($this->user, [], 'api-guard');
+        $response = $this
             ->json('POST', '/api/v1/twofaccounts/otp', [
                 'uri' => OtpTestData::TOTP_FULL_CUSTOM_URI,
             ])
@@ -1601,7 +1664,8 @@ class TwoFAccountControllerTest extends FeatureTestCase
     #[Test]
     public function test_get_otp_by_posting_totp_parameters_returns_consistent_resource()
     {
-        $response = $this->actingAs($this->user, 'api-guard')
+        Passport::actingAs($this->user, [], 'api-guard');
+        $response = $this
             ->json('POST', '/api/v1/twofaccounts/otp', OtpTestData::ARRAY_OF_FULL_VALID_PARAMETERS_FOR_CUSTOM_TOTP)
             ->assertOk()
             ->assertJsonStructure(self::VALID_OTP_RESOURCE_STRUCTURE_FOR_TOTP)
@@ -1626,7 +1690,8 @@ class TwoFAccountControllerTest extends FeatureTestCase
             'icon'       => '',
         ]);
 
-        $response = $this->actingAs($this->user, 'api-guard')
+        Passport::actingAs($this->user, [], 'api-guard');
+        $response = $this
             ->json('GET', '/api/v1/twofaccounts/' . $twofaccount->id . '/otp')
             ->assertOk()
             ->assertJsonStructure(self::VALID_OTP_RESOURCE_STRUCTURE_FOR_HOTP)
@@ -1639,7 +1704,8 @@ class TwoFAccountControllerTest extends FeatureTestCase
     #[Test]
     public function test_get_otp_by_posting_hotp_uri_returns_consistent_resource()
     {
-        $response = $this->actingAs($this->user, 'api-guard')
+        Passport::actingAs($this->user, [], 'api-guard');
+        $response = $this
             ->json('POST', '/api/v1/twofaccounts/otp', [
                 'uri' => OtpTestData::HOTP_FULL_CUSTOM_URI,
             ])
@@ -1654,7 +1720,8 @@ class TwoFAccountControllerTest extends FeatureTestCase
     #[Test]
     public function test_get_otp_by_posting_hotp_parameters_returns_consistent_resource()
     {
-        $response = $this->actingAs($this->user, 'api-guard')
+        Passport::actingAs($this->user, [], 'api-guard');
+        $response = $this
             ->json('POST', '/api/v1/twofaccounts/otp', OtpTestData::ARRAY_OF_FULL_VALID_PARAMETERS_FOR_CUSTOM_HOTP)
             ->assertOk()
             ->assertJsonStructure(self::VALID_OTP_RESOURCE_STRUCTURE_FOR_HOTP)
@@ -1667,7 +1734,8 @@ class TwoFAccountControllerTest extends FeatureTestCase
     #[Test]
     public function test_get_otp_by_posting_multiple_inputs_returns_bad_request()
     {
-        $response = $this->actingAs($this->user, 'api-guard')
+        Passport::actingAs($this->user, [], 'api-guard');
+        $response = $this
             ->json('POST', '/api/v1/twofaccounts/otp', [
                 'uri' => OtpTestData::HOTP_FULL_CUSTOM_URI,
                 'key' => 'value',
@@ -1692,7 +1760,8 @@ class TwoFAccountControllerTest extends FeatureTestCase
                 'secret' => '**encrypted**',
             ]);
 
-        $response = $this->actingAs($this->user, 'api-guard')
+        Passport::actingAs($this->user, [], 'api-guard');
+        $response = $this
             ->json('GET', '/api/v1/twofaccounts/' . $twofaccount->id . '/otp')
             ->assertStatus(400)
             ->assertJsonStructure([
@@ -1703,7 +1772,8 @@ class TwoFAccountControllerTest extends FeatureTestCase
     #[Test]
     public function test_get_otp_using_missing_twofaccount_id_returns_not_found()
     {
-        $response = $this->actingAs($this->user, 'api-guard')
+        Passport::actingAs($this->user, [], 'api-guard');
+        $response = $this
             ->json('GET', '/api/v1/twofaccounts/1000/otp')
             ->assertNotFound();
     }
@@ -1711,7 +1781,8 @@ class TwoFAccountControllerTest extends FeatureTestCase
     #[Test]
     public function test_get_otp_by_posting_invalid_uri_returns_validation_error()
     {
-        $response = $this->actingAs($this->user, 'api-guard')
+        Passport::actingAs($this->user, [], 'api-guard');
+        $response = $this
             ->json('POST', '/api/v1/twofaccounts/otp', [
                 'uri' => OtpTestData::INVALID_OTPAUTH_URI,
             ])
@@ -1721,7 +1792,8 @@ class TwoFAccountControllerTest extends FeatureTestCase
     #[Test]
     public function test_get_otp_by_posting_invalid_parameters_returns_validation_error()
     {
-        $response = $this->actingAs($this->user, 'api-guard')
+        Passport::actingAs($this->user, [], 'api-guard');
+        $response = $this
             ->json('POST', '/api/v1/twofaccounts/otp', self::ARRAY_OF_INVALID_PARAMETERS)
             ->assertStatus(422);
     }
@@ -1729,7 +1801,8 @@ class TwoFAccountControllerTest extends FeatureTestCase
     #[Test]
     public function test_get_otp_of_another_user_twofaccount_is_forbidden()
     {
-        $response = $this->actingAs($this->user, 'api-guard')
+        Passport::actingAs($this->user, [], 'api-guard');
+        $response = $this
             ->json('GET', '/api/v1/twofaccounts/' . $this->twofaccountC->id . '/otp')
             ->assertForbidden()
             ->assertJsonStructure([
@@ -1740,7 +1813,8 @@ class TwoFAccountControllerTest extends FeatureTestCase
     #[Test]
     public function test_count_returns_right_number_of_twofaccounts()
     {
-        $response = $this->actingAs($this->user, 'api-guard')
+        Passport::actingAs($this->user, [], 'api-guard');
+        $response = $this
             ->json('GET', '/api/v1/twofaccounts/count')
             ->assertStatus(200)
             ->assertExactJson([
@@ -1751,7 +1825,8 @@ class TwoFAccountControllerTest extends FeatureTestCase
     #[Test]
     public function test_withdraw_returns_success()
     {
-        $response = $this->actingAs($this->user, 'api-guard')
+        Passport::actingAs($this->user, [], 'api-guard');
+        $response = $this
             ->json('PATCH', '/api/v1/twofaccounts/withdraw?ids=1,2')
             ->assertOk()
             ->assertJsonStructure([
@@ -1766,7 +1841,8 @@ class TwoFAccountControllerTest extends FeatureTestCase
 
         $ids = DB::table('twofaccounts')->where('user_id', $this->user->id)->pluck('id')->implode(',');
 
-        $response = $this->actingAs($this->user, 'api-guard')
+        Passport::actingAs($this->user, [], 'api-guard');
+        $response = $this
             ->json('PATCH', '/api/v1/twofaccounts/withdraw?ids=' . $ids)
             ->assertStatus(400)
             ->assertJsonStructure([
@@ -1778,7 +1854,8 @@ class TwoFAccountControllerTest extends FeatureTestCase
     #[Test]
     public function test_destroy_twofaccount_returns_success()
     {
-        $response = $this->actingAs($this->user, 'api-guard')
+        Passport::actingAs($this->user, [], 'api-guard');
+        $response = $this
             ->json('DELETE', '/api/v1/twofaccounts/' . $this->twofaccountA->id)
             ->assertNoContent();
     }
@@ -1786,7 +1863,8 @@ class TwoFAccountControllerTest extends FeatureTestCase
     #[Test]
     public function test_destroy_missing_twofaccount_returns_not_found()
     {
-        $response = $this->actingAs($this->user, 'api-guard')
+        Passport::actingAs($this->user, [], 'api-guard');
+        $response = $this
             ->json('DELETE', '/api/v1/twofaccounts/1000')
             ->assertNotFound();
     }
@@ -1794,7 +1872,8 @@ class TwoFAccountControllerTest extends FeatureTestCase
     #[Test]
     public function test_destroy_twofaccount_of_another_user_is_forbidden()
     {
-        $response = $this->actingAs($this->user, 'api-guard')
+        Passport::actingAs($this->user, [], 'api-guard');
+        $response = $this
             ->json('DELETE', '/api/v1/twofaccounts/' . $this->twofaccountC->id)
             ->assertForbidden()
             ->assertJsonStructure([
@@ -1807,7 +1886,8 @@ class TwoFAccountControllerTest extends FeatureTestCase
     {
         TwoFAccount::factory()->count(3)->for($this->user)->create();
 
-        $response = $this->actingAs($this->user, 'api-guard')
+        Passport::actingAs($this->user, [], 'api-guard');
+        $response = $this
             ->json('DELETE', '/api/v1/twofaccounts?ids=' . $this->twofaccountA->id . ',' . $this->twofaccountB->id)
             ->assertNoContent();
     }
@@ -1819,7 +1899,8 @@ class TwoFAccountControllerTest extends FeatureTestCase
 
         $ids = DB::table('twofaccounts')->where('user_id', $this->user->id)->pluck('id')->implode(',');
 
-        $response = $this->actingAs($this->user, 'api-guard')
+        Passport::actingAs($this->user, [], 'api-guard');
+        $response = $this
             ->json('DELETE', '/api/v1/twofaccounts?ids=' . $ids)
             ->assertStatus(400)
             ->assertJsonStructure([
@@ -1838,11 +1919,50 @@ class TwoFAccountControllerTest extends FeatureTestCase
             ->pluck('id')
             ->implode(',');
 
-        $response = $this->actingAs($this->user, 'api-guard')
+        Passport::actingAs($this->user, [], 'api-guard');
+        $response = $this
             ->json('DELETE', '/api/v1/twofaccounts?ids=' . $ids)
             ->assertForbidden()
             ->assertJsonStructure([
                 'message',
             ]);
+    }
+
+    /**
+     * Direct account ownership transfer: owner can transfer to another user.
+     */
+    public function test_owner_can_transfer_account_ownership() : void
+    {
+        $account  = TwoFAccount::factory()->for($this->user)->create();
+        $receiver = User::factory()->create();
+
+        Passport::actingAs($this->user, [], 'api-guard');
+        $response = $this->patchJson("/api/v1/twofaccounts/{$account->id}/owner", [
+            'new_owner_id' => $receiver->id,
+        ]);
+
+        $response->assertStatus(200)
+            ->assertJsonPath('new_owner_id', $receiver->id);
+
+        $account->refresh();
+        $this->assertSame($receiver->id, $account->user_id);
+        $this->assertSame($this->user->id, $account->previous_owner_id);
+    }
+
+    /**
+     * Non-owner cannot transfer account ownership.
+     */
+    public function test_non_owner_cannot_transfer_account_ownership() : void
+    {
+        $account  = TwoFAccount::factory()->for($this->user)->create();
+        $other    = User::factory()->create();
+        $receiver = User::factory()->create();
+
+        Passport::actingAs($other, [], 'api-guard');
+        $response = $this->patchJson("/api/v1/twofaccounts/{$account->id}/owner", [
+            'new_owner_id' => $receiver->id,
+        ]);
+
+        $response->assertForbidden();
     }
 }

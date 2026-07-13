@@ -4,6 +4,7 @@ namespace Tests\Api\v1\Controllers;
 
 use App\Api\v1\Controllers\FeatureFlagController;
 use App\Models\User;
+use Laravel\Passport\Passport;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
 use Tests\FeatureTestCase;
@@ -14,14 +15,14 @@ use Tests\FeatureTestCase;
 #[CoversClass(FeatureFlagController::class)]
 class FeatureFlagControllerTest extends FeatureTestCase
 {
-    protected function createEncryptedUser(array $attributes = []): User
+    protected function createEncryptedUser(array $attributes = []) : User
     {
         return User::factory()->create(array_merge([
-            'encryption_enabled' => true,
-            'encryption_salt' => 'test_salt',
+            'encryption_enabled'    => true,
+            'encryption_salt'       => 'test_salt',
             'encryption_test_value' => '{"ciphertext":"test","iv":"test","authTag":"test"}',
-            'encryption_version' => 1,
-            'vault_locked' => false,
+            'encryption_version'    => 1,
+            'vault_locked'          => false,
         ], $attributes));
     }
 
@@ -35,17 +36,18 @@ class FeatureFlagControllerTest extends FeatureTestCase
     #[Test]
     public function test_index_returns_all_features()
     {
-        $user = $this->createEncryptedUser();
+        $user     = $this->createEncryptedUser();
         $features = config('2fauth.features');
 
-        $response = $this->actingAs($user, 'api-guard')
+        Passport::actingAs($user, [], 'api-guard');
+        $response = $this
             ->json('GET', '/api/v1/features')
             ->assertOk()
             ->assertJsonCount(count($features));
 
         foreach ($features as $feature) {
             $response->assertJsonFragment([
-                'name' => $feature,
+                'name'  => $feature,
                 'state' => 'enabled',
             ]);
         }
@@ -54,15 +56,16 @@ class FeatureFlagControllerTest extends FeatureTestCase
     #[Test]
     public function test_show_existing_feature_returns_enabled()
     {
-        $user = $this->createEncryptedUser();
+        $user            = $this->createEncryptedUser();
         $existingFeature = config('2fauth.features')[0];
 
-        $this->actingAs($user, 'api-guard')
+        Passport::actingAs($user, [], 'api-guard');
+        $this
             ->json('GET', '/api/v1/features/' . $existingFeature)
             ->assertOk()
             ->assertJson([
-                'name' => $existingFeature,
-                'state' => 'enabled'
+                'name'  => $existingFeature,
+                'state' => 'enabled',
             ]);
     }
 
@@ -70,7 +73,8 @@ class FeatureFlagControllerTest extends FeatureTestCase
     public function test_show_unknown_feature_returns_disabled()
     {
         $user = $this->createEncryptedUser();
-        $this->actingAs($user, 'api-guard')
+        Passport::actingAs($user, [], 'api-guard');
+        $this
             ->json('GET', '/api/v1/features/unknownFeature')
             ->assertStatus(404)
             ->assertJson(['message' => 'not found']);

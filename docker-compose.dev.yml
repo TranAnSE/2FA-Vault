@@ -87,8 +87,9 @@ services:
         touch /srv/database/database.sqlite &&
         echo 'Running migrations...' &&
         php artisan migrate --force &&
-        echo 'Installing Passport...' &&
-        php artisan passport:install --force &&
+        echo 'Installing Passport keys...' &&
+        php artisan passport:keys --force &&
+        php artisan tinker --execute="app(\Laravel\Passport\ClientRepository::class)->createPersonalAccessGrantClient(config('app.name'), 'users');" &&
         echo 'Clearing cache...' &&
         php artisan config:clear &&
         php artisan cache:clear &&

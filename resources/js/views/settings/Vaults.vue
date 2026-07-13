@@ -1,9 +1,11 @@
 <script setup>
+    import tabs from './tabs'
     import vaultManagerService from '@/services/vaultManagerService'
-    import { useNotify } from '@2fauth/ui'
+    import { useNotify, TabBar } from '@2fauth/ui'
 
     const { t } = useI18n()
     const notify = useNotify()
+    const router = useRouter()
 
     const vaults     = ref([])
     const isLoading  = ref(false)
@@ -82,6 +84,8 @@
 </script>
 
 <template>
+    <div>
+        <TabBar :tabs="tabs" :active-tab="'settings.vaults'" @tab-selected="(to) => router.push({ name: to })" />
     <div class="container py-5">
         <h2 class="title is-3 mb-2">{{ $t('title.vaults') }}</h2>
         <p class="is-size-7 has-text-grey mb-5">{{ $t('message.vaults_desc') }}</p>
@@ -130,5 +134,6 @@
                 </div>
             </div>
         </div>
+    </div>
     </div>
 </template>

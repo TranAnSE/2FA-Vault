@@ -9,6 +9,7 @@ use App\Services\LogoLib\TfaLogoLib;
 use Illuminate\Http\Testing\FileFactory;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Storage;
+use Laravel\Passport\Passport;
 use Mockery\MockInterface;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
@@ -56,7 +57,7 @@ class TwoFAccountModelTest extends FeatureTestCase
 
         /** @var \Illuminate\Contracts\Auth\Authenticatable $user */
         $this->user = User::factory()->create();
-        $this->actingAs($this->user, 'api-guard');
+        Passport::actingAs($this->user, [], 'api-guard');
 
         $this->customTotpTwofaccount = TwoFAccount::factory()->for($this->user)->create([
             'legacy_uri' => OtpTestData::TOTP_FULL_CUSTOM_URI,

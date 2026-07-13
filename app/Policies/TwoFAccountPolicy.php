@@ -2,6 +2,7 @@
 
 namespace App\Policies;
 
+use App\Models\SharedAccount;
 use App\Models\TwoFAccount;
 use App\Models\User;
 use Illuminate\Auth\Access\HandlesAuthorization;
@@ -28,10 +29,65 @@ class TwoFAccountPolicy
      */
     public function view(User $user, TwoFAccount $twofaccount)
     {
-        $can = $this->isOwnerOf($user, $twofaccount);
+        // The owner can always view.
+        if ($this->isOwnerOf($user, $twofaccount)) {
+            return true;
+        }
+
+        // A recipient of a shared account (member_id match) can also view
+        // and generate OTPs for the shared account.
+        $can = SharedAccount::where('twofaccount_id', $twofaccount->id)
+            ->where('member_id', $user->id)
+            ->exists();
 
         if (! $can) {
             Log::notice(sprintf('User ID #%s cannot view twofaccount ID #%s', $user->id, $twofaccount->id));
+        }
+
+        return $can;
+    }
+
+    /**
+     * Determine whether the user can generate an OTP for the model.
+     * This is equivalent to view (owner or shared recipient).
+     *
+     * @return bool
+     */
+    public function generateOtp(User $user, TwoFAccount $twofaccount)
+    {
+        return $this->view($user, $twofaccount);
+    }
+
+    /**
+     * Determine whether the user can read the raw secret of the model.
+     * Only the owner can read the secret; shared recipients can only
+     * generate OTPs (view) but not see the secret itself.
+     *
+     * @return bool
+     */
+    public function readSecret(User $user, TwoFAccount $twofaccount)
+    {
+        $can = $this->isOwnerOf($user, $twofaccount);
+
+        if (! $can) {
+            Log::notice(sprintf('User ID #%s cannot read secret of twofaccount ID #%s', $user->id, $twofaccount->id));
+        }
+
+        return $can;
+    }
+
+    /**
+     * Determine whether the user can transfer ownership of the model.
+     * Only the owner can transfer.
+     *
+     * @return bool
+     */
+    public function transferOwnership(User $user, TwoFAccount $twofaccount)
+    {
+        $can = $this->isOwnerOf($user, $twofaccount);
+
+        if (! $can) {
+            Log::notice(sprintf('User ID #%s cannot transfer ownership of twofaccount ID #%s', $user->id, $twofaccount->id));
         }
 
         return $can;

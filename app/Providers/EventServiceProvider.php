@@ -12,6 +12,7 @@ use App\Listeners\Authentication\LoginListener;
 use App\Listeners\Authentication\LogoutListener;
 use App\Listeners\Authentication\VisitedByProxyUserListener;
 use App\Listeners\CleanIconStorage;
+use App\Listeners\DeleteTwoFAccountOtpLogs;
 use App\Listeners\DissociateTwofaccountFromGroup;
 use App\Listeners\LogNotificationListener;
 use App\Listeners\RegisterOpenId;
@@ -42,6 +43,7 @@ class EventServiceProvider extends ServiceProvider
         ],
         TwoFAccountDeleted::class => [
             CleanIconStorage::class,
+            DeleteTwoFAccountOtpLogs::class,
         ],
         GroupDeleted::class => [
             DissociateTwofaccountFromGroup::class,

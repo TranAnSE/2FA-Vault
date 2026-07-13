@@ -5,6 +5,7 @@ namespace Tests\Feature\Http\Middlewares;
 use App\Http\Middleware\AddContentSecurityPolicyHeaders;
 use App\Models\User;
 use Illuminate\Support\Facades\Config;
+use Laravel\Passport\Passport;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
 use Tests\FeatureTestCase;
@@ -16,7 +17,7 @@ use Tests\FeatureTestCase;
 class ContentSecurityPolicyMiddlewareTest extends FeatureTestCase
 {
     #[Test]
-    public function test_csp_headers_present_on_web_routes_when_enabled(): void
+    public function test_csp_headers_present_on_web_routes_when_enabled() : void
     {
         Config::set('2fauth.config.contentSecurityPolicy', true);
 
@@ -26,7 +27,7 @@ class ContentSecurityPolicyMiddlewareTest extends FeatureTestCase
     }
 
     #[Test]
-    public function test_csp_headers_absent_when_content_security_policy_disabled(): void
+    public function test_csp_headers_absent_when_content_security_policy_disabled() : void
     {
         Config::set('2fauth.config.contentSecurityPolicy', false);
 
@@ -36,7 +37,7 @@ class ContentSecurityPolicyMiddlewareTest extends FeatureTestCase
     }
 
     #[Test]
-    public function test_csp_includes_base_uri_self_directive(): void
+    public function test_csp_includes_base_uri_self_directive() : void
     {
         Config::set('2fauth.config.contentSecurityPolicy', true);
 
@@ -47,7 +48,7 @@ class ContentSecurityPolicyMiddlewareTest extends FeatureTestCase
     }
 
     #[Test]
-    public function test_csp_includes_form_action_self_directive(): void
+    public function test_csp_includes_form_action_self_directive() : void
     {
         Config::set('2fauth.config.contentSecurityPolicy', true);
 
@@ -58,7 +59,7 @@ class ContentSecurityPolicyMiddlewareTest extends FeatureTestCase
     }
 
     #[Test]
-    public function test_csp_includes_frame_ancestors_none_directive(): void
+    public function test_csp_includes_frame_ancestors_none_directive() : void
     {
         Config::set('2fauth.config.contentSecurityPolicy', true);
 
@@ -69,7 +70,7 @@ class ContentSecurityPolicyMiddlewareTest extends FeatureTestCase
     }
 
     #[Test]
-    public function test_api_routes_get_minimal_csp(): void
+    public function test_api_routes_get_minimal_csp() : void
     {
         Config::set('2fauth.config.contentSecurityPolicy', true);
 
@@ -78,7 +79,8 @@ class ContentSecurityPolicyMiddlewareTest extends FeatureTestCase
          */
         $user = User::factory()->create();
 
-        $response = $this->actingAs($user, 'api-guard')
+        Passport::actingAs($user, [], 'api-guard');
+        $response = $this
             ->getJson('/api/v1/encryption/status');
 
         $csp = $response->headers->get('Content-Security-Policy');
@@ -88,7 +90,7 @@ class ContentSecurityPolicyMiddlewareTest extends FeatureTestCase
     }
 
     #[Test]
-    public function test_api_routes_include_x_content_type_options_nosniff(): void
+    public function test_api_routes_include_x_content_type_options_nosniff() : void
     {
         Config::set('2fauth.config.contentSecurityPolicy', true);
 
@@ -97,14 +99,15 @@ class ContentSecurityPolicyMiddlewareTest extends FeatureTestCase
          */
         $user = User::factory()->create();
 
-        $response = $this->actingAs($user, 'api-guard')
+        Passport::actingAs($user, [], 'api-guard');
+        $response = $this
             ->getJson('/api/v1/encryption/status');
 
         $response->assertHeader('X-Content-Type-Options', 'nosniff');
     }
 
     #[Test]
-    public function test_web_csp_does_not_include_default_src_none(): void
+    public function test_web_csp_does_not_include_default_src_none() : void
     {
         Config::set('2fauth.config.contentSecurityPolicy', true);
 
@@ -117,7 +120,7 @@ class ContentSecurityPolicyMiddlewareTest extends FeatureTestCase
     }
 
     #[Test]
-    public function test_web_csp_includes_script_src_with_nonce(): void
+    public function test_web_csp_includes_script_src_with_nonce() : void
     {
         Config::set('2fauth.config.contentSecurityPolicy', true);
 
@@ -128,7 +131,7 @@ class ContentSecurityPolicyMiddlewareTest extends FeatureTestCase
     }
 
     #[Test]
-    public function test_web_csp_includes_object_src_none(): void
+    public function test_web_csp_includes_object_src_none() : void
     {
         Config::set('2fauth.config.contentSecurityPolicy', true);
 

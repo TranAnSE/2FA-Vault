@@ -22,6 +22,7 @@ use App\Rules\CaseInsensitiveEmailExists;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Facades\Notification;
+use Laravel\Passport\Passport;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\CoversMethod;
 use PHPUnit\Framework\Attributes\Test;
@@ -75,6 +76,10 @@ class LoginTest extends FeatureTestCase
 
         $this->user  = User::factory()->create();
         $this->admin = User::factory()->administrator()->create();
+
+        // The reverse-proxy guard only honours identity headers from trusted
+        // proxies. Trust the synthetic test client so proxy-mode tests work.
+        Config::set('2fauth.config.trustedProxies', '*');
     }
 
     #[Test]
@@ -373,12 +378,14 @@ class LoginTest extends FeatureTestCase
         ]);
 
         // Ping a protected endpoint to log last_seen_at time
-        $response = $this->actingAs($this->user, 'api-guard')
+        Passport::actingAs($this->user, [], 'api-guard');
+        $response = $this
             ->json('GET', '/api/v1/twofaccounts');
 
         $this->travelTo(Carbon::now()->addMinutes(2));
 
-        $response = $this->actingAs($this->user, 'api-guard')
+        Passport::actingAs($this->user, [], 'api-guard');
+        $response = $this
             ->json('GET', '/api/v1/twofaccounts')
             ->assertStatus(418);
     }

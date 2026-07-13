@@ -143,7 +143,18 @@ class Install extends Command
     protected function installPassport() : void
     {
         $this->components->task('Setting up Passport', function () : void {
-            $this->callSilently('passport:install', ['--no-interaction' => true]);
+            // Passport v13's passport:install uses interactive confirm() and
+            // choice() prompts that do not play well with non-interactive or
+            // test contexts. We replicate the needed steps directly: generate
+            // the encryption keys, then create the personal access client.
+            $this->callSilently('passport:keys', ['--no-interaction' => true]);
+
+            try {
+                app(\Laravel\Passport\ClientRepository::class)
+                    ->createPersonalAccessGrantClient(config('app.name'), 'users');
+            } catch (\Throwable) {
+                // The client may already exist; installation is idempotent.
+            }
         });
     }
 

@@ -52,7 +52,7 @@ class UserManagerResource extends UserResource
 
         // Personal Access Tokens (PATs)
         $tokenRepository = App::make(TokenRepository::class);
-        $tokens          = $tokenRepository->forUser($this->resource->getAuthIdentifier());
+        $tokens          = $tokenRepository->forUser($this->resource);
 
         $PATs_count = $tokens->load('client')->filter(function ($token) {
             return $token->client->personal_access_client && ! $token->revoked; /** @phpstan-ignore-line */

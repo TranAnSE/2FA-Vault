@@ -21,6 +21,7 @@ use App\Facades\Groups;
 use App\Facades\TwoFAccounts;
 use App\Helpers\Helpers;
 use App\Http\Controllers\Controller;
+use App\Models\OtpLog;
 use App\Models\TwoFAccount;
 use App\Models\User;
 use App\Services\PersonalActivityLogger;
@@ -32,9 +33,7 @@ use Illuminate\Validation\ValidationException;
 
 class TwoFAccountController extends Controller
 {
-    public function __construct(protected PersonalActivityLogger $activityLogger)
-    {
-    }
+    public function __construct(protected PersonalActivityLogger $activityLogger) {}
 
     /**
      * List all resources
@@ -83,7 +82,21 @@ class TwoFAccountController extends Controller
                 $query->whereIn('digits', array_map('intval', explode(',', $request->digits)));
             }
             if ($request->filled('group_id')) {
-                $query->where('group_id', (int) $request->group_id);
+                $groupId = (int) $request->group_id;
+
+                // Virtual sharing groups: filter by SharedAccount membership
+                // instead of the group_id column.
+                if ($groupId === \App\Models\Group::SHARED_BY_ME_ID) {
+                    $query->whereHas('sharedAccounts', function ($q) use ($request) {
+                        $q->where('shared_by', $request->user()->id);
+                    });
+                } elseif ($groupId === \App\Models\Group::SHARED_WITH_ME_ID) {
+                    $query->whereHas('sharedAccounts', function ($q) use ($request) {
+                        $q->where('member_id', $request->user()->id);
+                    });
+                } else {
+                    $query->where('group_id', $groupId);
+                }
             }
             if ($request->filled('tags')) {
                 $tagIds = array_filter(array_map('intval', explode(',', $request->tags)));
@@ -263,6 +276,7 @@ class TwoFAccountController extends Controller
         }
 
         $twofaccount->refresh();
+
         return (new TwoFAccountReadResource($twofaccount))
             ->response()
             ->setStatusCode(200);
@@ -384,7 +398,43 @@ class TwoFAccountController extends Controller
             $twofaccount->fillWithOtpParameters($validatedData, true);
         }
 
-        return response()->json($twofaccount->getOTP(), 200);
+        $otp = $twofaccount->getOTP();
+
+        // Audit: record that an OTP was generated. Only persisted for a real
+        // (stored) account so transient URI/parameter previews are not logged.
+        if ($id !== null) {
+            $user = $request->user();
+            if ($user !== null) {
+                $this->logOtpGeneration($user, $twofaccount);
+            }
+        }
+
+        return response()->json($otp, 200);
+    }
+
+    /**
+     * Persist an OTP generation audit entry.
+     *
+     * Requester and owner are identical for a user's own accounts; the duality
+     * becomes meaningful for shared accounts (Đợt 5 Hybrid Sharing).
+     */
+    private function logOtpGeneration(User $user, TwoFAccount $twofaccount) : void
+    {
+        // Fire-and-forget: logging must not block OTP delivery.
+        try {
+            OtpLog::create([
+                'requester_id'   => $user->id,
+                'owner_id'       => $twofaccount->user_id ?? $user->id,
+                'twofaccount_id' => $twofaccount->id,
+                'otp_type'       => $twofaccount->otp_type,
+                'counter'        => $twofaccount->counter,
+                'ip_address'     => request()->ip(),
+                'user_agent'     => request()->userAgent(),
+                'generated_at'   => now(),
+            ]);
+        } catch (\Throwable) { // @codeCoverageIgnore
+            // Silent failure — OTP generation must always succeed for the user.
+        }
     }
 
     /**
@@ -395,6 +445,35 @@ class TwoFAccountController extends Controller
     public function count(Request $request)
     {
         return response()->json(['count' => $request->user()->twofaccounts()->count()], 200);
+    }
+
+    /**
+     * Transfer ownership of a TwoFAccount to another user.
+     *
+     * The server reassigns user_id and records previous_owner_id. Because
+     * accounts are E2EE, the client must have already re-encrypted the
+     * account secret for the new owner before calling this endpoint.
+     *
+     * @return \Illuminate\Http\JsonResponse
+     */
+    public function transferOwnership(Request $request, TwoFAccount $twofaccount)
+    {
+        $validated = $request->validate([
+            'new_owner_id' => 'required|integer|exists:users,id',
+        ]);
+
+        $this->authorize('transferOwnership', $twofaccount);
+
+        $newOwner = User::findOrFail($validated['new_owner_id']);
+
+        $service     = app(\App\Services\TwoFAccountService::class);
+        $twofaccount = $service->transferOwnership($twofaccount, $newOwner);
+
+        return response()->json([
+            'message'        => 'Ownership transferred successfully',
+            'twofaccount_id' => $twofaccount->id,
+            'new_owner_id'   => $newOwner->id,
+        ], 200);
     }
 
     /**

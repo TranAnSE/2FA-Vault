@@ -60,6 +60,10 @@ class GroupControllerTest extends TestCase
             ->once()
             ->andReturn($groups);
 
+        Groups::shouldReceive('prependVirtualSharingGroups')
+            ->once()
+            ->andReturn($groups);
+
         $response = $controller->index($request);
 
         $this->assertContainsOnlyInstancesOf(GroupResource::class, $response->collection);

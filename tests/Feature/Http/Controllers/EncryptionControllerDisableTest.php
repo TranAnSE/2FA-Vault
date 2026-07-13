@@ -6,6 +6,7 @@ use App\Http\Controllers\EncryptionController;
 use App\Models\TwoFAccount;
 use App\Models\User;
 use App\Services\EncryptionService;
+use Laravel\Passport\Passport;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
 use Tests\FeatureTestCase;
@@ -21,27 +22,28 @@ class EncryptionControllerDisableTest extends FeatureTestCase
 {
     private User $user;
 
-    protected function setUp(): void
+    protected function setUp() : void
     {
         parent::setUp();
 
         $this->user = User::factory()->create([
-            'encryption_enabled'   => true,
-            'encryption_salt'      => 'test_salt_base64',
+            'encryption_enabled'    => true,
+            'encryption_salt'       => 'test_salt_base64',
             'encryption_test_value' => '{"ciphertext":"test","iv":"test","authTag":"test"}',
-            'encryption_version'   => 1,
-            'vault_locked'         => false,
+            'encryption_version'    => 1,
+            'vault_locked'          => false,
         ]);
     }
 
     #[Test]
-    public function test_disable_returns_422_when_encrypted_accounts_exist(): void
+    public function test_disable_returns_422_when_encrypted_accounts_exist() : void
     {
         TwoFAccount::factory()->count(2)->encrypted()->create([
             'user_id' => $this->user->id,
         ]);
 
-        $response = $this->actingAs($this->user, 'api-guard')
+        Passport::actingAs($this->user, [], 'api-guard');
+        $response = $this
             ->deleteJson('/api/v1/encryption/disable', [
                 'password' => 'password',
                 'confirm'  => true,
@@ -52,13 +54,14 @@ class EncryptionControllerDisableTest extends FeatureTestCase
     }
 
     #[Test]
-    public function test_disable_response_includes_encrypted_count(): void
+    public function test_disable_response_includes_encrypted_count() : void
     {
         TwoFAccount::factory()->count(3)->encrypted()->create([
             'user_id' => $this->user->id,
         ]);
 
-        $response = $this->actingAs($this->user, 'api-guard')
+        Passport::actingAs($this->user, [], 'api-guard');
+        $response = $this
             ->deleteJson('/api/v1/encryption/disable', [
                 'password' => 'password',
                 'confirm'  => true,
@@ -71,11 +74,12 @@ class EncryptionControllerDisableTest extends FeatureTestCase
     }
 
     #[Test]
-    public function test_disable_succeeds_when_no_encrypted_accounts(): void
+    public function test_disable_succeeds_when_no_encrypted_accounts() : void
     {
         // No encrypted TwoFAccounts created
 
-        $response = $this->actingAs($this->user, 'api-guard')
+        Passport::actingAs($this->user, [], 'api-guard');
+        $response = $this
             ->deleteJson('/api/v1/encryption/disable', [
                 'password' => 'password',
                 'confirm'  => true,
@@ -93,9 +97,10 @@ class EncryptionControllerDisableTest extends FeatureTestCase
     }
 
     #[Test]
-    public function test_disable_returns_401_with_wrong_password(): void
+    public function test_disable_returns_401_with_wrong_password() : void
     {
-        $response = $this->actingAs($this->user, 'api-guard')
+        Passport::actingAs($this->user, [], 'api-guard');
+        $response = $this
             ->deleteJson('/api/v1/encryption/disable', [
                 'password' => 'wrong-password',
                 'confirm'  => true,
@@ -112,9 +117,10 @@ class EncryptionControllerDisableTest extends FeatureTestCase
     }
 
     #[Test]
-    public function test_disable_requires_password(): void
+    public function test_disable_requires_password() : void
     {
-        $response = $this->actingAs($this->user, 'api-guard')
+        Passport::actingAs($this->user, [], 'api-guard');
+        $response = $this
             ->deleteJson('/api/v1/encryption/disable', [
                 'confirm' => true,
             ]);
@@ -124,9 +130,10 @@ class EncryptionControllerDisableTest extends FeatureTestCase
     }
 
     #[Test]
-    public function test_disable_requires_confirm_accepted(): void
+    public function test_disable_requires_confirm_accepted() : void
     {
-        $response = $this->actingAs($this->user, 'api-guard')
+        Passport::actingAs($this->user, [], 'api-guard');
+        $response = $this
             ->deleteJson('/api/v1/encryption/disable', [
                 'password' => 'password',
                 'confirm'  => false,
@@ -137,7 +144,7 @@ class EncryptionControllerDisableTest extends FeatureTestCase
     }
 
     #[Test]
-    public function test_disable_requires_authentication(): void
+    public function test_disable_requires_authentication() : void
     {
         $response = $this->deleteJson('/api/v1/encryption/disable', [
             'password' => 'password',
@@ -148,7 +155,7 @@ class EncryptionControllerDisableTest extends FeatureTestCase
     }
 
     #[Test]
-    public function test_disable_does_not_affect_other_users_encrypted_accounts(): void
+    public function test_disable_does_not_affect_other_users_encrypted_accounts() : void
     {
         // Our user has encrypted accounts
         TwoFAccount::factory()->count(2)->encrypted()->create([
@@ -162,7 +169,8 @@ class EncryptionControllerDisableTest extends FeatureTestCase
         ]);
 
         // Our user tries to disable — blocked by their own accounts
-        $response = $this->actingAs($this->user, 'api-guard')
+        Passport::actingAs($this->user, [], 'api-guard');
+        $response = $this
             ->deleteJson('/api/v1/encryption/disable', [
                 'password' => 'password',
                 'confirm'  => true,

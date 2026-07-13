@@ -35,6 +35,10 @@ class PasswordControllerTest extends FeatureTestCase
         parent::setUp();
 
         $this->user = User::factory()->create();
+
+        // The reverse-proxy guard only honours identity headers from trusted
+        // proxies. Trust the synthetic test client so proxy-mode tests work.
+        Config::set('2fauth.config.trustedProxies', '*');
     }
 
     #[Test]

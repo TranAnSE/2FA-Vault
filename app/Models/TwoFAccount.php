@@ -269,6 +269,15 @@ class TwoFAccount extends Model implements Sortable
     }
 
     /**
+     * Get the SharedAccount entries for this account (across all teams).
+     * Used for virtual "shared by me" / "shared with me" group filtering.
+     */
+    public function sharedAccounts()
+    {
+        return $this->hasMany(\App\Models\SharedAccount::class, 'twofaccount_id');
+    }
+
+    /**
      * Scope a query to only include orphan (userless) accounts.
      *
      * @param  \Illuminate\Database\Eloquent\Builder<User>  $query

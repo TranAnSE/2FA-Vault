@@ -98,6 +98,35 @@ class GroupService
     }
 
     /**
+     * Prepends the virtual sharing groups (Shared by me, Shared with me) to a
+     * group collection. Each virtual group's twofaccounts_count reflects how
+     * many of the user's accounts fall into that category.
+     *
+     * @param  \Illuminate\Database\Eloquent\Collection<int, Group>  $groups
+     * @return \Illuminate\Database\Eloquent\Collection<int, Group>
+     */
+    public static function prependVirtualSharingGroups(Collection $groups, User $user)
+    {
+        $sharedByMe = new Group([
+            'name' => __('label.shared_by_me'),
+        ]);
+        $sharedByMe->id                 = Group::SHARED_BY_ME_ID;
+        $sharedByMe->twofaccounts_count = \App\Models\SharedAccount::where('shared_by', $user->id)
+            ->distinct('twofaccount_id')
+            ->count('twofaccount_id');
+
+        $sharedWithMe = new Group([
+            'name' => __('label.shared_with_me'),
+        ]);
+        $sharedWithMe->id                 = Group::SHARED_WITH_ME_ID;
+        $sharedWithMe->twofaccounts_count = \App\Models\SharedAccount::where('member_id', $user->id)
+            ->distinct('twofaccount_id')
+            ->count('twofaccount_id');
+
+        return $groups->push($sharedByMe)->push($sharedWithMe);
+    }
+
+    /**
      * Set owner of given groups
      *
      * @param  \Illuminate\Database\Eloquent\Collection<int, Group>  $groups

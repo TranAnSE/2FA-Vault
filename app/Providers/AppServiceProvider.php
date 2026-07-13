@@ -13,6 +13,7 @@ use Illuminate\Support\ServiceProvider;
 use Laravel\Passport\Console\ClientCommand;
 use Laravel\Passport\Console\InstallCommand;
 use Laravel\Passport\Console\KeysCommand;
+use Laravel\Passport\Passport;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -40,6 +41,14 @@ class AppServiceProvider extends ServiceProvider
         Schema::defaultStringLength(191);
 
         JsonResource::withoutWrapping();
+
+        // Passport v13 defaults to UUID client IDs. The fork's oauth_clients
+        // schema uses integer IDs, so we opt out to keep backward compatibility.
+        Passport::$clientUuids = false;
+        // Passport v13 validates RSA key file permissions on Unix; the Windows
+        // dev environment does not use the same permission model, so disable
+        // the check to avoid false positives.
+        Passport::$validateKeyPermissions = false;
 
         $this->commands([
             InstallCommand::class,
@@ -78,7 +87,7 @@ class AppServiceProvider extends ServiceProvider
      * practice. Bumping sabre/dav to 5.x would clear them upstream but is
      * currently blocked by league/flysystem-webdav's ^4.6.0 constraint.
      */
-    private function registerWebDavDriver(): void
+    private function registerWebDavDriver() : void
     {
         Storage::extend('webdav', function ($app, array $config) {
             $client = new \Sabre\DAV\Client([

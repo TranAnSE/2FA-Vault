@@ -9,6 +9,7 @@ use App\Services\ReleaseRadarService;
 use Exception;
 use Illuminate\Contracts\Notifications\Dispatcher;
 use Illuminate\Support\Facades\Notification;
+use Laravel\Passport\Passport;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
 use Tests\FeatureTestCase;
@@ -46,7 +47,8 @@ class SystemControllerTest extends FeatureTestCase
     #[Test]
     public function test_infos_returns_forbidden()
     {
-        $response = $this->actingAs($this->user, 'api-guard')
+        Passport::actingAs($this->user, [], 'api-guard');
+        $response = $this
             ->json('GET', '/system/infos')
             ->assertForbidden();
     }
@@ -54,7 +56,8 @@ class SystemControllerTest extends FeatureTestCase
     #[Test]
     public function test_infos_returns_only_base_collection()
     {
-        $response = $this->actingAs($this->admin, 'api-guard')
+        Passport::actingAs($this->admin, [], 'api-guard');
+        $response = $this
             ->json('GET', '/system/infos')
             ->assertOk()
             ->assertJsonStructure([
@@ -142,7 +145,8 @@ class SystemControllerTest extends FeatureTestCase
     #[Test]
     public function test_testemail_returns_forbidden()
     {
-        $response = $this->actingAs($this->user, 'api-guard')
+        Passport::actingAs($this->user, [], 'api-guard');
+        $response = $this
             ->json('POST', '/system/test-email', [])
             ->assertForbidden();
     }

@@ -5,6 +5,7 @@ namespace Tests\Api\v1\Controllers\Auth;
 use App\Api\v1\Controllers\UserController;
 use App\Api\v1\Resources\UserResource;
 use App\Models\User;
+use Laravel\Passport\Passport;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
 use Tests\FeatureTestCase;
@@ -37,7 +38,8 @@ class UserControllerTest extends FeatureTestCase
     #[Test]
     public function test_show_existing_user_when_authenticated_returns_success()
     {
-        $response = $this->actingAs($this->user, 'api-guard')
+        Passport::actingAs($this->user, [], 'api-guard');
+        $response = $this
             ->json('GET', '/api/v1/user')
             ->assertOk()
             ->assertJsonFragment([
@@ -63,7 +65,8 @@ class UserControllerTest extends FeatureTestCase
     #[Test]
     public function test_all_preferences_returns_consistent_json_structure()
     {
-        $response = $this->actingAs($this->user, 'api-guard')
+        Passport::actingAs($this->user, [], 'api-guard');
+        $response = $this
             ->json('GET', '/api/v1/user/preferences')
             ->assertOk()
             ->assertJsonStructure([
@@ -74,7 +77,8 @@ class UserControllerTest extends FeatureTestCase
     #[Test]
     public function test_all_preferences_returns_preferences_with_default_config_values()
     {
-        $response = $this->actingAs($this->user, 'api-guard')
+        Passport::actingAs($this->user, [], 'api-guard');
+        $response = $this
             ->json('GET', '/api/v1/user/preferences')
             ->assertJsonCount(count(config('2fauth.preferences')), $key = null);
 
@@ -107,7 +111,8 @@ class UserControllerTest extends FeatureTestCase
 
         $this->user->save();
 
-        $response = $this->actingAs($this->user, 'api-guard')
+        Passport::actingAs($this->user, [], 'api-guard');
+        $response = $this
             ->json('GET', '/api/v1/user/preferences')
             ->assertJsonCount(count(config('2fauth.preferences')), $key = null);
 
@@ -127,7 +132,8 @@ class UserControllerTest extends FeatureTestCase
          */
         $this->user = User::factory()->create();
 
-        $response = $this->actingAs($this->user, 'api-guard')
+        Passport::actingAs($this->user, [], 'api-guard');
+        $response = $this
             ->json('GET', '/api/v1/user/preferences/showOtpAsDot')
             ->assertOk()
             ->assertExactJson([
@@ -151,7 +157,8 @@ class UserControllerTest extends FeatureTestCase
          */
         $this->user = User::factory()->create();
 
-        $response = $this->actingAs($this->user, 'api-guard')
+        Passport::actingAs($this->user, [], 'api-guard');
+        $response = $this
             ->json('GET', '/api/v1/user/preferences/theme')
             ->assertOk()
             ->assertExactJson([
@@ -168,7 +175,8 @@ class UserControllerTest extends FeatureTestCase
         $this->user['preferences->showOtpAsDot'] = $showOtpAsDot;
         $this->user->save();
 
-        $response = $this->actingAs($this->user, 'api-guard')
+        Passport::actingAs($this->user, [], 'api-guard');
+        $response = $this
             ->json('GET', '/api/v1/user/preferences/showOtpAsDot')
             ->assertJsonFragment([
                 'key'   => 'showOtpAsDot',
@@ -179,7 +187,8 @@ class UserControllerTest extends FeatureTestCase
     #[Test]
     public function test_show_preference_for_missing_preference_returns_not_found()
     {
-        $response = $this->actingAs($this->user, 'api-guard')
+        Passport::actingAs($this->user, [], 'api-guard');
+        $response = $this
             ->json('GET', '/api/v1/user/preferences/unknown')
             ->assertNotFound();
     }
@@ -194,7 +203,8 @@ class UserControllerTest extends FeatureTestCase
 
         $showOtpAsDot = ! config('2fauth.preferences.showOtpAsDot');
 
-        $response = $this->actingAs($this->user, 'api-guard')
+        Passport::actingAs($this->user, [], 'api-guard');
+        $response = $this
             ->json('PUT', '/api/v1/user/preferences/showOtpAsDot', [
                 'key'   => 'showOtpAsDot',
                 'value' => $showOtpAsDot,
@@ -209,7 +219,8 @@ class UserControllerTest extends FeatureTestCase
     #[Test]
     public function test_set_preference_for_missing_preference_returns_not_found()
     {
-        $response = $this->actingAs($this->user, 'api-guard')
+        Passport::actingAs($this->user, [], 'api-guard');
+        $response = $this
             ->json('PUT', '/api/v1/user/preferences/unknown', [
                 'key'   => 'showOtpAsDot',
                 'value' => true,
@@ -220,7 +231,8 @@ class UserControllerTest extends FeatureTestCase
     #[Test]
     public function test_set_preference_with_invalid_data_returns_validation_error()
     {
-        $response = $this->actingAs($this->user, 'api-guard')
+        Passport::actingAs($this->user, [], 'api-guard');
+        $response = $this
             ->json('PUT', '/api/v1/user/preferences/showOtpAsDot', [
                 'key'   => 'showOtpAsDot',
                 'value' => null,
@@ -236,7 +248,8 @@ class UserControllerTest extends FeatureTestCase
             'theme',
         ])));
 
-        $response = $this->actingAs($this->user, 'api-guard')
+        Passport::actingAs($this->user, [], 'api-guard');
+        $response = $this
             ->json('PUT', '/api/v1/user/preferences/theme', [
                 'key'   => 'theme',
                 'value' => 'system',

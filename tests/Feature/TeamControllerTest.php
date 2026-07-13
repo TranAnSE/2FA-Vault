@@ -2,24 +2,25 @@
 
 namespace Tests\Feature;
 
-use App\Models\User;
 use App\Models\Team;
 use App\Models\TeamInvitation;
+use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Laravel\Passport\Passport;
 use Tests\TestCase;
 
 class TeamControllerTest extends TestCase
 {
     use RefreshDatabase;
 
-    protected function createEncryptedUser(array $attributes = []): User
+    protected function createEncryptedUser(array $attributes = []) : User
     {
         return User::factory()->create(array_merge([
-            'encryption_enabled' => true,
-            'encryption_salt' => 'test_salt',
+            'encryption_enabled'    => true,
+            'encryption_salt'       => 'test_salt',
             'encryption_test_value' => '{"ciphertext":"test","iv":"test","authTag":"test"}',
-            'encryption_version' => 1,
-            'vault_locked' => false,
+            'encryption_version'    => 1,
+            'vault_locked'          => false,
         ], $attributes));
     }
 
@@ -29,8 +30,9 @@ class TeamControllerTest extends TestCase
     public function test_user_can_create_team()
     {
         $user = $this->createEncryptedUser();
-        
-        $response = $this->actingAs($user, 'api-guard')->postJson('/api/v1/teams', [
+
+        Passport::actingAs($user, [], 'api-guard');
+        $response = $this->postJson('/api/v1/teams', [
             'name' => 'Development Team',
         ]);
 
@@ -39,19 +41,19 @@ class TeamControllerTest extends TestCase
                 'id',
                 'name',
                 'owner_id',
-                'created_at'
+                'created_at',
             ]);
 
         $this->assertDatabaseHas('teams', [
-            'name' => 'Development Team',
-            'owner_id' => $user->id
+            'name'     => 'Development Team',
+            'owner_id' => $user->id,
         ]);
 
         // Check owner is automatically added as member
         $this->assertDatabaseHas('team_users', [
             'team_id' => $response->json('id'),
             'user_id' => $user->id,
-            'role' => 'owner'
+            'role'    => 'owner',
         ]);
     }
 
@@ -61,16 +63,17 @@ class TeamControllerTest extends TestCase
     public function test_user_can_list_teams()
     {
         $user = $this->createEncryptedUser();
-        
+
         // Create teams where user is member
         $team1 = Team::factory()->create();
         $team2 = Team::factory()->create();
         $team3 = Team::factory()->create(); // User is not member
-        
+
         $team1->users()->attach($user->id, ['role' => 'owner', 'joined_at' => now()]);
         $team2->users()->attach($user->id, ['role' => 'member', 'joined_at' => now()]);
 
-        $response = $this->actingAs($user, 'api-guard')->getJson('/api/v1/teams');
+        Passport::actingAs($user, [], 'api-guard');
+        $response = $this->getJson('/api/v1/teams');
 
         $response->assertStatus(200)
             ->assertJsonCount(2)
@@ -83,24 +86,25 @@ class TeamControllerTest extends TestCase
      */
     public function test_user_can_invite_to_team()
     {
-        $owner = $this->createEncryptedUser();
+        $owner   = $this->createEncryptedUser();
         $invitee = $this->createEncryptedUser();
-        
+
         $team = Team::factory()->create(['owner_id' => $owner->id]);
         $team->users()->attach($owner->id, ['role' => 'owner', 'joined_at' => now()]);
 
-        $response = $this->actingAs($owner, 'api-guard')->postJson("/api/v1/teams/{$team->id}/invite", [
+        Passport::actingAs($owner, [], 'api-guard');
+        $response = $this->postJson("/api/v1/teams/{$team->id}/invite", [
             'email' => $invitee->email,
-            'role' => 'member'
+            'role'  => 'member',
         ]);
 
         $response->assertStatus(201);
 
         $this->assertDatabaseHas('team_invitations', [
             'team_id' => $team->id,
-            'email' => $invitee->email,
-            'role' => 'member',
-            'status' => 'pending'
+            'email'   => $invitee->email,
+            'role'    => 'member',
+            'status'  => 'pending',
         ]);
     }
 
@@ -109,33 +113,34 @@ class TeamControllerTest extends TestCase
      */
     public function test_user_can_join_team_via_invite()
     {
-        $owner = $this->createEncryptedUser();
+        $owner   = $this->createEncryptedUser();
         $invitee = $this->createEncryptedUser();
-        
+
         $team = Team::factory()->create(['owner_id' => $owner->id]);
-        
+
         $invitation = TeamInvitation::create([
-            'team_id' => $team->id,
-            'email' => $invitee->email,
-            'role' => 'member',
-            'token' => \Str::random(32),
-            'status' => 'pending',
+            'team_id'    => $team->id,
+            'email'      => $invitee->email,
+            'role'       => 'member',
+            'token'      => \Str::random(32),
+            'status'     => 'pending',
             'expires_at' => now()->addDays(7),
         ]);
 
-        $response = $this->actingAs($invitee, 'api-guard')->postJson("/api/v1/teams/invitations/{$invitation->token}/accept");
+        Passport::actingAs($invitee, [], 'api-guard');
+        $response = $this->postJson("/api/v1/teams/invitations/{$invitation->token}/accept");
 
         $response->assertStatus(200);
 
         $this->assertDatabaseHas('team_users', [
             'team_id' => $team->id,
             'user_id' => $invitee->id,
-            'role' => 'member'
+            'role'    => 'member',
         ]);
 
         $this->assertDatabaseHas('team_invitations', [
-            'id' => $invitation->id,
-            'status' => 'accepted'
+            'id'     => $invitation->id,
+            'status' => 'accepted',
         ]);
     }
 
@@ -144,21 +149,22 @@ class TeamControllerTest extends TestCase
      */
     public function test_user_can_leave_team()
     {
-        $owner = $this->createEncryptedUser();
+        $owner  = $this->createEncryptedUser();
         $member = $this->createEncryptedUser();
-        
+
         $team = Team::factory()->create(['owner_id' => $owner->id]);
-        
+
         $team->users()->attach($owner->id, ['role' => 'owner', 'joined_at' => now()]);
         $team->users()->attach($member->id, ['role' => 'member', 'joined_at' => now()]);
 
-        $response = $this->actingAs($member, 'api-guard')->postJson("/api/v1/teams/{$team->id}/leave");
+        Passport::actingAs($member, [], 'api-guard');
+        $response = $this->postJson("/api/v1/teams/{$team->id}/leave");
 
         $response->assertStatus(200);
 
         $this->assertDatabaseMissing('team_users', [
             'team_id' => $team->id,
-            'user_id' => $member->id
+            'user_id' => $member->id,
         ]);
     }
 
@@ -172,13 +178,14 @@ class TeamControllerTest extends TestCase
         $team = Team::factory()->create(['owner_id' => $owner->id]);
         $team->users()->attach($owner->id, ['role' => 'owner', 'joined_at' => now()]);
 
-        $response = $this->actingAs($owner, 'api-guard')->deleteJson("/api/v1/teams/{$team->id}");
+        Passport::actingAs($owner, [], 'api-guard');
+        $response = $this->deleteJson("/api/v1/teams/{$team->id}");
 
         $response->assertStatus(200);
 
         // With soft deletes, record still exists but deleted_at is set
         $this->assertSoftDeleted('teams', [
-            'id' => $team->id
+            'id' => $team->id,
         ]);
     }
 
@@ -187,23 +194,24 @@ class TeamControllerTest extends TestCase
      */
     public function test_admin_can_remove_member()
     {
-        $owner = $this->createEncryptedUser();
-        $admin = $this->createEncryptedUser();
+        $owner  = $this->createEncryptedUser();
+        $admin  = $this->createEncryptedUser();
         $member = $this->createEncryptedUser();
-        
+
         $team = Team::factory()->create(['owner_id' => $owner->id]);
-        
+
         $team->users()->attach($owner->id, ['role' => 'owner', 'joined_at' => now()]);
         $team->users()->attach($admin->id, ['role' => 'admin', 'joined_at' => now()]);
         $team->users()->attach($member->id, ['role' => 'member', 'joined_at' => now()]);
 
-        $response = $this->actingAs($admin, 'api-guard')->deleteJson("/api/v1/teams/{$team->id}/members/{$member->id}");
+        Passport::actingAs($admin, [], 'api-guard');
+        $response = $this->deleteJson("/api/v1/teams/{$team->id}/members/{$member->id}");
 
         $response->assertStatus(200);
 
         $this->assertDatabaseMissing('team_users', [
             'team_id' => $team->id,
-            'user_id' => $member->id
+            'user_id' => $member->id,
         ]);
     }
 
@@ -212,23 +220,24 @@ class TeamControllerTest extends TestCase
      */
     public function test_viewer_cannot_update_team()
     {
-        $owner = $this->createEncryptedUser();
+        $owner  = $this->createEncryptedUser();
         $viewer = $this->createEncryptedUser();
-        
+
         $team = Team::factory()->create(['owner_id' => $owner->id]);
-        
+
         $team->users()->attach($owner->id, ['role' => 'owner', 'joined_at' => now()]);
         $team->users()->attach($viewer->id, ['role' => 'viewer', 'joined_at' => now()]);
 
-        $response = $this->actingAs($viewer, 'api-guard')->putJson("/api/v1/teams/{$team->id}", [
-            'name' => 'Updated Team Name'
+        Passport::actingAs($viewer, [], 'api-guard');
+        $response = $this->putJson("/api/v1/teams/{$team->id}", [
+            'name' => 'Updated Team Name',
         ]);
 
         $response->assertStatus(403);
 
         $this->assertDatabaseHas('teams', [
-            'id' => $team->id,
-            'name' => $team->name // Name unchanged
+            'id'   => $team->id,
+            'name' => $team->name, // Name unchanged
         ]);
     }
 
@@ -237,13 +246,68 @@ class TeamControllerTest extends TestCase
      */
     public function test_unauthorized_user_cannot_access_team()
     {
-        $owner = User::factory()->create();
+        $owner        = User::factory()->create();
         $unauthorized = User::factory()->create();
-        
+
         $team = Team::factory()->create(['owner_id' => $owner->id]);
         $team->users()->attach($owner->id, ['role' => 'owner', 'joined_at' => now()]);
 
-        $response = $this->actingAs($unauthorized, 'api-guard')->getJson("/api/v1/teams/{$team->id}");
+        Passport::actingAs($unauthorized, [], 'api-guard');
+        $response = $this->getJson("/api/v1/teams/{$team->id}");
+
+        $response->assertStatus(403);
+    }
+
+    /**
+     * Team ownership transfer: owner can transfer, becomes admin.
+     */
+    public function test_owner_can_transfer_team_ownership() : void
+    {
+        $owner  = $this->createEncryptedUser();
+        $member = $this->createEncryptedUser();
+
+        $team = Team::create([
+            'name'        => 'Transfer Team',
+            'owner_id'    => $owner->id,
+            'invite_code' => \Illuminate\Support\Str::random(16),
+        ]);
+        $team->users()->attach($owner->id, ['role' => 'owner', 'joined_at' => now()]);
+        $team->users()->attach($member->id, ['role' => 'member', 'joined_at' => now()]);
+
+        Passport::actingAs($owner, [], 'api-guard');
+        $response = $this->postJson("/api/v1/teams/{$team->id}/transfer", [
+            'new_owner_id' => $member->id,
+        ]);
+
+        $response->assertStatus(200);
+        $team->refresh();
+        $this->assertSame($member->id, $team->owner_id);
+        $this->assertSame('owner', $team->getUserRole($member->id));
+        $this->assertSame('admin', $team->getUserRole($owner->id));
+    }
+
+    /**
+     * Non-owner cannot transfer team ownership.
+     */
+    public function test_non_owner_cannot_transfer_team_ownership() : void
+    {
+        $owner  = $this->createEncryptedUser();
+        $member = $this->createEncryptedUser();
+        $other  = $this->createEncryptedUser();
+
+        $team = Team::create([
+            'name'        => 'Blocked Team',
+            'owner_id'    => $owner->id,
+            'invite_code' => \Illuminate\Support\Str::random(16),
+        ]);
+        $team->users()->attach($owner->id, ['role' => 'owner', 'joined_at' => now()]);
+        $team->users()->attach($member->id, ['role' => 'member', 'joined_at' => now()]);
+        $team->users()->attach($other->id, ['role' => 'member', 'joined_at' => now()]);
+
+        Passport::actingAs($member, [], 'api-guard');
+        $response = $this->postJson("/api/v1/teams/{$team->id}/transfer", [
+            'new_owner_id' => $other->id,
+        ]);
 
         $response->assertStatus(403);
     }
