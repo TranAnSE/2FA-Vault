@@ -89,7 +89,7 @@ services:
         php artisan migrate --force &&
         echo 'Installing Passport keys...' &&
         php artisan passport:keys --force &&
-        php artisan tinker --execute="app(\Laravel\Passport\ClientRepository::class)->createPersonalAccessGrantClient(config('app.name'), 'users');" &&
+        php artisan passport:create-personal-client --no-interaction &&
         echo 'Clearing cache...' &&
         php artisan config:clear &&
         php artisan cache:clear &&

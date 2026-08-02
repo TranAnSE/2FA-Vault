@@ -89,8 +89,8 @@ console.log('[E2E Server] Seeding database...');
 runCommand('php artisan db:seed --class=E2eSeeder --env=e2e --force', 'db:seed');
 console.log('[E2E Server] Ensuring Passport personal access client...');
 // Passport v13's passport:client uses an interactive choice() even with
-// --no-interaction, so create the client directly via an artisan tinker pipe.
-runCommand("php artisan tinker --env=e2e < " + path.resolve(ROOT, 'tests/e2e/helpers/create-pac.php'), 'passport:client');
+// --no-interaction, so use our non-interactive artisan command instead.
+runCommand('php artisan passport:create-personal-client --name="E2E Personal Access Client" --env=e2e --no-interaction', 'passport:client');
 
 // Build frontend deterministically in CI, otherwise reuse existing build if present.
 const buildManifest = path.resolve(ROOT, 'public/build/manifest.json');
