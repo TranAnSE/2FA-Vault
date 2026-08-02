@@ -25,12 +25,6 @@ class AuthWithEncryptionE2ETest extends TestCase
     {
         parent::setUp();
 
-        // Setup Passport personal access client for API token creation.
-        // Passport v13's passport:client uses an interactive choice() prompt
-        // even under --no-interaction, so create the client directly.
-        app(\Laravel\Passport\ClientRepository::class)
-            ->createPersonalAccessGrantClient('Test Personal Access Client', 'users');
-
         $this->user = User::factory()->create([
             'email'                 => 'test@example.com',
             'password'              => bcrypt('password123'),
@@ -43,17 +37,23 @@ class AuthWithEncryptionE2ETest extends TestCase
     }
 
     /**
+     * Authenticate as the test user via Passport mock (avoids needing RSA
+     * keys for real JWT signing in the test environment).
+     */
+    private function authUser() : void
+    {
+        Passport::actingAs($this->user, [], 'api-guard');
+    }
+
+    /**
      * Test complete workflow: Login → Setup Encryption → Use App
      */
     public function test_complete_login_setup_encryption_workflow() : void
     {
-        // 1. User logs in
-        $token = $this->user->createToken('test-token')->accessToken;
-        $this->assertNotNull($token);
+        $this->authUser();
 
-        // 2. Check encryption status - should be disabled
-        $response = $this->withToken($token)
-            ->getJson('/api/v1/encryption/status');
+        // 1. Check encryption status - should be disabled
+        $response = $this->getJson('/api/v1/encryption/status');
 
         $response->assertOk()
             ->assertJson([
@@ -62,39 +62,36 @@ class AuthWithEncryptionE2ETest extends TestCase
                 'vault_locked'       => false,
             ]);
 
-        // 3. Setup encryption
-        $response = $this->withToken($token)
-            ->postJson('/api/v1/encryption/setup', [
-                'encryption_salt'       => base64_encode(random_bytes(32)),
-                'encryption_test_value' => json_encode([
-                    'ciphertext' => base64_encode(random_bytes(32)),
-                    'iv'         => base64_encode(random_bytes(12)),
-                    'authTag'    => base64_encode(random_bytes(16)),
-                ]),
-                'encryption_version' => 1,
-            ]);
+        // 2. Setup encryption
+        $response = $this->postJson('/api/v1/encryption/setup', [
+            'encryption_salt'       => base64_encode(random_bytes(32)),
+            'encryption_test_value' => json_encode([
+                'ciphertext' => base64_encode(random_bytes(32)),
+                'iv'         => base64_encode(random_bytes(12)),
+                'authTag'    => base64_encode(random_bytes(16)),
+            ]),
+            'encryption_version' => 1,
+        ]);
 
         $response->assertOk()
             ->assertJson([
                 'encryption_enabled' => true,
             ]);
 
-        // 4. Verify encryption is now enabled and server marks it locked until verified
+        // 3. Verify encryption is now enabled and server marks it locked until verified
         $this->user->refresh();
         $this->assertEquals(1, $this->user->encryption_version);
         $this->assertTrue($this->user->vault_locked);
         $this->assertTrue($this->user->encryption_enabled);
 
-        // 5. Unlock current session via verification
-        $this->withToken($token)
-            ->postJson('/api/v1/encryption/verify', [
-                'verification_result' => true,
-            ])
+        // 4. Unlock current session via verification
+        $this->postJson('/api/v1/encryption/verify', [
+            'verification_result' => true,
+        ])
             ->assertOk();
 
-        // 6. Check encryption info
-        $response = $this->withToken($token)
-            ->getJson('/api/v1/encryption/info');
+        // 5. Check encryption info
+        $response = $this->getJson('/api/v1/encryption/info');
 
         $response->assertOk()
             ->assertJson([
@@ -116,28 +113,25 @@ class AuthWithEncryptionE2ETest extends TestCase
      */
     public function test_vault_state_transitions() : void
     {
-        $token = $this->user->createToken('test-token')->accessToken;
+        $this->authUser();
 
         // Setup encryption
-        $this->withToken($token)
-            ->postJson('/api/v1/encryption/setup', [
-                'encryption_salt'       => 'test_salt',
-                'encryption_test_value' => '{"test":"value"}',
-                'encryption_version'    => 1,
-            ]);
+        $this->postJson('/api/v1/encryption/setup', [
+            'encryption_salt'       => 'test_salt',
+            'encryption_test_value' => '{"test":"value"}',
+            'encryption_version'    => 1,
+        ]);
 
         // Initial state after setup: locked
-        $response = $this->withToken($token)
-            ->getJson('/api/v1/encryption/info');
+        $response = $this->getJson('/api/v1/encryption/info');
 
         $this->assertTrue($response->json('vault_locked'));
 
         // Unlock the vault
         // Unlock via verification (client-side password check succeeded)
-        $response = $this->withToken($token)
-            ->postJson('/api/v1/encryption/verify', [
-                'verification_result' => true,
-            ]);
+        $response = $this->postJson('/api/v1/encryption/verify', [
+            'verification_result' => true,
+        ]);
 
         $response->assertOk()
             ->assertJson([
@@ -150,8 +144,7 @@ class AuthWithEncryptionE2ETest extends TestCase
         $this->assertFalse($this->user->vault_locked);
 
         // Lock the vault again
-        $response = $this->withToken($token)
-            ->postJson('/api/v1/encryption/lock');
+        $response = $this->postJson('/api/v1/encryption/lock');
 
         $response->assertOk()
             ->assertJson(['vault_locked' => true]);
@@ -174,11 +167,10 @@ class AuthWithEncryptionE2ETest extends TestCase
         $this->user->save();
 
         // Failed verification (wrong password)
-        Passport::actingAs($this->user, [], 'api-guard');
-        $response = $this
-            ->postJson('/api/v1/encryption/verify', [
-                'verification_result' => false,
-            ]);
+        $this->authUser();
+        $response = $this->postJson('/api/v1/encryption/verify', [
+            'verification_result' => false,
+        ]);
 
         $response->assertStatus(401)
             ->assertJson([
@@ -196,20 +188,18 @@ class AuthWithEncryptionE2ETest extends TestCase
      */
     public function test_vault_operations_require_encryption_enabled() : void
     {
-        $token = $this->user->createToken('test-token')->accessToken;
+        $this->authUser();
 
         // Try to lock without encryption enabled
-        $response = $this->withToken($token)
-            ->postJson('/api/v1/encryption/lock');
+        $response = $this->postJson('/api/v1/encryption/lock');
 
         $response->assertStatus(400)
             ->assertJson(['message' => 'Encryption is not enabled']);
 
         // Try to verify without encryption enabled
-        $response = $this->withToken($token)
-            ->postJson('/api/v1/encryption/verify', [
-                'verification_result' => true,
-            ]);
+        $response = $this->postJson('/api/v1/encryption/verify', [
+            'verification_result' => true,
+        ]);
 
         $response->assertStatus(400)
             ->assertJson(['message' => 'Encryption is not enabled for this account']);
@@ -220,7 +210,7 @@ class AuthWithEncryptionE2ETest extends TestCase
      */
     public function test_get_encryption_salt_for_key_derivation() : void
     {
-        $token = $this->user->createToken('test-token')->accessToken;
+        $this->authUser();
 
         // Setup encryption
         $salt                              = base64_encode(random_bytes(32));
@@ -231,8 +221,7 @@ class AuthWithEncryptionE2ETest extends TestCase
         $this->user->save();
 
         // Get salt
-        $response = $this->withToken($token)
-            ->getJson('/api/v1/encryption/salt');
+        $response = $this->getJson('/api/v1/encryption/salt');
 
         $response->assertOk()
             ->assertJson([
@@ -245,10 +234,9 @@ class AuthWithEncryptionE2ETest extends TestCase
      */
     public function test_get_salt_fails_when_encryption_not_enabled() : void
     {
-        $token = $this->user->createToken('test-token')->accessToken;
+        $this->authUser();
 
-        $response = $this->withToken($token)
-            ->getJson('/api/v1/encryption/salt');
+        $response = $this->getJson('/api/v1/encryption/salt');
 
         $response->assertStatus(400)
             ->assertJson(['message' => 'Encryption is not enabled']);
@@ -259,29 +247,25 @@ class AuthWithEncryptionE2ETest extends TestCase
      */
     public function test_vault_state_persists_across_requests() : void
     {
-        $token = $this->user->createToken('test-token')->accessToken;
+        $this->authUser();
 
         // Setup encryption
-        $this->withToken($token)
-            ->postJson('/api/v1/encryption/setup', [
-                'encryption_salt'       => 'test_salt',
-                'encryption_test_value' => '{"test":"value"}',
-                'encryption_version'    => 1,
-            ]);
+        $this->postJson('/api/v1/encryption/setup', [
+            'encryption_salt'       => 'test_salt',
+            'encryption_test_value' => '{"test":"value"}',
+            'encryption_version'    => 1,
+        ]);
 
         // Lock vault
-        $this->withToken($token)
-            ->postJson('/api/v1/encryption/lock');
+        $this->postJson('/api/v1/encryption/lock');
 
         // Check state in new request
-        $response = $this->withToken($token)
-            ->getJson('/api/v1/encryption/info');
+        $response = $this->getJson('/api/v1/encryption/info');
 
         $this->assertTrue($response->json('vault_locked'));
 
         // Check state again in another request
-        $response = $this->withToken($token)
-            ->getJson('/api/v1/encryption/status');
+        $response = $this->getJson('/api/v1/encryption/status');
 
         $this->assertTrue($response->json('vault_locked'));
     }
@@ -291,30 +275,27 @@ class AuthWithEncryptionE2ETest extends TestCase
      */
     public function test_disabling_encryption_requires_password() : void
     {
-        $token = $this->user->createToken('test-token')->accessToken;
+        $this->authUser();
 
         // Setup encryption
-        $this->withToken($token)
-            ->postJson('/api/v1/encryption/setup', [
-                'encryption_salt'       => 'test_salt',
-                'encryption_test_value' => '{"test":"value"}',
-                'encryption_version'    => 1,
-            ]);
+        $this->postJson('/api/v1/encryption/setup', [
+            'encryption_salt'       => 'test_salt',
+            'encryption_test_value' => '{"test":"value"}',
+            'encryption_version'    => 1,
+        ]);
 
         // Try to disable without password
-        $response = $this->withToken($token)
-            ->deleteJson('/api/v1/encryption/disable', [
-                'confirm' => true,
-            ]);
+        $response = $this->deleteJson('/api/v1/encryption/disable', [
+            'confirm' => true,
+        ]);
 
         $response->assertStatus(422);
 
         // Try to disable with wrong password
-        $response = $this->withToken($token)
-            ->deleteJson('/api/v1/encryption/disable', [
-                'password' => 'wrong_password',
-                'confirm'  => true,
-            ]);
+        $response = $this->deleteJson('/api/v1/encryption/disable', [
+            'password' => 'wrong_password',
+            'confirm'  => true,
+        ]);
 
         $response->assertStatus(401)
             ->assertJson(['message' => 'Invalid password']);
@@ -324,11 +305,10 @@ class AuthWithEncryptionE2ETest extends TestCase
         $this->assertEquals(1, $this->user->encryption_version);
 
         // Disable with correct password
-        $response = $this->withToken($token)
-            ->deleteJson('/api/v1/encryption/disable', [
-                'password' => 'password123',
-                'confirm'  => true,
-            ]);
+        $response = $this->deleteJson('/api/v1/encryption/disable', [
+            'password' => 'password123',
+            'confirm'  => true,
+        ]);
 
         $response->assertOk()
             ->assertJson(['encryption_enabled' => false]);
@@ -344,24 +324,21 @@ class AuthWithEncryptionE2ETest extends TestCase
      */
     public function test_encryption_status_includes_backup_info() : void
     {
-        $token = $this->user->createToken('test-token')->accessToken;
+        $this->authUser();
 
         // Setup encryption
-        $this->withToken($token)
-            ->postJson('/api/v1/encryption/setup', [
-                'encryption_salt'       => 'test_salt',
-                'encryption_test_value' => '{"test":"value"}',
-                'encryption_version'    => 1,
-            ]);
+        $this->postJson('/api/v1/encryption/setup', [
+            'encryption_salt'       => 'test_salt',
+            'encryption_test_value' => '{"test":"value"}',
+            'encryption_version'    => 1,
+        ]);
 
-        $this->withToken($token)
-            ->postJson('/api/v1/encryption/verify', [
-                'verification_result' => true,
-            ]);
+        $this->postJson('/api/v1/encryption/verify', [
+            'verification_result' => true,
+        ]);
 
         // Check status before backup
-        $response = $this->withToken($token)
-            ->getJson('/api/v1/encryption/status');
+        $response = $this->getJson('/api/v1/encryption/status');
 
         $response->assertJson([
             'encryption_enabled' => true,
@@ -389,25 +366,23 @@ class AuthWithEncryptionE2ETest extends TestCase
      */
     public function test_cannot_setup_encryption_twice() : void
     {
-        $token = $this->user->createToken('test-token')->accessToken;
+        $this->authUser();
 
         // First setup
-        $response = $this->withToken($token)
-            ->postJson('/api/v1/encryption/setup', [
-                'encryption_salt'       => 'salt1',
-                'encryption_test_value' => '{"test":"value1"}',
-                'encryption_version'    => 1,
-            ]);
+        $response = $this->postJson('/api/v1/encryption/setup', [
+            'encryption_salt'       => 'salt1',
+            'encryption_test_value' => '{"test":"value1"}',
+            'encryption_version'    => 1,
+        ]);
 
         $response->assertOk();
 
         // Second setup should fail
-        $response = $this->withToken($token)
-            ->postJson('/api/v1/encryption/setup', [
-                'encryption_salt'       => 'salt2',
-                'encryption_test_value' => '{"test":"value2"}',
-                'encryption_version'    => 1,
-            ]);
+        $response = $this->postJson('/api/v1/encryption/setup', [
+            'encryption_salt'       => 'salt2',
+            'encryption_test_value' => '{"test":"value2"}',
+            'encryption_version'    => 1,
+        ]);
 
         $response->assertStatus(400)
             ->assertJson(['message' => 'Encryption is already enabled for this account']);
