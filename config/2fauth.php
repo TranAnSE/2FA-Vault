@@ -85,6 +85,10 @@ return [
         'appSubdirectory'               => env('APP_SUBDIRECTORY', ''),
         'authLogRetentionTime'          => envUnlessEmpty('AUTHENTICATION_LOG_RETENTION', 365),
         'otpLogRetentionTime'           => envUnlessEmpty('OTP_LOG_RETENTION', 365),
+        // How long exported .vault backup files are kept on disk before the
+        // scheduled `backup:cleanup` command prunes them. Default 1 hour keeps
+        // the disk clean while still allowing a failed download to be retried.
+        'backupRetentionHours'          => envUnlessEmpty('BACKUP_RETENTION_HOURS', 1),
         'contentSecurityPolicy'         => envUnlessEmpty('CONTENT_SECURITY_POLICY', true),
         'blockOtpauthImagelinkFetching' => envUnlessEmpty('BLOCK_OPTAUTH_IMAGELINK_FETCHING', true),
         'phpMemoryLimitTempOverride'    => envUnlessEmpty('PHP_MEMORY_LIMIT_TEMP_OVERRIDE', '512M'),
