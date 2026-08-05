@@ -347,6 +347,38 @@ THROTTLE_EXPORT=5,1    # Backup exports per hour
 - Uses Laravel's built-in rate limiter
 - Configured in `app/Providers/RouteServiceProvider.php`
 
+**Auth-adjacent endpoint throttle grid:**
+
+Defense-in-depth is applied across every route that an unauthenticated or
+recently-authenticated attacker could abuse for brute force, email bombing, or
+enumeration. A single un-throttled endpoint undoes the rest (the lesson from
+Vaultwarden CVE-2026-43914, where an un-throttled `send_email_login` bypassed
+login rate limiting).
+
+| Endpoint | Method | Limit | Keyed by | Notes |
+| --- | --- | --- | --- | --- |
+| `user` (register) | POST | 5 / 60s | IP | `routes/web.php` |
+| `user/password/lost` | POST | 3 / 60s | IP | email-bombing protection |
+| `user/password/reset` | POST | 3 / 60s | IP | brute-force reset tokens |
+| `user/login` | POST | 10 / 1min + 5 / window | IP, then email+IP | route throttle + `ThrottlesLogins` trait |
+| `webauthn/login` | POST | 10 / 1min + 5 / window | IP, then email+IP | same layered defense as password login |
+| `webauthn/login/options` | POST | 10 / 1min | IP | challenge-generation endpoint (flooding/enumeration) |
+| `webauthn/recover` | POST | 10 / 1min | IP | WebAuthn recovery flow |
+| `webauthn/lost` | POST | 3 / 60s | IP + email | device-lost recovery email; also throttled by the WebAuthn credential broker (`passwords.throttled`) |
+| `socialite/{redirect,callback}` | GET | 10 / 1min | IP | SSO handshake |
+| `encryption/setup` | POST | 3 / 60s | IP | manual `RateLimiter` in `EncryptionController` |
+| `encryption/verify` | POST | 5 / 60s | IP | manual `RateLimiter` |
+| `encryption/disable` | DELETE | 2 / hour | IP | manual `RateLimiter` |
+| `backups/export` | POST | 5 / hour | user | manual `RateLimiter` |
+| `backups/import` | POST | 3 / hour | user | manual `RateLimiter` |
+| All `/api/v1/*` routes | any | 60 / 1min | IP | global `api` limiter (`RouteServiceProvider`); import context raises to `THROTTLE_API_DURING_IMPORT` |
+
+Authenticated state-changing routes (PAT create/revoke, WebAuthn register,
+team invite/accept/share, emergency-access store/request/approve, admin user
+create/invite) are protected by the global `api` 60/min-IP cap plus ownership
+policies; they are lower brute-force risk because they require a valid session
+or PAT first.
+
 ### Secure Random Generation
 
 **Random Values Used In:**
@@ -691,6 +723,22 @@ Currently, we do not offer a bug bounty program. However, we deeply appreciate s
 - [ ] Penetration testing (Recommended: Annual)
 
 ## 🔄 Security Changelog
+
+### v1.3.0 (2026-08) - Hardening sweep
+- ✅ Tightened the default CORS policy: code fallback and `.env.example` no
+  longer ship `CORS_ALLOWED_ORIGINS=*`; operators must explicitly opt in.
+- ✅ Session lifetime fallback corrected (was a stale 90-day literal; now 120
+  minutes, matching the shipped `.env.example` value).
+- ✅ Backup file rotation scheduled: the existing `backup:cleanup` command now
+  runs hourly via the scheduler, with a configurable retention window
+  (`BACKUP_RETENTION_HOURS`, default 1 hour).
+- ✅ WebAuthn challenge (`webauthn/login/options`) and device-lost recovery
+  (`webauthn/lost`) routes now carry explicit per-IP throttles (10/min and
+  3/min respectively), closing a gap next to their already-throttled
+  register/password-reset siblings. This is the defense-in-depth lesson from
+  Vaultwarden CVE-2026-43914 (a single un-throttled auth-adjacent endpoint
+  can bypass login rate limiting).
+- ✅ Documented the full auth-adjacent throttle grid above.
 
 ### v1.1.0 (2026-06-10) - Security Hardening
 - ✅ CORS fully configurable via environment variables (`CORS_ALLOWED_ORIGINS`, `CORS_ALLOWED_METHODS`, `CORS_ALLOWED_HEADERS`, `CORS_MAX_AGE`)

@@ -44,8 +44,13 @@ Route::group(['middleware' => ['rejectIfDemoMode', 'RejectIfSsoOnlyAndNotForAdmi
     Route::post('user', [RegisterController::class, 'register'])->name('user.register')->middleware('throttle:5,60');
     Route::post('user/password/lost', [ForgotPasswordController::class, 'sendResetLinkEmail'])->name('user.password.lost')->middleware('throttle:3,60');
     Route::post('user/password/reset', [ResetPasswordController::class, 'reset'])->name('password.reset')->middleware('throttle:3,60');
-    Route::post('webauthn/login/options', [WebAuthnLoginController::class, 'options'])->name('webauthn.login.options');
-    Route::post('webauthn/lost', [WebAuthnDeviceLostController::class, 'sendRecoveryEmail'])->name('webauthn.lost');
+    // WebAuthn login challenge endpoint — rate-limit to match the login routes
+    // (10/min/IP) so the unauthenticated assertion-options endpoint cannot be
+    // abused for challenge flooding or email enumeration.
+    Route::post('webauthn/login/options', [WebAuthnLoginController::class, 'options'])->name('webauthn.login.options')->middleware('throttle:10,1');
+    // Device-lost recovery email — same class of risk as password-lost above
+    // (outbound email, user enumeration), so it gets the same 3/min/IP cap.
+    Route::post('webauthn/lost', [WebAuthnDeviceLostController::class, 'sendRecoveryEmail'])->name('webauthn.lost')->middleware('throttle:3,60');
 });
 
 /**
