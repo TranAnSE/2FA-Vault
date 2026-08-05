@@ -17,13 +17,16 @@ return [
 
     'paths' => ['api/*', 'sanctum/csrf-cookie'],
 
-    'allowed_methods' => explode(',', env('CORS_ALLOWED_METHODS', '*')),
+    // Default to a restrictive policy: no origins, standard method set, minimal
+    // headers. Operators must opt-in via CORS_ALLOWED_ORIGINS. The legacy '*'
+    // fallback was removed so a missing env var can never widen the surface.
+    'allowed_methods' => array_filter(array_map('trim', explode(',', env('CORS_ALLOWED_METHODS', 'GET,POST,PUT,PATCH,DELETE,OPTIONS')))),
 
-    'allowed_origins' => array_filter(explode(',', env('CORS_ALLOWED_ORIGINS', '*'))),
+    'allowed_origins' => array_filter(array_map('trim', explode(',', env('CORS_ALLOWED_ORIGINS', '')))),
 
     'allowed_origins_patterns' => [],
 
-    'allowed_headers' => explode(',', env('CORS_ALLOWED_HEADERS', '*')),
+    'allowed_headers' => array_filter(array_map('trim', explode(',', env('CORS_ALLOWED_HEADERS', 'Content-Type,X-Requested-With,Authorization,Accept')))),
 
     'exposed_headers' => [],
 

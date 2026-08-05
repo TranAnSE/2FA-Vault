@@ -39,7 +39,9 @@ export default {
 
     // Handle update available event
     const handleUpdateAvailable = (event) => {
-      console.log('[UpdatePrompt] Update available:', event.detail);
+      if (import.meta.env.DEV) {
+        console.log('[UpdatePrompt] Update available:', event.detail);
+      }
       showPrompt.value = true;
     };
 
