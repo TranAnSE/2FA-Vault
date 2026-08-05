@@ -22,6 +22,15 @@ class IconService
      */
     public function buildFromOfficialLogo(?string $service) : ?string
     {
+        // Admin privacy switch: when ICON_OFFLINE_ONLY is set, never reach an
+        // external logo provider. Only the local 'storage' icon pack may be
+        // consulted so the account service list is not disclosed to a third
+        // party. This is independent of the per-user getOfficialIcons toggle
+        // and of the otpauth-imagelink SSRF block, which cover different paths.
+        if (config('2fauth.config.iconOfflineOnly')) {
+            return LogoLib::driver('storage')->getIcon($service);
+        }
+
         $iconCollection = Auth::user()
             ? Auth::user()->preferences['iconCollection']
             : config('2fauth.preferences.iconCollection');
