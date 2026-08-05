@@ -20,11 +20,11 @@ use App\Http\Middleware\CustomCreateFreshApiToken;
 use App\Http\Middleware\MetricsAuthMiddleware;
 use App\Http\Middleware\SetLanguage;
 use App\Http\Middleware\VerifyCsrfToken;
+use Illuminate\Http\Request;
 use Illuminate\Routing\Middleware\SubstituteBindings;
-use Illuminate\Session\Middleware\StartSession;
 // use Illuminate\Foundation\Events\DiagnosingHealth;
 // use Illuminate\Support\Facades\Event;
-use Illuminate\Http\Request;
+use Illuminate\Session\Middleware\StartSession;
 use Illuminate\Support\Facades\Route;
 
 // use App\Models\User;
@@ -112,7 +112,7 @@ Route::get('refresh-csrf', function (Request $request) {
         'token' => csrf_token(),
     ], 200, [
         'Cache-Control' => 'no-store, no-cache, must-revalidate',
-        'Pragma' => 'no-cache',
+        'Pragma'        => 'no-cache',
     ]);
 });
 

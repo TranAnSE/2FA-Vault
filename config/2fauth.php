@@ -28,13 +28,13 @@ $preferences = [
     'defaultCaptureMode'     => envUnlessEmpty('USERPREF_DEFAULT__DEFAULT_CAPTURE_MODE', 'livescan'),
     'useDirectCapture'       => envUnlessEmpty('USERPREF_DEFAULT__USE_DIRECT_CAPTURE', false),
     'useWebauthnOnly'        => envUnlessEmpty('USERPREF_DEFAULT__USE_WEBAUTHN_ONLY', false),
-        'getOfficialIcons'       => envUnlessEmpty('USERPREF_DEFAULT__GET_OFFICIAL_ICONS', true),
-        // Admin privacy switch: when true, the app never fetches icons from
-        // external providers (2fauth.app, selfh.st, dashboardicons). The
-        // logo-library drivers that hit the network are bypassed and only the
-        // local 'storage' icon pack is used, so the account service list is
-        // never disclosed to a third party. See IconService::buildFromOfficialLogo.
-        'iconOfflineOnly'        => envUnlessEmpty('ICON_OFFLINE_ONLY', false),
+    'getOfficialIcons'       => envUnlessEmpty('USERPREF_DEFAULT__GET_OFFICIAL_ICONS', true),
+    // Admin privacy switch: when true, the app never fetches icons from
+    // external providers (2fauth.app, selfh.st, dashboardicons). The
+    // logo-library drivers that hit the network are bypassed and only the
+    // local 'storage' icon pack is used, so the account service list is
+    // never disclosed to a third party. See IconService::buildFromOfficialLogo.
+    'iconOfflineOnly'        => envUnlessEmpty('ICON_OFFLINE_ONLY', false),
     'theme'                  => envUnlessEmpty('USERPREF_DEFAULT__THEME', 'system'),
     'formatPassword'         => envUnlessEmpty('USERPREF_DEFAULT__FORMAT_PASSWORD', true),
     'formatPasswordBy'       => envUnlessEmpty('USERPREF_DEFAULT__FORMAT_PASSWORD_BY', 0.5),
@@ -83,14 +83,14 @@ return [
     */
 
     'config' => [
-        'isDemoApp'                     => env('IS_DEMO_APP', false),
-        'isTestingApp'                  => env('IS_TESTING_APP', false),
-        'trustedProxies'                => env('TRUSTED_PROXIES', null),
-        'outgoingProxy'                 => env('PROXY_FOR_OUTGOING_REQUESTS', ''),
-        'proxyLogoutUrl'                => env('PROXY_LOGOUT_URL', null),
-        'appSubdirectory'               => env('APP_SUBDIRECTORY', ''),
-        'authLogRetentionTime'          => envUnlessEmpty('AUTHENTICATION_LOG_RETENTION', 365),
-        'otpLogRetentionTime'           => envUnlessEmpty('OTP_LOG_RETENTION', 365),
+        'isDemoApp'            => env('IS_DEMO_APP', false),
+        'isTestingApp'         => env('IS_TESTING_APP', false),
+        'trustedProxies'       => env('TRUSTED_PROXIES', null),
+        'outgoingProxy'        => env('PROXY_FOR_OUTGOING_REQUESTS', ''),
+        'proxyLogoutUrl'       => env('PROXY_LOGOUT_URL', null),
+        'appSubdirectory'      => env('APP_SUBDIRECTORY', ''),
+        'authLogRetentionTime' => envUnlessEmpty('AUTHENTICATION_LOG_RETENTION', 365),
+        'otpLogRetentionTime'  => envUnlessEmpty('OTP_LOG_RETENTION', 365),
         // How long exported .vault backup files are kept on disk before the
         // scheduled `backup:cleanup` command prunes them. Default 1 hour keeps
         // the disk clean while still allowing a failed download to be retried.
