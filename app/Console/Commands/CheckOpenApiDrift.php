@@ -96,9 +96,22 @@ class CheckOpenApiDrift extends Command
     {
         $routes = [];
 
+        // A handful of documented endpoints live outside the api/v1 prefix
+        // (registered in routes/web.php). They are spec'd at their real paths,
+        // so include them by exact match in addition to the prefix scan.
+        $extraDocumented = ['metrics'];
+
         foreach (Route::getRoutes() as $route) {
-            $uri = $route->uri();
-            if (! str_starts_with($uri, $prefix)) {
+            $uri               = $route->uri();
+            $matchesPrefix     = str_starts_with($uri, $prefix);
+            $isExtraDocumented = in_array(trim($uri, '/'), $extraDocumented, true);
+            if (! $matchesPrefix && ! $isExtraDocumented) {
+                continue;
+            }
+
+            // Skip catch-all SPA fallbacks (e.g. /api/v1/{any}) — they are not
+            // real API endpoints and would always show up as drift.
+            if (preg_match('#\{any\}|\{path\}#', $uri) && in_array('GET', $route->methods(), true)) {
                 continue;
             }
 
@@ -114,7 +127,13 @@ class CheckOpenApiDrift extends Command
             // on path shape rather than parameter naming.
             $path = preg_replace('/\{[^}]+\}/', '{param}', $path);
 
-            $routes[$path] = array_values(array_unique(array_map('strtoupper', $methods)));
+            // MERGE methods across routes that share a URI (e.g. a GET index
+            // and a POST store are registered as two separate Route objects).
+            $existing      = $routes[$path] ?? [];
+            $routes[$path] = array_values(array_unique(array_merge(
+                $existing,
+                array_map('strtoupper', $methods),
+            )));
             sort($routes[$path]);
         }
 
