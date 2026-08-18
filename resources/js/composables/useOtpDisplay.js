@@ -7,7 +7,7 @@ import { useNotify } from '@2fauth/ui'
 /**
  * Composable for OTP display logic — TOTP rotation, dots management, clipboard copy.
  *
- * @param {object} options - { dotsRefs, dotsControllers, opacities, renewedPeriod }
+ * @param {object} options - { otpDisplay, dotsRefs, dotsControllers, opacities, renewedPeriod }
  */
 export function useOtpDisplay(options = {}) {
     const user = useUserStore()
@@ -115,7 +115,10 @@ export function useOtpDisplay(options = {}) {
         accountParams.value.service = account.service
         accountParams.value.account = account.account
         accountParams.value.icon = account.icon
-        nextTick().then(() => { showOtpInModal.value = true })
+        nextTick().then(() => {
+            showOtpInModal.value = true
+            options.otpDisplay?.value?.show(account.id)
+        })
     }
 
     /**

@@ -50,7 +50,7 @@
         showOtpInModal, accountParams,
         turnDotsOn, turnDotsOff, updateTotps,
         showOrCopy, copyToClipboard, getAndCopyOTP,
-    } = useOtpDisplay({ dotsRefs, dotsControllers, opacities, renewedPeriod })
+    } = useOtpDisplay({ otpDisplay, dotsRefs, dotsControllers, opacities, renewedPeriod })
 
     const showAccounts = computed(() => {
         return !twofaccounts.isEmpty && !showGroupSwitch.value && !showDestinationGroupSelector.value
