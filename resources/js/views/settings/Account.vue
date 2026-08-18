@@ -146,7 +146,7 @@
                     <div class="field is-size-7-mobile">
                         <p class="block">{{ $t('message.delete_your_account_and_reset_all_data')}}</p>
                         <p>{{ $t('message.reset_your_password_to_delete_your_account') }}</p>
-                        <p>{{ $t('message.deleting_2fauth_account_does_not_impact_provider') }}</p>
+                        <p>{{ $t('message.deleting_twofauth_account_does_not_impact_provider') }}</p>
                     </div>
                     <fieldset :disabled="$2fauth.config.proxyAuth">
                         <FormField v-model="formDelete.password" fieldName="password" :errorMessage="formDelete.errors.get('password')" inputType="password" idSuffix="ForDelete" autocomplete="new-password" label="field.current_password" help="field.current_password.help" />

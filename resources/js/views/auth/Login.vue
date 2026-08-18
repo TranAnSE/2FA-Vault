@@ -102,7 +102,7 @@
     <StackLayout>
         <template #content>
             <!-- webauthn authentication -->
-            <FormWrapper v-if="activeLoginForm == 'webauthn'" title="heading.webauthn_login" punchline="message.welcome_to_2fauth">
+            <FormWrapper v-if="activeLoginForm == 'webauthn'" title="heading.webauthn_login" punchline="message.welcome_to_2FA-Vault">
                 <div v-if="appSettings.enableSso == true && appSettings.useSsoOnly == true" class="notification is-warning has-text-centered">{{ $t('message.sso_only_form_restricted_to_admin') }}</div>
                 <div class="block">
                     {{ $t('message.use_security_device_to_sign_in') }}
@@ -144,7 +144,7 @@
                 </div>
             </FormWrapper>
             <!-- SSO only links -->
-            <FormWrapper v-else-if="activeLoginForm == 'sso'" title="heading.sso_login" punchline="message.welcome_to_2fauth">
+            <FormWrapper v-else-if="activeLoginForm == 'sso'" title="heading.sso_login" punchline="message.welcome_to_2FA-Vault">
                 <div v-if="$2fauth.isDemoApp" class="notification is-info has-text-centered is-radiusless">
                     {{ $t('message.welcome_to_demo_app') }}<br />
                     <i18n-t keypath="message.sign_in_using_email_password" tag="span">
@@ -192,7 +192,7 @@
                 </div>
             </FormWrapper>
             <!-- login/password legacy form -->
-            <FormWrapper v-else-if="activeLoginForm == 'legacy'" title="heading.login" punchline="message.welcome_to_2fauth">
+            <FormWrapper v-else-if="activeLoginForm == 'legacy'" title="heading.login" punchline="message.welcome_to_2FA-Vault">
                 <div v-if="$2fauth.isDemoApp" class="notification is-info has-text-centered is-radiusless">
                     {{ $t('message.welcome_to_demo_app') }}<br />
                     <i18n-t keypath="message.sign_in_using_email_password" tag="span">

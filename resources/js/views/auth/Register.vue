@@ -111,7 +111,7 @@
                 </div>
             </FormWrapper>
             <!-- User registration form -->
-            <FormWrapper v-else title="heading.register" punchline="message.welcome_to_2fauth">
+            <FormWrapper v-else title="heading.register" punchline="message.welcome_to_2FA-Vault">
                 <div class="block">
                     {{ $t('message.you_need_an_account_to_go_further') }}
                 </div>

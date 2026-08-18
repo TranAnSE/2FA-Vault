@@ -324,7 +324,7 @@
                         <div class="field help">
                             {{ $t('message.some_translation_are_missing') }}
                             <a class="ml-2 is-link" href="https://crowdin.com/project/2fauth">
-                                {{ $t('link.help_translate_2fauth') }}
+                                {{ $t('link.help_translate_2FA-Vault') }}
                                 <LucideExternalLink class="icon-size-1" />
                             </a>
                         </div>
