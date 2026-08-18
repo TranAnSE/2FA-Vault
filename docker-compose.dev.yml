@@ -12,7 +12,8 @@ services:
     restart: unless-stopped
     ports:
       - "8089:8000"  # Laravel server (8088 taken by zshield-backend)
-      - "5174:5173"  # Vite dev server (using 5174 to avoid conflicts)
+      # Vite dev server port 5174 is published by the vite service below;
+      # publishing it here as well makes the two containers collide.
     volumes:
       # Mount entire project for live reloading
       - .:/srv:cached
