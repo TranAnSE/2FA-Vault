@@ -76,12 +76,9 @@ class AppServiceProvider extends ServiceProvider
             KeysCommand::class,
         ]);
 
-        Gate::before(function (User $user, string $ability) {
-            if ($user->isAdministrator()) {
-                return true;
-            }
-        });
-
+        // Upstream v8 hardening (54e8fc0fb): no global Gate::before admin
+        // bypass. Administrators are authorized by route middleware
+        // (AdminOnly) and explicit policy allowances (e.g. UserPolicy::before).
         Gate::define('manage-pat', function (User $user) {
             $useSsoOnly = Settings::get('useSsoOnly');
 

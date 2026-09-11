@@ -81,14 +81,15 @@ class ManageWebauthnPermissionsTest extends FeatureTestCase
 
     #[Test]
     #[DataProvider('provideWebauthnManagementEndPoints')]
-    public function test_webauthn_management_endpoint_is_permitted_to_admin_with_useSsoOnly(string $method, string $url)
+    public function test_webauthn_management_endpoint_is_forbidden_to_admin_with_useSsoOnly(string $method, string $url)
     {
+        // Upstream v8: the global Gate::before admin bypass was removed, so
+        // administrators are subject to the useSsoOnly restriction as well.
         Settings::set('useSsoOnly', true);
 
-        $response = $this->actingAs($this->admin, 'web-guard')
-            ->json($method, $url);
-
-        $this->assertNotEquals($response->getStatusCode(), Response::HTTP_FORBIDDEN);
+        $this->actingAs($this->admin, 'web-guard')
+            ->json($method, $url)
+            ->assertForbidden();
     }
 
     /**
