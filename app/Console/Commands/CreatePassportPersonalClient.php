@@ -27,7 +27,9 @@ class CreatePassportPersonalClient extends Command
         $provider = $this->option('provider');
 
         // Check if a personal access client already exists.
-        $existing = \DB::table('oauth_clients')->where('personal_access_client', 1)->first();
+        // The personal_access_client column was dropped by the Passport 13
+        // schema migration (upstream ac092806 equivalent check).
+        $existing = \DB::table('oauth_clients')->where('grant_types', 'like', '%personal_access%')->first();
 
         if ($existing) {
             $this->components->info('Personal access client already exists (id: ' . $existing->id . ').');

@@ -375,7 +375,7 @@ class UserManagerControllerTest extends FeatureTestCase
 
         $tokens = $tokenRepository->forUser($this->user);
         $tokens = $tokens->load('client')->filter(function ($token) {
-            return $token->client->personal_access_client && ! $token->revoked;
+            return $token->client->hasGrantType('personal_access') && ! $token->revoked;
         });
 
         $this->assertCount(0, $tokens);

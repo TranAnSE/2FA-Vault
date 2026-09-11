@@ -137,7 +137,7 @@ class UserManagerController extends Controller
         $tokens = $tokenRepository->forUser($user);
 
         $tokens->load('client')->filter(function ($token) {
-            return $token->client->personal_access_client && ! $token->revoked;
+            return $token->client->hasGrantType('personal_access') && ! $token->revoked;
         })->each(function ($token) {
             $token->revoke();
         });
