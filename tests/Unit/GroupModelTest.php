@@ -21,7 +21,7 @@ class GroupModelTest extends ModelTestCase
     {
         $this->runConfigurationAssertions(
             new Group,
-            ['name'],
+            ['name', 'show_in_chips'],
             ['created_at', 'updated_at'],
             ['*'],
             [],
@@ -29,6 +29,7 @@ class GroupModelTest extends ModelTestCase
                 'id'                 => 'int',
                 'twofaccounts_count' => 'integer',
                 'user_id'            => 'integer',
+                'show_in_chips'      => 'boolean',
             ],
             [
                 'deleted' => GroupDeleted::class,

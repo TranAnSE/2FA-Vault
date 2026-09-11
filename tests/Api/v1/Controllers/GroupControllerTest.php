@@ -103,26 +103,31 @@ class GroupControllerTest extends FeatureTestCase
                 '0' => [
                     'id'                 => 0,
                     'name'               => 'All',
+                    'show_in_chips'      => false,
                     'twofaccounts_count' => 2,
                 ],
                 '1' => [
                     'id'                 => $this->userGroupA->id,
                     'name'               => $this->userGroupA->name,
+                    'show_in_chips'      => false,
                     'twofaccounts_count' => 2,
                 ],
                 '2' => [
                     'id'                 => $this->userGroupB->id,
                     'name'               => $this->userGroupB->name,
+                    'show_in_chips'      => false,
                     'twofaccounts_count' => 0,
                 ],
                 '3' => [
                     'id'                 => \App\Models\Group::SHARED_BY_ME_ID,
                     'name'               => 'Shared by me',
+                    'show_in_chips'      => false,
                     'twofaccounts_count' => 0,
                 ],
                 '4' => [
                     'id'                 => \App\Models\Group::SHARED_WITH_ME_ID,
                     'name'               => 'Shared with me',
+                    'show_in_chips'      => false,
                     'twofaccounts_count' => 0,
                 ],
             ]);
@@ -164,6 +169,45 @@ class GroupControllerTest extends FeatureTestCase
             ]);
 
         $this->assertDatabaseHas('groups', [
+            'name'    => self::NEW_GROUP_NAME,
+            'user_id' => $this->user->id,
+        ]);
+    }
+
+    #[Test]
+    public function test_store_with_show_in_chips_returns_created_group_resource()
+    {
+        Passport::actingAs($this->user, ['legacy_full_access'], 'api-guard');
+        $this
+            ->json('POST', '/api/v1/groups', [
+                'name'          => self::NEW_GROUP_NAME,
+                'show_in_chips' => true,
+            ])
+            ->assertCreated()
+            ->assertJsonFragment([
+                'name'          => self::NEW_GROUP_NAME,
+                'show_in_chips' => true,
+            ]);
+
+        $this->assertDatabaseHas('groups', [
+            'name'          => self::NEW_GROUP_NAME,
+            'user_id'       => $this->user->id,
+            'show_in_chips' => true,
+        ]);
+    }
+
+    #[Test]
+    public function test_store_with_invalid_show_in_chips_returns_validation_error()
+    {
+        Passport::actingAs($this->user, ['legacy_full_access'], 'api-guard');
+        $this
+            ->json('POST', '/api/v1/groups', [
+                'name'          => self::NEW_GROUP_NAME,
+                'show_in_chips' => 'foo',
+            ])
+            ->assertStatus(422);
+
+        $this->assertDatabaseMissing('groups', [
             'name'    => self::NEW_GROUP_NAME,
             'user_id' => $this->user->id,
         ]);
@@ -276,6 +320,47 @@ class GroupControllerTest extends FeatureTestCase
     }
 
     #[Test]
+    public function test_update_toggles_show_in_chips()
+    {
+        $group = Group::factory()->for($this->user)->create([
+            'show_in_chips' => false,
+        ]);
+
+        Passport::actingAs($this->user, ['legacy_full_access'], 'api-guard');
+        $this
+            ->json('PUT', '/api/v1/groups/' . $group->id, [
+                'name'          => $group->name,
+                'show_in_chips' => true,
+            ])
+            ->assertOk()
+            ->assertJsonFragment([
+                'id'            => $group->id,
+                'show_in_chips' => true,
+            ]);
+
+        $this->assertDatabaseHas('groups', [
+            'id'            => $group->id,
+            'show_in_chips' => true,
+        ]);
+    }
+
+    #[Test]
+    public function test_update_with_unchanged_name_returns_updated_group_resource()
+    {
+        $group = Group::factory()->for($this->user)->create();
+
+        Passport::actingAs($this->user, ['legacy_full_access'], 'api-guard');
+        $this
+            ->json('PUT', '/api/v1/groups/' . $group->id, [
+                'name' => $group->name,
+            ])
+            ->assertOk()
+            ->assertJsonFragment([
+                'name' => $group->name,
+            ]);
+    }
+
+    #[Test]
     public function test_update_missing_group_returns_not_found()
     {
         Passport::actingAs($this->user, ['legacy_full_access'], 'api-guard');
@@ -331,6 +416,7 @@ class GroupControllerTest extends FeatureTestCase
             ->assertExactJson([
                 'id'                 => $group->id,
                 'name'               => $group->name,
+                'show_in_chips'      => false,
                 'twofaccounts_count' => 2,
             ]);
     }

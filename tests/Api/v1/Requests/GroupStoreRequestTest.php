@@ -85,6 +85,14 @@ class GroupStoreRequestTest extends FeatureTestCase
             [[
                 'name' => 'vàlîdWörd',
             ]],
+            [[
+                'name'          => 'validWord',
+                'show_in_chips' => true,
+            ]],
+            [[
+                'name'          => 'validWord',
+                'show_in_chips' => false,
+            ]],
         ];
     }
 
@@ -125,6 +133,14 @@ class GroupStoreRequestTest extends FeatureTestCase
             ]],
             [[
                 'name' => 'valid"Word', // special char
+            ]],
+            [[
+                'name'          => 'validWord',
+                'show_in_chips' => 'foo', // boolean
+            ]],
+            [[
+                'name'          => 'validWord',
+                'show_in_chips' => null, // required when present
             ]],
         ];
     }

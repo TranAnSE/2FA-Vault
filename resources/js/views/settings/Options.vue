@@ -381,6 +381,10 @@
                         <FormSelect v-model="user.preferences.defaultGroup" @update:model-value="val => savePreference('defaultGroup', val)" :options="groupsList" fieldName="defaultGroup" label="field.default_group" help="field.default_group.help" />
                         <!-- retain active group -->
                         <FormCheckbox v-model="user.preferences.rememberActiveGroup" @update:model-value="val => savePreference('rememberActiveGroup', val)" fieldName="rememberActiveGroup" :isLocked="appSettings.lockedPreferences.includes('rememberActiveGroup')" label="field.remember_active_group" help="field.remember_active_group.help" />
+                        <!-- use chips selector -->
+                        <FormCheckbox v-model="user.preferences.useGroupChips" @update:model-value="val => savePreference('useGroupChips', val)" fieldName="useGroupChips" :isLocked="appSettings.lockedPreferences.includes('useGroupChips')" label="field.use_chips_to_select_group" help="field.use_chips_to_select_group.help" />
+                        <!-- show all group chips -->
+                        <FormCheckbox v-model="user.preferences.showVirtualChips" @update:model-value="val => savePreference('showVirtualChips', val)" fieldName="showVirtualChips" :isLocked="appSettings.lockedPreferences.includes('showVirtualChips')" :isDisabled="!user.preferences.useGroupChips" label="field.show_virtual_chips" help="field.show_virtual_chips.help" :isIndented="true" />
                         <!-- always return to default group after copying -->
                         <FormCheckbox v-model="user.preferences.viewDefaultGroupOnCopy" @update:model-value="val => savePreference('viewDefaultGroupOnCopy', val)" fieldName="viewDefaultGroupOnCopy" :isLocked="appSettings.lockedPreferences.includes('viewDefaultGroupOnCopy')" label="field.view_default_group_on_copy" help="field.view_default_group_on_copy.help" />
                         

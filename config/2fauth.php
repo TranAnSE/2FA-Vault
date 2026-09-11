@@ -22,6 +22,8 @@ $preferences = [
     'vaultAutoLockMode'      => envUnlessEmpty('USERPREF_DEFAULT__VAULT_AUTO_LOCK_MODE', 'inactivity'),
     'vaultAutoLockMinutes'   => envUnlessEmpty('USERPREF_DEFAULT__VAULT_AUTO_LOCK_MINUTES', 5),
     'activeGroup'            => 0,
+    'useGroupChips'          => envUnlessEmpty('USERPREF_DEFAULT__USE_GROUP_CHIPS', true),
+    'showVirtualChips'       => envUnlessEmpty('USERPREF_DEFAULT__SHOW_VIRTUAL_CHIPS', true),
     'rememberActiveGroup'    => envUnlessEmpty('USERPREF_DEFAULT__REMEMBER_ACTIVE_GROUP', true),
     'viewDefaultGroupOnCopy' => envUnlessEmpty('USERPREF_DEFAULT__VIEW_DEFAULT_GROUP_ON_COPY', false),
     'defaultGroup'           => 0,
@@ -96,8 +98,8 @@ return [
         // logo-library drivers that hit the network are bypassed and only the
         // local 'storage' icon pack is used, so the account service list is
         // never disclosed to a third party. See IconService::buildFromOfficialLogo.
-        'iconOfflineOnly'               => envUnlessEmpty('ICON_OFFLINE_ONLY', false),
-        'phpMemoryLimitTempOverride'    => envUnlessEmpty('PHP_MEMORY_LIMIT_TEMP_OVERRIDE', '512M'),
+        'iconOfflineOnly'            => envUnlessEmpty('ICON_OFFLINE_ONLY', false),
+        'phpMemoryLimitTempOverride' => envUnlessEmpty('PHP_MEMORY_LIMIT_TEMP_OVERRIDE', '512M'),
     ],
 
     /*

@@ -8,7 +8,7 @@
     import { UseColorMode } from '@vueuse/components'
     import { useUserStore } from '@/stores/user'
     import {
-        useNotify, SearchBox, GroupSwitch, OtpDisplay, Dots, DotsController, useVisiblePassword
+        useNotify, SearchBox, GroupChips, GroupSwitch, OtpDisplay, Dots, DotsController, useVisiblePassword
     } from '@2fauth/ui'
     import { useBusStore } from '@/stores/bus'
     import { useTwofaccounts } from '@/stores/twofaccounts'
@@ -128,6 +128,32 @@
         }
     }
 
+    // Group chips quick-switching (upstream v8 UX). @2fauth/ui's GroupChips
+    // hardcodes upstream pseudo-group IDs (-1 group-less, -2 shared by me,
+    // -3 shared with me) while the fork uses its own virtual IDs
+    // (Group::SHARED_BY_ME_ID = -3, Group::SHARED_WITH_ME_ID = -4) plus a
+    // separate groupLessOnly store flag. This computed maps between the two
+    // ID scopes so the shared component stays unmodified.
+    const chipsActiveGroup = computed({
+        get: () => {
+            if (twofaccounts.groupLessOnly) return -1
+            const activeGroup = parseInt(user.preferences.activeGroup)
+            if (activeGroup === -3) return -2
+            if (activeGroup === -4) return -3
+            return activeGroup
+        },
+        set: (chipId) => {
+            if (chipId === -1) {
+                // Group-less is a store flag in the fork, activeGroup resets to All
+                twofaccounts.groupLessOnly = true
+                saveActiveGroup(0)
+            }
+            else if (chipId === -2) saveActiveGroup(-3)
+            else if (chipId === -3) saveActiveGroup(-4)
+            else saveActiveGroup(chipId)
+        },
+    })
+
     function onStart() { isDragging.value = true }
     function onEnd() { isDragging.value = false }
 
@@ -181,7 +207,15 @@
                         </button>
                     </div>
                     <div v-else>
-                        <button type="button" id="btnShowGroupSwitch" :title="$t('tooltip.show_group_selector')" tabindex="1" class="button is-text is-like-text has-text-grey-dark" :class="{'has-text-grey' : mode != 'dark'}" @click.stop="showGroupSwitch = !showGroupSwitch">
+                        <!-- useShare is always on: the fork has no runtime sharing toggle -->
+                        <GroupChips v-if="user.preferences.useGroupChips"
+                            v-model:active-group="chipsActiveGroup"
+                            v-model:show-group-switch="showGroupSwitch"
+                            :groups="groups.items"
+                            :filteredCount="twofaccounts.filteredCount"
+                            :useVirtualChips="user.preferences.showVirtualChips"
+                            :useShare="true" />
+                        <button v-else type="button" id="btnShowGroupSwitch" :title="$t('tooltip.show_group_selector')" tabindex="1" class="button is-text is-like-text has-text-grey-dark" :class="{'has-text-grey' : mode != 'dark'}" @click.stop="showGroupSwitch = !showGroupSwitch">
                             <template v-if="twofaccounts.groupLessOnly">{{ $t('label.group_less') }} ({{ twofaccounts.filteredCount }})&nbsp;</template>
                             <template v-else-if="groups.current">{{ groups.current }} ({{ twofaccounts.filteredCount }})&nbsp;</template>
                             <template v-else>{{ $t('label.all') }} ({{ twofaccounts.filteredCount }})&nbsp;</template>

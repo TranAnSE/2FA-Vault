@@ -2,12 +2,14 @@
     import { UseColorMode } from '@vueuse/components'
     import { useGroups } from '@/stores/groups'
     import { useBusStore } from '@/stores/bus'
-    import { LucideCirclePlus, LucideSquarePen, LucideMenu } from 'lucide-vue-next'
+    import { useUserStore } from '@/stores/user'
+    import { LucideBookmarkCheck, LucideCirclePlus, LucideSquarePen, LucideMenu } from 'lucide-vue-next'
     import { useSortable, moveArrayElement } from '@vueuse/integrations/useSortable'
 
     const router = useRouter()
     const groups = useGroups()
     const bus = useBusStore()
+    const user = useUserStore()
 
     const isFetching = ref(false)
 
@@ -89,6 +91,10 @@
                                 <RouterLink :to="{ name: 'editGroup', params: { groupId: group.id }}" class="has-text-grey px-1" :title="$t('tooltip.rename')">
                                     <LucideSquarePen class="icon-size-1" />
                                 </RouterLink>
+                                <!-- shown as chip indicator -->
+                                <span v-if="user.preferences.useGroupChips && group.show_in_chips" class="is-pulled-right px-1 has-text-link is-clickable" :title="$t('field.show_in_chips')">
+                                    <LucideBookmarkCheck class="icon-size-1" />
+                                </span>
                                 <span class="is-family-primary is-size-6 is-size-7-mobile has-text-grey">{{ $t('message.x_accounts', { count: group.twofaccounts_count }) }}</span>
                             </div>
                         </span>
