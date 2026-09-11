@@ -874,6 +874,8 @@
     "message.ensure_you_open_mail_in_trusted_device": "Ensure you open the email on a device you fully own.",
     "message.error_occured": "エラーが発生しました",
     "message.expected_format_for_direct_input": "形式：1 行につき otpauth URI 1 件",
+    "message.expire_in_x_day": "Expires in {days_to_expiration} day(s)",
+    "message.expired_since_x": "Expired since {expired_at}",
     "message.failed_login_on": "{login_at} にログイン失敗",
     "message.failure": "失敗",
     "message.fetching_data": "Fetching data...",

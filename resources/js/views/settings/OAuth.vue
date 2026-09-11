@@ -133,11 +133,22 @@
     }
 
     /**
-     * Closes & resets the PAT creation form 
+     * Closes & resets the PAT creation form
      */
     function cancelPATcreation() {
         createPATModalIsVisible.value = false
         form.reset()
+    }
+
+    /**
+     * Tells the nb of days until the provided date
+     */
+    function daysToExpiration(dateString) {
+        const date = new Date(dateString)
+        const now = Date.now()
+        const deltaMs = date.getTime() - now
+
+        return Math.ceil(deltaMs / (1000 * 60 * 60 * 24))
     }
 
     onBeforeRouteLeave((to) => {
@@ -204,6 +215,13 @@
                                 </button>
                             </UseColorMode>
                         </div>
+                        <!-- expiration warning -->
+                        <span v-if="daysToExpiration(token.expires_at) < 0" class="is-family-primary is-size-6 is-size-7-mobile has-text-danger">
+                            {{ $t('message.expired_since_x', { expired_at : new Date(token.expires_at).toLocaleDateString() }) }}
+                        </span>
+                        <span v-else class="is-family-primary is-size-6 is-size-7-mobile has-text-warning" :class="daysToExpiration(token.expires_at) <= 7 ? 'has-text-warning' : 'has-text-grey'">
+                            {{ $t('message.expire_in_x_day', { days_to_expiration : daysToExpiration(token.expires_at) }) }}
+                        </span>
                         <!-- warning msg -->
                         <span v-if="token.value" class="is-size-7-mobile is-size-6 my-3">
                             {{ $t('message.make_sure_copy_token') }}

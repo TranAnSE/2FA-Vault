@@ -874,6 +874,8 @@
     "message.ensure_you_open_mail_in_trusted_device": "Vergewissern Sie sich, dass Sie die E-Mail auf einem Gerät öffnen, das Ihnen vollständig gehört.",
     "message.error_occured": "Ein Fehler ist aufgetreten:",
     "message.expected_format_for_direct_input": "Erwartet: Eine Liste der otpauth URI, eins pro Zeile",
+    "message.expire_in_x_day": "Expires in {days_to_expiration} day(s)",
+    "message.expired_since_x": "Expired since {expired_at}",
     "message.failed_login_on": "Anmeldung fehlgeschlagen auf {login_at}",
     "message.failure": "Fehlschlag",
     "message.fetching_data": "Datenabruf...",

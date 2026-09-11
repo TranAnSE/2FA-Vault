@@ -874,6 +874,8 @@
     "message.ensure_you_open_mail_in_trusted_device": "이메일을 열 때는 당신이 완전히 소유한 기기에서 열어야 합니다.",
     "message.error_occured": "오류 발생:",
     "message.expected_format_for_direct_input": "형식: 1행에 1개의 otpauth URI",
+    "message.expire_in_x_day": "Expires in {days_to_expiration} day(s)",
+    "message.expired_since_x": "Expired since {expired_at}",
     "message.failed_login_on": "{login_at}에서 로그인 실패",
     "message.failure": "실패",
     "message.fetching_data": "데이터 불러오는 중...",

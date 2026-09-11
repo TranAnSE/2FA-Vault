@@ -874,6 +874,8 @@
     "message.ensure_you_open_mail_in_trusted_device": "Assurez-vous d'ouvrir l'e-mail depuis un appareil qui vous appartient ou que vous considérez de confiance.",
     "message.error_occured": "Une erreur est survenue :",
     "message.expected_format_for_direct_input": "Attendu : Une liste d'URI au format otpauth, une par ligne",
+    "message.expire_in_x_day": "Expires in {days_to_expiration} day(s)",
+    "message.expired_since_x": "Expired since {expired_at}",
     "message.failed_login_on": "Connexion refusée le {login_at}",
     "message.failure": "Échec",
     "message.fetching_data": "Récupération des données...",

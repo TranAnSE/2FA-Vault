@@ -874,6 +874,8 @@
     "message.ensure_you_open_mail_in_trusted_device": "請務必在您信任的設備上打開郵件。",
     "message.error_occured": "發生錯誤：",
     "message.expected_format_for_direct_input": "請填入一個包含 otpauth URI 的列表，每行一條",
+    "message.expire_in_x_day": "Expires in {days_to_expiration} day(s)",
+    "message.expired_since_x": "Expired since {expired_at}",
     "message.failed_login_on": "登入失敗於 {login_at}",
     "message.failure": "失敗",
     "message.fetching_data": "正在獲取資料…",

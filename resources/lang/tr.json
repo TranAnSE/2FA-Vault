@@ -874,6 +874,8 @@
     "message.ensure_you_open_mail_in_trusted_device": "ePostayı tamamen size ait bir bilgisayarda açtığınıza emin olun.",
     "message.error_occured": "Bir hata oluştu:",
     "message.expected_format_for_direct_input": "Beklenen: Her biri bir satırda bir otpauth URI listesi",
+    "message.expire_in_x_day": "Expires in {days_to_expiration} day(s)",
+    "message.expired_since_x": "Expired since {expired_at}",
     "message.failed_login_on": "Başarısız giriş denemesi {login_at}",
     "message.failure": "Başarısız",
     "message.fetching_data": "Veri getiriliyor...",

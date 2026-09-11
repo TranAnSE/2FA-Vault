@@ -874,6 +874,8 @@
     "message.ensure_you_open_mail_in_trusted_device": "Ensure you open the email on a device you fully own.",
     "message.error_occured": "एक त्रुटि उत्पन्न हुई",
     "message.expected_format_for_direct_input": "अपेक्षित: otpauth URI की सूची, एक लाइन पर एक",
+    "message.expire_in_x_day": "Expires in {days_to_expiration} day(s)",
+    "message.expired_since_x": "Expired since {expired_at}",
     "message.failed_login_on": "{login_at} पर असफल लॉगिन",
     "message.failure": "विफलता",
     "message.fetching_data": "Fetching data...",
