@@ -79,9 +79,14 @@
 
     // B9: entering the "shared with me" virtual group loads the shared slice
     // into the store (flagged is_shared); every other group view hides it.
+    // Entering the "shared by me" virtual group loads the shared-by-me IDs
+    // so the filtered getter can restrict the view to those accounts.
     watch(() => user.preferences.activeGroup, (val) => {
         if (parseInt(val) === -4) {
             twofaccounts.fetchSharedWithMe().catch(() => {})
+        }
+        else if (parseInt(val) === -3) {
+            twofaccounts.fetchSharedByMe().catch(() => {})
         }
     }, { immediate: true })
 

@@ -16,6 +16,8 @@ export const useTwofaccounts = defineStore('twofaccounts', {
             backendWasNewer: false,
             fetchedOn: null,
             groupLessOnly: false,
+            // IDs of own accounts shared BY the user (virtual group -3).
+            sharedByMeIds: [],
         }
     },
 
@@ -37,6 +39,16 @@ export const useTwofaccounts = defineStore('twofaccounts', {
 
                     if (item.is_shared === true) {
                         return false
+                    }
+
+                    // Virtual group -3: only accounts the user shares with
+                    // teams. Membership is resolved server-side (the account
+                    // resource carries no shared-by-me marker), so the IDs are
+                    // loaded by fetchSharedByMe().
+                    if (activeGroup === -3) {
+                        return state.sharedByMeIds.includes(item.id) &&
+                            ((item.service ? item.service.toLowerCase().includes(state.filter.toLowerCase()) : false) ||
+                            item.account.toLowerCase().includes(state.filter.toLowerCase()))
                     }
 
                     if (state.groupLessOnly) {
@@ -169,6 +181,17 @@ export const useTwofaccounts = defineStore('twofaccounts', {
                 ...shared.filter(s => !ownIds.has(s.id)),
             ]
             return shared
+        },
+
+        /**
+         * Loads the IDs of accounts shared BY the current user (virtual
+         * group -3). The backend answers group_id=-3 with the user's own
+         * accounts having a SharedAccount row with shared_by = user, so we
+         * only keep the IDs: the accounts themselves are already in items.
+         */
+        async fetchSharedByMe() {
+            const response = await twofaccountService.getAll(false, { params: { group_id: -3 } })
+            this.sharedByMeIds = (response.data ?? []).map(account => account.id)
         },
 
         /**
