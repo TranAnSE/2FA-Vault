@@ -13,6 +13,7 @@ use App\Services\PersonalActivityLogger;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Str;
 
@@ -62,7 +63,15 @@ class InvitationController extends Controller
         ]);
 
         // Send invitation email
-        Mail::to($validated['email'])->send(new UserInvitationMail($invitation));
+        try {
+            Mail::to($validated['email'])->send(new UserInvitationMail($invitation));
+        }
+        catch(\Throwable) {
+            // Nothing to do here, mail sending failure must not fail the invitation
+            // Raw Mail::to() sends do not fire NotificationFailed, so log a hint.
+            Log::warning(sprintf('Notification sending via channel mail failed (%s)', UserInvitationMail::class));
+            Log::warning('Review your MAIL_* environment variables, especially if you are using SMTP, and test sending emails from the admin panel of the 2FAuth web app.');
+        }
 
         $this->activityLogger->log($request->user(), PersonalAction::INVITATION_SENT, [
             'email'         => $validated['email'],

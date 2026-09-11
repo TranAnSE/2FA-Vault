@@ -235,7 +235,12 @@ class User extends Authenticatable implements HasLocalePreference, OAuthenticata
      */
     public function sendPasswordResetNotification($token)
     {
-        $this->notify((new ResetPassword($token))->locale($this->preferredLocale() == 'browser' ? App::currentLocale() : $this->preferredLocale()));
+        try {
+            $this->notify((new ResetPassword($token))->locale($this->preferredLocale() == 'browser' ? App::currentLocale() : $this->preferredLocale()));
+        }
+        catch(\Throwable) {
+            // Nothing to do here, LogNotificationListener will log error details
+        }
     }
 
     /**

@@ -27,6 +27,7 @@ use Illuminate\Auth\Events\Logout;
 use Illuminate\Auth\Events\Registered;
 use Illuminate\Auth\Listeners\SendEmailVerificationNotification;
 use Illuminate\Foundation\Support\Providers\EventServiceProvider as ServiceProvider;
+use Illuminate\Notifications\Events\NotificationFailed;
 use Illuminate\Notifications\Events\NotificationSent;
 use SocialiteProviders\Manager\SocialiteWasCalled;
 
@@ -56,6 +57,9 @@ class EventServiceProvider extends ServiceProvider
             RegisterOpenId::class,
         ],
         NotificationSent::class => [
+            LogNotificationListener::class,
+        ],
+        NotificationFailed::class => [
             LogNotificationListener::class,
         ],
         Login::class => [

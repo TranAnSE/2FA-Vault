@@ -5,6 +5,7 @@ namespace Tests\Unit\Listeners;
 use App\Listeners\LogNotificationListener;
 use App\Models\User;
 use App\Notifications\TestEmailSettingNotification;
+use Illuminate\Notifications\Events\NotificationFailed;
 use Illuminate\Notifications\Events\NotificationSent;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Log;
@@ -27,6 +28,11 @@ class LogNotificationTest extends TestCase
             NotificationSent::class,
             LogNotificationListener::class
         );
+
+        Event::assertListening(
+            NotificationFailed::class,
+            LogNotificationListener::class
+        );
     }
 
     #[Test]
@@ -36,6 +42,17 @@ class LogNotificationTest extends TestCase
         $listener = new LogNotificationListener;
 
         Log::shouldReceive('info')->once();
+
+        $listener->handle($event);
+    }
+
+    #[Test]
+    public function test_handle_logs_notification_failure()
+    {
+        $event    = new NotificationFailed(new User, new TestEmailSettingNotification, 'channel');
+        $listener = new LogNotificationListener;
+
+        Log::shouldReceive('warning')->twice();
 
         $listener->handle($event);
     }

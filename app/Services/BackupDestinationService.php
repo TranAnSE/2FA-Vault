@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Models\UserBackupDestination;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
@@ -110,7 +111,15 @@ class BackupDestinationService
 
     private function sendEmail(array $config, string $payload, string $filename): void
     {
-        Mail::to($config['email'])->send(new \App\Mail\BackupAttachmentMail($payload, $filename));
+        try {
+            Mail::to($config['email'])->send(new \App\Mail\BackupAttachmentMail($payload, $filename));
+        }
+        catch(\Throwable) {
+            // Nothing to do here, mail sending failure must not fail the backup
+            // Raw Mail::to() sends do not fire NotificationFailed, so log a hint.
+            Log::warning(sprintf('Notification sending via channel mail failed (%s)', \App\Mail\BackupAttachmentMail::class));
+            Log::warning('Review your MAIL_* environment variables, especially if you are using SMTP, and test sending emails from the admin panel of the 2FAuth web app.');
+        }
     }
 
     private function resolveS3Disk(array $config)

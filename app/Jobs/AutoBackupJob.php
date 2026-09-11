@@ -11,6 +11,7 @@ use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
 
 /**
@@ -102,6 +103,14 @@ class AutoBackupJob implements ShouldQueue
         $this->user['preferences->last_auto_backup_at'] = now()->utc()->toIso8601String();
         $this->user->save();
 
-        Mail::to($this->user->email)->send(new AutoBackupNotificationMail($filename, $errors));
+        try {
+            Mail::to($this->user->email)->send(new AutoBackupNotificationMail($filename, $errors));
+        }
+        catch(\Throwable) {
+            // Nothing to do here, mail sending failure must not fail the backup job
+            // Raw Mail::to() sends do not fire NotificationFailed, so log a hint.
+            Log::warning(sprintf('Notification sending to user ID #%s via channel mail failed (%s)', $this->user->id, AutoBackupNotificationMail::class));
+            Log::warning('Review your MAIL_* environment variables, especially if you are using SMTP, and test sending emails from the admin panel of the 2FAuth web app.');
+        }
     }
 }

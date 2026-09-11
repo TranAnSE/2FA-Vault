@@ -61,6 +61,11 @@ trait WebAuthnManageCredentials
         //     return $url;
         // });
 
-        $this->notify(new WebauthnRecoveryNotification($token));
+        try {
+            $this->notify(new WebauthnRecoveryNotification($token));
+        }
+        catch(\Throwable) {
+            // Nothing to do here, LogNotificationListener will log error details
+        }
     }
 }
