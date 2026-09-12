@@ -42,7 +42,11 @@ return new class extends Migration
         Schema::create('shared_accounts', function (Blueprint $table) {
             $table->id();
             $table->foreignId('team_id')->constrained('teams')->onDelete('cascade');
-            $table->foreignId('twofaccount_id')->constrained('twofaccounts')->onDelete('cascade');
+            // twofaccounts.id is a legacy INT increments() column (upstream 2019 schema);
+            // MySQL rejects a BIGINT foreign key against it (error 3780), so this column
+            // must stay unsignedInteger. SQLite (tests) does not enforce the type.
+            $table->unsignedInteger('twofaccount_id');
+            $table->foreign('twofaccount_id')->references('id')->on('twofaccounts')->onDelete('cascade');
             $table->foreignId('shared_by')->constrained('users')->onDelete('cascade');
             $table->string('access_level')->default('read'); // read, write, admin
             $table->text('encrypted_key')->nullable(); // Team-encrypted secret key

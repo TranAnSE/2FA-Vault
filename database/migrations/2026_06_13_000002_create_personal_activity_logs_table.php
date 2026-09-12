@@ -15,7 +15,9 @@ return new class extends Migration
             $table->json('metadata')->nullable();
             $table->string('ip_address', 45)->nullable();
             $table->string('user_agent', 512)->nullable();
-            $table->foreignId('target_account_id')->nullable()->constrained('twofaccounts')->onDelete('set null');
+            // unsignedInteger to match the legacy INT twofaccounts.id (MySQL FK type rule)
+            $table->unsignedInteger('target_account_id')->nullable();
+            $table->foreign('target_account_id')->references('id')->on('twofaccounts')->onDelete('set null');
             $table->timestamp('created_at')->useCurrent();
 
             $table->index(['user_id', 'created_at']);

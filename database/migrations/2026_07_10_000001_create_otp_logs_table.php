@@ -25,7 +25,9 @@ return new class extends Migration
             // account (set up fully in Đợt 5 Hybrid Sharing).
             $table->foreignId('owner_id')->constrained('users')->onDelete('cascade');
 
-            $table->foreignId('twofaccount_id')->nullable()->constrained()->onDelete('cascade');
+            // unsignedInteger to match the legacy INT twofaccounts.id (MySQL FK type rule)
+            $table->unsignedInteger('twofaccount_id')->nullable();
+            $table->foreign('twofaccount_id')->references('id')->on('twofaccounts')->onDelete('cascade');
 
             $table->string('otp_type', 10)->nullable();
             $table->unsignedInteger('counter')->nullable();

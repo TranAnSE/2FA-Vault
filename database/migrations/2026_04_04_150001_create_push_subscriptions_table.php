@@ -14,7 +14,10 @@ return new class extends Migration
         Schema::create('push_subscriptions', function (Blueprint $table) {
             $table->id();
             $table->foreignId('user_id')->constrained()->onDelete('cascade');
-            $table->text('endpoint');
+            // string(500), not text: endpoint is part of the (user_id, endpoint) unique
+            // index and MySQL forbids TEXT in key specifications without a key length.
+            // Real push-service endpoint URLs stay well under 500 chars.
+            $table->string('endpoint', 500);
             $table->string('p256dh');
             $table->string('auth');
             $table->string('content_encoding')->default('aes128gcm');

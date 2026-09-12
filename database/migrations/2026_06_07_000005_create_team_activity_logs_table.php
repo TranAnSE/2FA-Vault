@@ -15,7 +15,9 @@ return new class extends Migration
             $table->string('action', 100);
             $table->json('metadata')->nullable();
             $table->foreignId('target_user_id')->nullable()->constrained('users')->onDelete('set null');
-            $table->foreignId('target_account_id')->nullable()->constrained('twofaccounts')->onDelete('set null');
+            // unsignedInteger to match the legacy INT twofaccounts.id (MySQL FK type rule)
+            $table->unsignedInteger('target_account_id')->nullable();
+            $table->foreign('target_account_id')->references('id')->on('twofaccounts')->onDelete('set null');
             $table->timestamp('created_at')->useCurrent();
 
             $table->index(['team_id', 'created_at']);

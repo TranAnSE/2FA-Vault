@@ -18,7 +18,9 @@ return new class extends Migration
         });
 
         Schema::create('account_tag', function (Blueprint $table) {
-            $table->foreignId('twofaccount_id')->constrained('twofaccounts')->onDelete('cascade');
+            // unsignedInteger to match the legacy INT twofaccounts.id (MySQL FK type rule)
+            $table->unsignedInteger('twofaccount_id');
+            $table->foreign('twofaccount_id')->references('id')->on('twofaccounts')->onDelete('cascade');
             $table->foreignId('tag_id')->constrained()->onDelete('cascade');
             $table->primary(['twofaccount_id', 'tag_id']);
         });
