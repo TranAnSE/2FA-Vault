@@ -43,7 +43,7 @@
     },
     "require-dev": {
         "barryvdh/laravel-ide-helper": "^3.7",
-        "brianium/paratest": "^7.5",
+        "brianium/paratest": "^7.23",
         "fakerphp/faker": "^1.24.1",
         "larastan/larastan": "^3.10",
         "laravel/pint": "^1.29",
@@ -51,7 +51,7 @@
         "nunomaduro/collision": "^8.9.5",
         "phpstan/phpstan": "^2.0",
         "phpstan/phpstan-deprecation-rules": "^2.0",
-        "phpunit/phpunit": "^11.5.55",
+        "phpunit/phpunit": "^13.2",
         "symfony/yaml": "^7.0"
     },
     "config": {
