@@ -40,10 +40,16 @@ export async function ensureWebExtensionEncryptedUserReady(): Promise<{ pat: str
       throw new Error(`Login failed for extension test user: ${loginResponse.status()} body=${loginBody.slice(0, 300)}`);
     }
 
+    // A6: PAT creation requires at least one explicit scope. The popup flow
+    // needs read (list), otp (local generation) and write (counter sync,
+    // preference updates).
+    const patRequest = {
+      name: `webext-e2e-${Date.now()}`,
+      scopes: ['read', 'otp', 'write'],
+    };
+
     let tokenResponse = await context.post('/oauth/personal-access-tokens', {
-      data: {
-        name: `webext-e2e-${Date.now()}`,
-      },
+      data: patRequest,
       headers: {
         'X-XSRF-TOKEN': csrfToken,
       },
@@ -54,9 +60,7 @@ export async function ensureWebExtensionEncryptedUserReady(): Promise<{ pat: str
       await context.get('/refresh-csrf', { failOnStatusCode: false });
       csrfToken = await getCsrfToken(context);
       tokenResponse = await context.post('/oauth/personal-access-tokens', {
-        data: {
-          name: `webext-e2e-${Date.now()}-retry`,
-        },
+        data: { ...patRequest, name: `${patRequest.name}-retry` },
         headers: {
           'X-XSRF-TOKEN': csrfToken,
         },
