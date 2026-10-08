@@ -2,17 +2,27 @@
 
 namespace App\Http\Controllers\Auth;
 
+use App\Services\Auth\PassportTokenRepository;
+use Illuminate\Contracts\Validation\Factory as ValidationFactory;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Validation\Rule;
-use Laravel\Passport\Http\Controllers\PersonalAccessTokenController as PassportPatController;
 use Laravel\Passport\Passport;
 use Laravel\Passport\PersonalAccessTokenResult;
+use Laravel\Passport\Token;
 use Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException;
 
-class PersonalAccessTokenController extends PassportPatController
+class PersonalAccessTokenController
 {
+    /**
+     * Create a controller instance.
+     */
+    public function __construct(
+        protected PassportTokenRepository $tokenRepository,
+        protected ValidationFactory $validation,
+    ) {}
+
     /**
      * Get all of the personal access tokens for the authenticated user.
      *
@@ -24,7 +34,11 @@ class PersonalAccessTokenController extends PassportPatController
             throw new AccessDeniedHttpException(__('error.unsupported_with_sso_only'));
         }
 
-        return parent::forUser($request);
+        return $this->tokenRepository->forUser($request->user())
+            ->filter(
+                fn (Token $token) : bool => ! $token->client->revoked && $token->client->hasGrantType('personal_access')
+            )
+            ->values();
     }
 
     /**
@@ -64,6 +78,16 @@ class PersonalAccessTokenController extends PassportPatController
             throw new AccessDeniedHttpException(__('error.unsupported_with_sso_only'));
         }
 
-        return parent::destroy($request, $tokenId);
+        $token = $this->tokenRepository->findForUser(
+            $tokenId, $request->user()
+        );
+
+        if (is_null($token)) {
+            return new Response('', 404);
+        }
+
+        $token->revoke();
+
+        return new Response('', Response::HTTP_NO_CONTENT);
     }
 }
