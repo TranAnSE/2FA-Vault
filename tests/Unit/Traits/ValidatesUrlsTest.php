@@ -3,7 +3,7 @@
 namespace Tests\Unit\Traits;
 
 use App\Services\Traits\ValidatesUrls;
-use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\CoversTrait;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
 use Tests\TestCase;
@@ -11,7 +11,7 @@ use Tests\TestCase;
 /**
  * ValidatesUrlsTest test class
  */
-#[CoversClass(ValidatesUrls::class)]
+#[CoversTrait(ValidatesUrls::class)]
 class ValidatesUrlsTest extends TestCase
 {
     #[Test]
