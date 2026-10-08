@@ -117,6 +117,9 @@ fi
 echo "${COMMIT}" > /2fauth/installed
 php artisan storage:link --quiet
 
+# Fix OAuth key permissions (no-op when already correct, never fatal)
+php artisan 2fauth:fix-passport-key-permissions || true
+
 # Ensure bootstrap/cache and storage/framework directories exist
 # (storage/framework is excluded by .dockerignore)
 rm -rf /srv/bootstrap/cache
