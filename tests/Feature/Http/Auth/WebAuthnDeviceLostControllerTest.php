@@ -5,6 +5,7 @@ namespace Tests\Feature\Http\Auth;
 use App\Extensions\WebauthnCredentialBroker;
 use App\Http\Controllers\Auth\WebAuthnDeviceLostController;
 use App\Http\Requests\WebauthnDeviceLostRequest;
+use App\Models\Traits\WebAuthnManageCredentials;
 use App\Models\User;
 use App\Notifications\WebauthnRecoveryNotification;
 use App\Providers\AuthServiceProvider;
@@ -12,13 +13,14 @@ use App\Rules\CaseInsensitiveEmailExists;
 use Illuminate\Support\Facades\Notification;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\CoversMethod;
+use PHPUnit\Framework\Attributes\CoversTrait;
 use PHPUnit\Framework\Attributes\Test;
 use Tests\FeatureTestCase;
 
 /**
  * WebAuthnDeviceLostControllerTest test class
  */
-#[CoversMethod(User::class, 'sendWebauthnRecoveryNotification')]
+#[CoversTrait(WebAuthnManageCredentials::class)]
 #[CoversClass(WebAuthnDeviceLostController::class)]
 #[CoversClass(WebauthnRecoveryNotification::class)]
 #[CoversClass(WebauthnCredentialBroker::class)]
