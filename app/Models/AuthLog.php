@@ -25,6 +25,7 @@
 namespace App\Models;
 
 use Database\Factories\AuthLogFactory;
+use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\MorphTo;
@@ -62,6 +63,7 @@ use Illuminate\Database\Eloquent\Relations\MorphTo;
  * @method static \Illuminate\Database\Eloquent\Builder|AuthLog whereLogoutAt($value)
  * @method static \Illuminate\Database\Eloquent\Builder|AuthLog whereUserAgent($value)
  */
+#[Fillable(['ip_address', 'user_agent', 'login_at', 'login_successful', 'logout_at', 'cleared_by_user', 'guard', 'login_method'])]
 class AuthLog extends Model
 {
     /**
@@ -73,20 +75,6 @@ class AuthLog extends Model
      * Indicates if the model should be timestamped.
      */
     public $timestamps = false;
-
-    /**
-     * The attributes that are mass assignable.
-     */
-    protected $fillable = [
-        'ip_address',
-        'user_agent',
-        'login_at',
-        'login_successful',
-        'logout_at',
-        'cleared_by_user',
-        'guard',
-        'login_method',
-    ];
 
     /**
      * The attributes that should be cast.

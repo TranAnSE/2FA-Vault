@@ -13,6 +13,8 @@ use App\Models\Dto\HotpDto;
 use App\Models\Dto\TotpDto;
 use App\Models\Traits\CanEncryptField;
 use Database\Factories\TwoFAccountFactory;
+use Illuminate\Database\Eloquent\Attributes\Fillable;
+use Illuminate\Database\Eloquent\Attributes\Hidden;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasOne;
@@ -78,6 +80,8 @@ use SteamTotp\SteamTotp;
  *
  * @method static \Illuminate\Database\Eloquent\Builder|TwoFAccount orphans()
  */
+#[Fillable(['notes', 'is_pinned', 'recovery_codes'])]
+#[Hidden([])]
 class TwoFAccount extends Model implements Sortable
 {
     /**
@@ -120,17 +124,6 @@ class TwoFAccount extends Model implements Sortable
     ];
 
     /**
-     * model's array form.
-     *
-     * @var list<string>
-     */
-    protected $fillable = [
-        'notes',
-        'is_pinned',
-        'recovery_codes',
-    ];
-
-    /**
      * The table associated with the model.
      *
      * @var string
@@ -153,13 +146,6 @@ class TwoFAccount extends Model implements Sortable
         'digits'    => 6,
         'algorithm' => self::SHA1,
     ];
-
-    /**
-     * The attributes that should be hidden for arrays.
-     *
-     * @var list<string>
-     */
-    protected $hidden = [];
 
     /**
      * The attributes that should be cast.

@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -24,13 +25,12 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * @property string|null $user_agent
  * @property \Illuminate\Support\Carbon $generated_at
  */
+#[Fillable(['requester_id', 'owner_id', 'twofaccount_id', 'otp_type', 'counter', 'ip_address', 'user_agent', 'generated_at'])]
 class OtpLog extends Model
 {
     use HasFactory;
 
     public $timestamps = false;
-
-    protected $guarded = [];
 
     protected $casts = [
         'generated_at' => 'datetime',

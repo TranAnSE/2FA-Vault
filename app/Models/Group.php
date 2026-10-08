@@ -4,6 +4,8 @@ namespace App\Models;
 
 use App\Events\GroupDeleted;
 use Database\Factories\GroupFactory;
+use Illuminate\Database\Eloquent\Attributes\Fillable;
+use Illuminate\Database\Eloquent\Attributes\Hidden;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Log;
@@ -38,6 +40,8 @@ use Spatie\EloquentSortable\SortableTrait;
  *
  * @method static \Illuminate\Database\Eloquent\Builder|Group orphans()
  */
+#[Fillable(['name', 'show_in_chips'])]
+#[Hidden(['created_at', 'updated_at'])]
 class Group extends Model implements Sortable
 {
     /**
@@ -62,28 +66,11 @@ class Group extends Model implements Sortable
     public const SHARED_WITH_ME_ID = -4;
 
     /**
-     * model's array form.
-     *
-     * @var list<string>
-     */
-    protected $fillable = [
-        'name',
-        'show_in_chips',
-    ];
-
-    /**
      * The accessors to append to the model's array form.
      *
      * @var list<string>
      */
     protected $appends = [];
-
-    /**
-     * The attributes that should be hidden for arrays.
-     *
-     * @var list<string>
-     */
-    protected $hidden = ['created_at', 'updated_at'];
 
     /**
      * The attributes that should be cast.
