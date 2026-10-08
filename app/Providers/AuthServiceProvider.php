@@ -94,7 +94,7 @@ class AuthServiceProvider extends ServiceProvider
         // As this option is now available in the $user->preferences array it is no more possible to overload the $fallback
         // value here because $user is not available at registration.
         Auth::provider(
-            'eloquent-webauthn',
+            'eloquent',
             static function (\Illuminate\Contracts\Foundation\Application $app, array $config) : \Laragear\WebAuthn\Auth\WebAuthnUserProvider {
                 return new \App\Extensions\WebauthnTwoFAuthUserProvider(
                     $app->make('hash'),

@@ -78,19 +78,6 @@ class User extends Authenticatable implements HasLocalePreference, OAuthenticata
     use HasAuthenticationLog;
 
     /**
-     * Passport v13 introspects auth.guards/providers to find the provider
-     * backing the passport-driven guard, but requires the provider driver to be
-     * exactly 'eloquent'. This fork uses the WebAuthn-aware 'eloquent-webauthn'
-     * driver, so we resolve the provider name directly instead.
-     */
-    public function getProviderName() : string
-    {
-        $guard = collect(config('auth.guards'))->where('driver', 'passport')->first();
-
-        return $guard['provider'] ?? 'users';
-    }
-
-    /**
      * @use HasFactory<UserFactory>
      */
     use HasFactory;
