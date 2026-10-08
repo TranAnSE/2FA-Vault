@@ -20,6 +20,13 @@ class Kernel extends ConsoleKernel
         $schedule->command('emergency:process')->dailyAt('03:00');
         // Auto-backup: dispatches jobs for users whose scheduled backup is due
         $schedule->command('backup:auto')->everyMinute()->withoutOverlapping();
+        // Scheduled server-side snapshots: dispatches CreateSnapshotJob for
+        // users whose snapshot_frequency (daily/weekly) is due. Due-check
+        // tested in tests/Unit/RunScheduledSnapshotsTest.php.
+        $schedule->command('backup:snapshot-auto')->everyMinute()->withoutOverlapping();
+        // Snapshot store reconciliation: orphan files (rollback leftovers)
+        // and dead rows — CleanupBackupFiles only sweeps the backups disk.
+        $schedule->command('snapshots:prune')->daily();
         // Backup rotation: prune stale encrypted .vault files older than the
         // configured retention (default 1 hour) so exports don't accumulate on
         // disk indefinitely. The underlying cleanup command is tested in

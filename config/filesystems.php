@@ -84,6 +84,15 @@ return [
             'throw' => true,
         ],
 
+        // Server-side backup snapshots (v1.4.0). Deliberately NOT the
+        // `backups` disk: backup:cleanup sweeps that one hourly with a >=1h
+        // retention clamp and would delete snapshots within the hour.
+        'snapshots' => [
+            'driver' => 'local',
+            'root' => storage_path('app/snapshots'),
+            'throw' => true,
+        ],
+
         'public' => [
             'driver' => 'local',
             'root' => storage_path('app/public'),

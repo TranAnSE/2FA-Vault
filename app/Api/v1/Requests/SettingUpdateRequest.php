@@ -26,7 +26,10 @@ class SettingUpdateRequest extends FormRequest
      */
     public function rules()
     {
-        $routeParam = $this->route()?->parameter('settingName');
+        $routeParam = $this->route()?->parameter('settingName')
+            // The user preference route names its parameter preferenceName
+            // (UserController::setPreference) — per-key rules below key on it.
+            ?? $this->route()?->parameter('preferenceName');
 
         if ($routeParam == 'restrictList') {
             $rule = [
@@ -38,6 +41,42 @@ class SettingUpdateRequest extends FormRequest
             $rule = [
                 'value' => [
                     new IsValidRegex,
+                ],
+            ];
+        } elseif ($routeParam == 'snapshot_frequency') {
+            // Scheduled snapshot schedule (v1.4.0).
+            $rule = [
+                'value' => [
+                    'required',
+                    'in:off,daily,weekly',
+                ],
+            ];
+        } elseif ($routeParam == 'snapshot_time') {
+            $rule = [
+                'value' => [
+                    'required',
+                    'date_format:H:i',
+                ],
+            ];
+        } elseif ($routeParam == 'auto_backup_enabled') {
+            $rule = [
+                'value' => [
+                    'required',
+                    'boolean',
+                ],
+            ];
+        } elseif ($routeParam == 'auto_backup_frequency') {
+            $rule = [
+                'value' => [
+                    'required',
+                    'in:daily,weekly,monthly',
+                ],
+            ];
+        } elseif ($routeParam == 'auto_backup_time') {
+            $rule = [
+                'value' => [
+                    'required',
+                    'date_format:H:i',
                 ],
             ];
         } else {

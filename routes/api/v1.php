@@ -147,6 +147,12 @@ Route::group(['middleware' => ['auth:api-guard', 'enforceMandatoryEncryption', '
     Route::post('backups/metadata', [\App\Http\Controllers\BackupController::class, 'metadata'])->name('backups.metadata');
     Route::get('backups/info', [\App\Http\Controllers\BackupController::class, 'info'])->name('backups.info')->middleware('pat.scopes:read');
 
+    // Backup snapshot routes (v1.4.0). Owner-scoped in the controller; dry-run
+    // and restore arrive with the restore engine (plan phase 4).
+    Route::get('backups/snapshots', [\App\Http\Controllers\BackupSnapshotController::class, 'index'])->name('backups.snapshots.index')->middleware('pat.scopes:read');
+    Route::post('backups/snapshots', [\App\Http\Controllers\BackupSnapshotController::class, 'store'])->name('backups.snapshots.store')->middleware('pat.scopes:write');
+    Route::delete('backups/snapshots/{snapshot}', [\App\Http\Controllers\BackupSnapshotController::class, 'destroy'])->name('backups.snapshots.destroy')->middleware('pat.scopes:write');
+
     // Legacy backup routes (backward compatibility)
     Route::match(['get', 'post'], 'backup/export', [\App\Http\Controllers\BackupController::class, 'export'])->name('backup.export')->middleware('pat.scopes:read');
     Route::post('backup/import', [\App\Http\Controllers\BackupController::class, 'import'])->name('backup.import')->middleware('pat.scopes:write');
