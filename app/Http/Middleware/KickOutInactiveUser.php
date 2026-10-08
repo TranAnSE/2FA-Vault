@@ -23,7 +23,7 @@ class KickOutInactiveUser
         // - Guest
         // - User authenticated against a bearer token
         // - User authenticated via a reverse-proxy
-        if (Auth::guest() || $request->bearerToken() || config('auth.defaults.guard') === 'reverse-proxy-guard') {
+        if (Auth::guest() || $request->bearerToken() || Auth::getDefaultDriver() === 'reverse-proxy-guard') {
             return $next($request);
         }
 

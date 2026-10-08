@@ -19,7 +19,7 @@ use App\Http\Controllers\SystemController;
 use App\Http\Middleware\CustomCreateFreshApiToken;
 use App\Http\Middleware\MetricsAuthMiddleware;
 use App\Http\Middleware\SetLanguage;
-use App\Http\Middleware\VerifyCsrfToken;
+use App\Http\Middleware\PreventRequestForgery;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Middleware\SubstituteBindings;
 // use Illuminate\Foundation\Events\DiagnosingHealth;
@@ -131,7 +131,7 @@ Route::get('/metrics', [MetricsController::class, 'index'])
 
 Route::withoutMiddleware([
     StartSession::class,
-    VerifyCsrfToken::class,
+    PreventRequestForgery::class,
     SubstituteBindings::class,
     SetLanguage::class,
     CustomCreateFreshApiToken::class,
