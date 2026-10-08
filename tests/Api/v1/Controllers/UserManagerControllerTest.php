@@ -300,6 +300,7 @@ class UserManagerControllerTest extends FeatureTestCase
         $userDefinition['password_confirmation'] = $userDefinition['password'];
         $request                                 = Request::create($path, 'POST');
 
+        Carbon::setTestNow(Carbon::now()); // deterministic diffForHumans rendering
         Passport::actingAs($this->admin, ['legacy_full_access'], 'api-guard');
         $response = $this
             ->json('POST', $path, $userDefinition)
@@ -320,6 +321,7 @@ class UserManagerControllerTest extends FeatureTestCase
         $userDefinition['password_confirmation'] = $userDefinition['password'];
         $request                                 = Request::create($path, 'POST');
 
+        Carbon::setTestNow(Carbon::now()); // deterministic diffForHumans rendering
         Passport::actingAs($this->admin, ['legacy_full_access'], 'api-guard');
         $response = $this
             ->json('POST', $path, $userDefinition)
@@ -541,6 +543,7 @@ class UserManagerControllerTest extends FeatureTestCase
         // the same string deterministically.
         Carbon::setTestNow($this->user->created_at->copy()->addSecond());
 
+        Carbon::setTestNow(Carbon::now()); // deterministic diffForHumans rendering
         Passport::actingAs($this->admin, ['legacy_full_access'], 'api-guard');
         $response = $this
             ->json('PATCH', $path, [
@@ -575,6 +578,7 @@ class UserManagerControllerTest extends FeatureTestCase
         $path    = '/api/v1/users/' . $anotherAdmin->id . '/promote';
         $request = Request::create($path, 'PUT');
 
+        Carbon::setTestNow(Carbon::now()); // deterministic diffForHumans rendering
         Passport::actingAs($this->admin, ['legacy_full_access'], 'api-guard');
         $response = $this
             ->json('PATCH', $path, [
