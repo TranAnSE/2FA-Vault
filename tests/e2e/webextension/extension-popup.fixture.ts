@@ -9,7 +9,13 @@ type PopupFixture = {
 };
 
 const fixtureDir = path.dirname(fileURLToPath(import.meta.url));
-const extensionDist = path.resolve(fixtureDir, '../../../../2FA-Vault-WebExtension/dist/chrome-mv3');
+// The popup specs drive popup.html in a regular tab; the D5 sender gates in
+// the background service worker only accept that context from extension
+// builds made with `npm run build:e2e` (wxt build -b chrome -m e2e), which
+// outputs to dist/chrome-mv3-e2e. A plain `npm run build` dist silently
+// rejects every sensitive message and the setup flow stalls.
+const extensionDist = process.env.EXTENSION_DIST
+  ?? path.resolve(fixtureDir, '../../../../2FA-Vault-WebExtension/dist/chrome-mv3-e2e');
 
 export const test = base.extend<PopupFixture>({
   popup: async ({}, use) => {

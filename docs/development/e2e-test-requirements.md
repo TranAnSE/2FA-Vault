@@ -365,7 +365,22 @@ The PWA fixture (`tests/e2e/pwa/fixtures/pwa-context.fixture.ts`) launches a
 The extension is loaded with the canonical Playwright MV3 pattern
 (`chromium.launchPersistentContext` + `--disable-extensions-except` +
 `--load-extension`) pointing at the sibling repo's built output
-`../2FA-Vault-WebExtension/dist/chrome-mv3`.
+`../2FA-Vault-WebExtension/dist/chrome-mv3-e2e`.
+
+**Build requirement**: the popup specs drive `popup.html` in a regular tab
+(Playwright cannot open the toolbar popup). The D5 sender gates in the
+background service worker reject tab-attached senders in shipped builds, so
+the suite requires the extension built in e2e mode, which relaxes the gates
+only for extension-origin senders (web-page content scripts stay rejected):
+
+```bash
+cd ../2FA-Vault-WebExtension
+npm run build:e2e   # wxt build -b chrome -m e2e -> dist/chrome-mv3-e2e
+```
+
+A plain `npm run build` dist (`dist/chrome-mv3`) silently rejects every
+sensitive message and the setup flow stalls on the Setup view. Set
+`EXTENSION_DIST` to override the dist path.
 
 | Spec                                | Covers                                                        |
 |-------------------------------------|---------------------------------------------------------------|

@@ -18,7 +18,11 @@ import { webExtensionTestData } from './popup-test-data.fixture';
  */
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const extensionDist = path.resolve(__dirname, '../../../../2FA-Vault-WebExtension/dist/chrome-mv3');
+// See extension-popup.fixture.ts: popup specs require the extension dist
+// built with `npm run build:e2e` (sender-gate relaxation for tab-driven
+// popup pages). EXTENSION_DIST may override the path.
+const extensionDist = process.env.EXTENSION_DIST
+  ?? path.resolve(__dirname, '../../../../2FA-Vault-WebExtension/dist/chrome-mv3-e2e');
 
 type FreshPopupFixture = { popup: Page; extensionId: string };
 
