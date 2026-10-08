@@ -29,16 +29,14 @@ class CreateSnapshotJob implements ShouldQueue
     /** @var int Attempts before giving up (one retry, with backoff) */
     public int $tries = 2;
 
-    public function backoff(): int
+    public function backoff() : int
     {
         return 120;
     }
 
-    public function __construct(public User $user)
-    {
-    }
+    public function __construct(public User $user) {}
 
-    public function handle(BackupSnapshotService $snapshots): void
+    public function handle(BackupSnapshotService $snapshots) : void
     {
         $snapshot = $snapshots->createSnapshot($this->user, BackupSnapshotService::SOURCE_SCHEDULED);
 

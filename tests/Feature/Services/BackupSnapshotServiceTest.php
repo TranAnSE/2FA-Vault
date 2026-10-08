@@ -28,29 +28,29 @@ class BackupSnapshotServiceTest extends TestCase
 
     private User $user;
 
-    protected function setUp(): void
+    protected function setUp() : void
     {
         parent::setUp();
 
         $this->service = app(BackupSnapshotService::class);
-        $this->user = User::factory()->create();
+        $this->user    = User::factory()->create();
         Storage::fake('snapshots');
     }
 
     /** Create an account exercising decoded fields (E2EE covered separately). */
-    private function makeAccount(array $overrides = []): TwoFAccount
+    private function makeAccount(array $overrides = []) : TwoFAccount
     {
-        $account = new TwoFAccount;
-        $account->user_id = $this->user->id;
-        $account->service = 'GitHub';
-        $account->account = 'alice@example.com';
-        $account->secret = 'JBSWY3DPEHPK3PXP';
-        $account->otp_type = 'totp';
-        $account->digits = 8;
-        $account->period = 60;
-        $account->algorithm = 'sha256';
-        $account->notes = 'my secret note';
-        $account->is_pinned = true;
+        $account                 = new TwoFAccount;
+        $account->user_id        = $this->user->id;
+        $account->service        = 'GitHub';
+        $account->account        = 'alice@example.com';
+        $account->secret         = 'JBSWY3DPEHPK3PXP';
+        $account->otp_type       = 'totp';
+        $account->digits         = 8;
+        $account->period         = 60;
+        $account->algorithm      = 'sha256';
+        $account->notes          = 'my secret note';
+        $account->is_pinned      = true;
         $account->recovery_codes = json_encode(['1111-2222']);
         foreach ($overrides as $key => $value) {
             $account->{$key} = $value;
@@ -60,17 +60,17 @@ class BackupSnapshotServiceTest extends TestCase
         return $account;
     }
 
-    public function test_create_snapshot_writes_encrypted_file_and_row(): void
+    public function test_create_snapshot_writes_encrypted_file_and_row() : void
     {
         $this->makeAccount();
 
         $snapshot = $this->service->createSnapshot($this->user, BackupSnapshotService::SOURCE_MANUAL, 'before cleanup');
 
         $this->assertDatabaseHas('backup_snapshots', [
-            'id' => $snapshot->id,
-            'user_id' => $this->user->id,
-            'source' => 'manual',
-            'label' => 'before cleanup',
+            'id'             => $snapshot->id,
+            'user_id'        => $this->user->id,
+            'source'         => 'manual',
+            'label'          => 'before cleanup',
             'accounts_count' => 1,
         ]);
         Storage::disk('snapshots')->assertExists($snapshot->file_path);
@@ -83,12 +83,12 @@ class BackupSnapshotServiceTest extends TestCase
         $this->assertSame($this->user->encryption_salt, $payload['user']['encryption_salt']);
     }
 
-    public function test_payload_carries_full_column_projection_including_parity_gap_fields(): void
+    public function test_payload_carries_full_column_projection_including_parity_gap_fields() : void
     {
         $account = $this->makeAccount();
 
         $snapshot = $this->service->createSnapshot($this->user, BackupSnapshotService::SOURCE_MANUAL);
-        $payload = $this->service->loadSnapshotPayload($snapshot);
+        $payload  = $this->service->loadSnapshotPayload($snapshot);
 
         $row = $payload['accounts'][0];
         $this->assertSame($account->id, $row['id']);
@@ -100,36 +100,36 @@ class BackupSnapshotServiceTest extends TestCase
         $this->assertSame(8, $row['digits']);
         $this->assertSame('sha256', $row['algorithm']);
 
-        $group = new Group;
-        $group->name = 'Work';
+        $group          = new Group;
+        $group->name    = 'Work';
         $group->user_id = $this->user->id;
         $group->save();
 
         $snapshot2 = $this->service->createSnapshot($this->user, BackupSnapshotService::SOURCE_MANUAL);
-        $payload2 = $this->service->loadSnapshotPayload($snapshot2);
+        $payload2  = $this->service->loadSnapshotPayload($snapshot2);
         $this->assertCount(1, $payload2['groups']);
         $this->assertSame($group->id, $payload2['groups'][0]['id']);
         $this->assertSame('Work', $payload2['groups'][0]['name']);
     }
 
-    public function test_e2ee_secret_stays_ciphertext_in_payload(): void
+    public function test_e2ee_secret_stays_ciphertext_in_payload() : void
     {
         $envelope = json_encode([
             'ciphertext' => base64_encode(random_bytes(32)),
-            'iv' => base64_encode(random_bytes(12)),
-            'authTag' => base64_encode(random_bytes(16)),
+            'iv'         => base64_encode(random_bytes(12)),
+            'authTag'    => base64_encode(random_bytes(16)),
         ]);
         $this->makeAccount(['secret' => $envelope, 'encrypted' => true]);
 
         $snapshot = $this->service->createSnapshot($this->user, BackupSnapshotService::SOURCE_MANUAL);
-        $payload = $this->service->loadSnapshotPayload($snapshot);
+        $payload  = $this->service->loadSnapshotPayload($snapshot);
 
         // The E2EE envelope passes through untouched (server never decrypts).
         $this->assertSame($envelope, $payload['accounts'][0]['secret']);
         $this->assertTrue($payload['accounts'][0]['encrypted']);
     }
 
-    public function test_checksum_detects_tampering(): void
+    public function test_checksum_detects_tampering() : void
     {
         $this->makeAccount();
         $snapshot = $this->service->createSnapshot($this->user, BackupSnapshotService::SOURCE_MANUAL);
@@ -141,7 +141,7 @@ class BackupSnapshotServiceTest extends TestCase
         $this->service->loadSnapshotPayload($snapshot);
     }
 
-    public function test_app_key_rotation_surfaces_unreadable_reason(): void
+    public function test_app_key_rotation_surfaces_unreadable_reason() : void
     {
         $this->makeAccount();
         $snapshot = $this->service->createSnapshot($this->user, BackupSnapshotService::SOURCE_MANUAL);
@@ -155,7 +155,7 @@ class BackupSnapshotServiceTest extends TestCase
         $this->service->loadSnapshotPayload($snapshot);
     }
 
-    public function test_snapshot_records_rotation_metadata(): void
+    public function test_snapshot_records_rotation_metadata() : void
     {
         $this->makeAccount();
         $snapshot = $this->service->createSnapshot($this->user, BackupSnapshotService::SOURCE_MANUAL);
@@ -171,7 +171,7 @@ class BackupSnapshotServiceTest extends TestCase
 
     // ---- Quota lanes (RT-6) ----
 
-    public function test_count_quota_evicts_oldest_manual_when_manual_create_overflows(): void
+    public function test_count_quota_evicts_oldest_manual_when_manual_create_overflows() : void
     {
         config(['2fauth.config.snapshotMaxCount' => 3]);
 
@@ -189,7 +189,7 @@ class BackupSnapshotServiceTest extends TestCase
         Storage::disk('snapshots')->assertMissing($first->file_path);
     }
 
-    public function test_automatic_source_never_evicts_manual_snapshots(): void
+    public function test_automatic_source_never_evicts_manual_snapshots() : void
     {
         config(['2fauth.config.snapshotMaxCount' => 2]);
 
@@ -207,7 +207,7 @@ class BackupSnapshotServiceTest extends TestCase
         $this->assertSame(2, BackupSnapshot::where('user_id', $this->user->id)->count());
     }
 
-    public function test_pre_restore_evicts_oldest_pre_restore_before_scheduled(): void
+    public function test_pre_restore_evicts_oldest_pre_restore_before_scheduled() : void
     {
         config(['2fauth.config.snapshotMaxCount' => 2]);
 
@@ -223,7 +223,7 @@ class BackupSnapshotServiceTest extends TestCase
         $this->assertDatabaseHas('backup_snapshots', ['id' => $scheduled->id]);
     }
 
-    public function test_protected_ids_are_never_evicted(): void
+    public function test_protected_ids_are_never_evicted() : void
     {
         config(['2fauth.config.snapshotMaxCount' => 1]);
 
@@ -236,7 +236,7 @@ class BackupSnapshotServiceTest extends TestCase
         $this->assertSame(2, BackupSnapshot::where('user_id', $this->user->id)->count());
     }
 
-    public function test_delete_snapshot_removes_file_and_row(): void
+    public function test_delete_snapshot_removes_file_and_row() : void
     {
         $snapshot = $this->service->createSnapshot($this->user, BackupSnapshotService::SOURCE_MANUAL);
 
@@ -246,7 +246,7 @@ class BackupSnapshotServiceTest extends TestCase
         Storage::disk('snapshots')->assertMissing($snapshot->file_path);
     }
 
-    public function test_prune_orphans_removes_files_without_rows_and_rows_without_files(): void
+    public function test_prune_orphans_removes_files_without_rows_and_rows_without_files() : void
     {
         $snapshot = $this->service->createSnapshot($this->user, BackupSnapshotService::SOURCE_MANUAL);
 
@@ -254,14 +254,14 @@ class BackupSnapshotServiceTest extends TestCase
         Storage::disk('snapshots')->put('u' . $this->user->id . '/orphan.json', 'garbage');
         // Dead row: a row whose file is gone.
         $dead = BackupSnapshot::create([
-            'user_id' => $this->user->id,
-            'source' => 'manual',
-            'accounts_count' => 0,
-            'groups_count' => 0,
-            'size_bytes' => 1,
-            'checksum' => str_repeat('0', 64),
+            'user_id'             => $this->user->id,
+            'source'              => 'manual',
+            'accounts_count'      => 0,
+            'groups_count'        => 0,
+            'size_bytes'          => 1,
+            'checksum'            => str_repeat('0', 64),
             'app_key_fingerprint' => $this->service->appKeyFingerprint(),
-            'file_path' => 'u' . $this->user->id . '/ghost.json',
+            'file_path'           => 'u' . $this->user->id . '/ghost.json',
         ]);
 
         $result = $this->service->pruneOrphans();
@@ -273,7 +273,7 @@ class BackupSnapshotServiceTest extends TestCase
         $this->assertDatabaseHas('backup_snapshots', ['id' => $snapshot->id]);
     }
 
-    public function test_byte_quota_cannot_evict_manual_for_automatic_sources(): void
+    public function test_byte_quota_cannot_evict_manual_for_automatic_sources() : void
     {
         config(['2fauth.config.snapshotMaxTotalMb' => 0.0001]); // ~105 bytes — every payload exceeds it
         config(['2fauth.config.snapshotMaxCount' => 100]);

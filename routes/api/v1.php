@@ -19,8 +19,11 @@ use App\Api\v1\Controllers\UserManagerController;
 use App\Api\v1\Controllers\UserSessionController;
 use App\Http\Controllers\Admin\RateLimitDashboardController;
 use App\Http\Controllers\Admin\UserManagementController;
+use App\Http\Controllers\BackupController;
+use App\Http\Controllers\BackupSnapshotController;
 use App\Http\Controllers\EmergencyAccessController;
 use App\Http\Controllers\EncryptionController;
+use App\Http\Controllers\PushSubscriptionController;
 use App\Http\Controllers\TeamActivityController;
 use App\Http\Controllers\TeamController;
 use App\Http\Controllers\VaultController;
@@ -142,29 +145,31 @@ Route::group(['middleware' => ['auth:api-guard', 'enforceMandatoryEncryption', '
     Route::delete('encryption/disable', [EncryptionController::class, 'disable'])->name('encryption.disable')->middleware('pat.scopes:write');
 
     // Backup routes
-    Route::post('backups/export', [\App\Http\Controllers\BackupController::class, 'export'])->name('backups.export')->middleware('pat.scopes:read');
-    Route::post('backups/import', [\App\Http\Controllers\BackupController::class, 'import'])->name('backups.import')->middleware('pat.scopes:write');
-    Route::post('backups/metadata', [\App\Http\Controllers\BackupController::class, 'metadata'])->name('backups.metadata');
-    Route::get('backups/info', [\App\Http\Controllers\BackupController::class, 'info'])->name('backups.info')->middleware('pat.scopes:read');
+    Route::post('backups/export', [BackupController::class, 'export'])->name('backups.export')->middleware('pat.scopes:read');
+    Route::post('backups/import', [BackupController::class, 'import'])->name('backups.import')->middleware('pat.scopes:write');
+    Route::post('backups/metadata', [BackupController::class, 'metadata'])->name('backups.metadata');
+    Route::get('backups/info', [BackupController::class, 'info'])->name('backups.info')->middleware('pat.scopes:read');
 
     // Backup snapshot routes (v1.4.0). Owner-scoped in the controller; dry-run
     // and restore arrive with the restore engine (plan phase 4).
-    Route::get('backups/snapshots', [\App\Http\Controllers\BackupSnapshotController::class, 'index'])->name('backups.snapshots.index')->middleware('pat.scopes:read');
-    Route::post('backups/snapshots', [\App\Http\Controllers\BackupSnapshotController::class, 'store'])->name('backups.snapshots.store')->middleware('pat.scopes:write');
-    Route::delete('backups/snapshots/{snapshot}', [\App\Http\Controllers\BackupSnapshotController::class, 'destroy'])->name('backups.snapshots.destroy')->middleware('pat.scopes:write');
+    Route::get('backups/snapshots', [BackupSnapshotController::class, 'index'])->name('backups.snapshots.index')->middleware('pat.scopes:read');
+    Route::post('backups/snapshots', [BackupSnapshotController::class, 'store'])->name('backups.snapshots.store')->middleware('pat.scopes:write');
+    Route::delete('backups/snapshots/{snapshot}', [BackupSnapshotController::class, 'destroy'])->name('backups.snapshots.destroy')->middleware('pat.scopes:write');
+    Route::post('backups/snapshots/{snapshot}/dry-run', [BackupSnapshotController::class, 'dryRun'])->name('backups.snapshots.dry-run')->middleware('pat.scopes:read');
+    Route::post('backups/snapshots/{snapshot}/restore', [BackupSnapshotController::class, 'restore'])->name('backups.snapshots.restore')->middleware('pat.scopes:write');
 
     // Legacy backup routes (backward compatibility)
-    Route::match(['get', 'post'], 'backup/export', [\App\Http\Controllers\BackupController::class, 'export'])->name('backup.export')->middleware('pat.scopes:read');
-    Route::post('backup/import', [\App\Http\Controllers\BackupController::class, 'import'])->name('backup.import')->middleware('pat.scopes:write');
-    Route::post('backup/metadata', [\App\Http\Controllers\BackupController::class, 'metadata'])->name('backup.metadata');
-    Route::get('backup/info', [\App\Http\Controllers\BackupController::class, 'info'])->name('backup.info')->middleware('pat.scopes:read');
+    Route::match(['get', 'post'], 'backup/export', [BackupController::class, 'export'])->name('backup.export')->middleware('pat.scopes:read');
+    Route::post('backup/import', [BackupController::class, 'import'])->name('backup.import')->middleware('pat.scopes:write');
+    Route::post('backup/metadata', [BackupController::class, 'metadata'])->name('backup.metadata');
+    Route::get('backup/info', [BackupController::class, 'info'])->name('backup.info')->middleware('pat.scopes:read');
 
     // Push notification subscription routes
-    Route::post('push/subscribe', [\App\Http\Controllers\PushSubscriptionController::class, 'subscribe'])->name('push.subscribe')->middleware('pat.scopes:write');
-    Route::delete('push/unsubscribe', [\App\Http\Controllers\PushSubscriptionController::class, 'unsubscribe'])->name('push.unsubscribe')->middleware('pat.scopes:write');
-    Route::get('push/subscriptions', [\App\Http\Controllers\PushSubscriptionController::class, 'index'])->name('push.subscriptions.index');
-    Route::get('push/public-key', [\App\Http\Controllers\PushSubscriptionController::class, 'publicKey'])->name('push.publicKey');
-    Route::post('push/test', [\App\Http\Controllers\PushSubscriptionController::class, 'sendTest'])->name('push.test')->middleware('pat.scopes:write');
+    Route::post('push/subscribe', [PushSubscriptionController::class, 'subscribe'])->name('push.subscribe')->middleware('pat.scopes:write');
+    Route::delete('push/unsubscribe', [PushSubscriptionController::class, 'unsubscribe'])->name('push.unsubscribe')->middleware('pat.scopes:write');
+    Route::get('push/subscriptions', [PushSubscriptionController::class, 'index'])->name('push.subscriptions.index');
+    Route::get('push/public-key', [PushSubscriptionController::class, 'publicKey'])->name('push.publicKey');
+    Route::post('push/test', [PushSubscriptionController::class, 'sendTest'])->name('push.test')->middleware('pat.scopes:write');
 
     // Teams routes
     Route::get('teams', [TeamController::class, 'index'])->name('teams.index');

@@ -17,7 +17,7 @@ class PruneSnapshots extends Command
 
     protected $description = 'Remove orphaned snapshot files and dead snapshot rows';
 
-    public function handle(BackupSnapshotService $snapshots): int
+    public function handle(BackupSnapshotService $snapshots) : int
     {
         $result = $snapshots->pruneOrphans();
 

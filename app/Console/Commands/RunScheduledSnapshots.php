@@ -24,7 +24,7 @@ class RunScheduledSnapshots extends Command
     /**
      * @codeCoverageIgnore Scheduler-driven; logic delegated to isSnapshotDue which is unit-tested.
      */
-    public function handle(): int
+    public function handle() : int
     {
         $candidateIds = DB::table('users')
             ->whereIn('preferences->snapshot_frequency', ['daily', 'weekly'])
@@ -63,14 +63,14 @@ class RunScheduledSnapshots extends Command
      *
      * @param  array<string,mixed>  $preferences
      */
-    public static function isSnapshotDue(array $preferences, Carbon $now, ?Carbon $lastRun): bool
+    public static function isSnapshotDue(array $preferences, Carbon $now, ?Carbon $lastRun) : bool
     {
         $frequency = $preferences['snapshot_frequency'] ?? 'off';
         if (! in_array($frequency, ['daily', 'weekly'], true)) {
             return false;
         }
 
-        $time = $preferences['snapshot_time'] ?? '02:00';
+        $time            = $preferences['snapshot_time'] ?? '02:00';
         [$hour, $minute] = array_pad(explode(':', (string) $time), 2, '0');
 
         $dueAt = $now->copy()->utc()->startOfDay()->setTime((int) $hour, (int) $minute);
@@ -85,9 +85,9 @@ class RunScheduledSnapshots extends Command
         }
 
         return match ($frequency) {
-            'daily' => $lastRun->utc()->lessThan($dueAt),
+            'daily'  => $lastRun->utc()->lessThan($dueAt),
             'weekly' => $lastRun->utc()->lessThan($dueAt->copy()->subWeek()),
-            default => false,
+            default  => false,
         };
     }
 }

@@ -40,13 +40,18 @@ class BackupSnapshot extends Model
     ];
 
     protected $casts = [
-        'accounts_count' => 'integer',
-        'groups_count' => 'integer',
-        'size_bytes' => 'integer',
+        'accounts_count'                 => 'integer',
+        'groups_count'                   => 'integer',
+        'size_bytes'                     => 'integer',
         'encryption_version_at_snapshot' => 'integer',
     ];
 
-    public function user(): BelongsTo
+    /**
+     * Get the user that owns the snapshot.
+     *
+     * @return BelongsTo<User, $this>
+     */
+    public function user() : BelongsTo
     {
         return $this->belongsTo(User::class);
     }
