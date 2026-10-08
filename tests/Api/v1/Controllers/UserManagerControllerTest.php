@@ -543,7 +543,6 @@ class UserManagerControllerTest extends FeatureTestCase
         // the same string deterministically.
         Carbon::setTestNow($this->user->created_at->copy()->addSecond());
 
-        Carbon::setTestNow(Carbon::now()); // deterministic diffForHumans rendering
         Passport::actingAs($this->admin, ['legacy_full_access'], 'api-guard');
         $response = $this
             ->json('PATCH', $path, [
