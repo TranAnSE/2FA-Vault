@@ -143,8 +143,8 @@ class BackupController extends Controller
      */
     public function import(Request $request): JsonResponse
     {
-        // Rate limiting: max 3 imports per hour (skip in testing)
-        if (!app()->environment('testing')) {
+        // Rate limiting: max 3 imports per hour (skip in testing/e2e envs)
+        if (! app()->environment(['testing', 'e2e'])) {
             $key = 'backup-import:' . $request->user()->id;
 
             if (RateLimiter::tooManyAttempts($key, 3)) {

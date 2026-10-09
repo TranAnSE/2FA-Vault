@@ -29,7 +29,10 @@ const E2E_ENV = {
   SESSION_SECURE_COOKIE: 'false',
   SESSION_SAME_SITE: 'lax',
   SESSION_DOMAIN: '',
-  CACHE_DRIVER: 'array',
+  // File, not array: `php artisan serve` spawns a fresh PHP worker per
+  // request, and cross-request state (backup-restore confirmation tokens,
+  // rate limiters) must survive between them.
+  CACHE_DRIVER: 'file',
   CONTENT_SECURITY_POLICY: 'false',
 };
 
@@ -85,6 +88,10 @@ console.log('[E2E Server] Running migrations...');
 runCommand('php artisan config:clear', 'config:clear');
 runCommand('php artisan route:clear', 'route:clear');
 runCommand('php artisan migrate:fresh --env=e2e --force', 'migrate:fresh');
+// The file cache persists across runs (needed WITHIN a run: cross-request
+// state like restore tokens), so stale rate-limit counters accumulate
+// between runs. Reset them — each run starts with a clean limiter budget.
+runCommand('php artisan cache:clear --env=e2e', 'cache:clear');
 console.log('[E2E Server] Seeding database...');
 runCommand('php artisan db:seed --class=E2eSeeder --env=e2e --force', 'db:seed');
 console.log('[E2E Server] Ensuring Passport personal access client...');

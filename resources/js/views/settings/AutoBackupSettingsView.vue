@@ -18,6 +18,17 @@
     const backupTime = ref('02:00')
     const isSavingPrefs = ref(false)
 
+    // Snapshot schedule preferences (v1.4.0 snapshot store)
+    const snapshotFrequency = ref('off')
+    const snapshotTime = ref('02:00')
+    const isSavingSnapshotPrefs = ref(false)
+
+    const snapshotFrequencies = [
+        { text: 'settings.snapshots.schedule_off', value: 'off' },
+        { text: 'settings.snapshots.schedule_daily', value: 'daily' },
+        { text: 'settings.snapshots.schedule_weekly', value: 'weekly' },
+    ]
+
     // Destinations
     const destinations = ref([])
     const isLoading = ref(false)
@@ -62,6 +73,8 @@
         autoEnabled.value = !!user.preferences.auto_backup_enabled
         frequency.value = user.preferences.auto_backup_frequency || 'daily'
         backupTime.value = user.preferences.auto_backup_time || '02:00'
+        snapshotFrequency.value = user.preferences.snapshot_frequency || 'off'
+        snapshotTime.value = user.preferences.snapshot_time || '02:00'
         await loadDestinations()
     })
 
@@ -89,6 +102,21 @@
             notify.alert({ text: e.response?.data?.message ?? t('error.unknown') })
         } finally {
             isSavingPrefs.value = false
+        }
+    }
+
+    async function saveSnapshotPrefs() {
+        isSavingSnapshotPrefs.value = true
+        try {
+            await userService.updatePreference('snapshot_frequency', snapshotFrequency.value)
+            await userService.updatePreference('snapshot_time', snapshotTime.value)
+            user.preferences.snapshot_frequency = snapshotFrequency.value
+            user.preferences.snapshot_time = snapshotTime.value
+            notify.success({ text: t('notification.preferences_updated') })
+        } catch (e) {
+            notify.alert({ text: e.response?.data?.message ?? t('error.unknown') })
+        } finally {
+            isSavingSnapshotPrefs.value = false
         }
     }
 
@@ -211,6 +239,27 @@
             </div>
             <div class="buttons">
                 <VueButton class="button is-primary" :isLoading="isSavingPrefs" @click="savePrefs">{{ $t('label.save') }}</VueButton>
+            </div>
+        </div>
+
+        <!-- Snapshot schedule (v1.4.0 snapshot store) -->
+        <div class="box mb-4" data-testid="snapshot-schedule">
+            <h4 class="title is-5">{{ $t('settings.snapshots.schedule_title') }}</h4>
+            <p class="help">{{ $t('settings.snapshots.schedule_help') }}</p>
+            <div class="field">
+                <label class="label is-size-7">{{ $t('settings.snapshots.schedule_frequency') }}</label>
+                <div class="select">
+                    <select v-model="snapshotFrequency" data-testid="snapshot-frequency-select">
+                        <option v-for="f in snapshotFrequencies" :key="f.value" :value="f.value">{{ $t(f.text) }}</option>
+                    </select>
+                </div>
+            </div>
+            <div class="field" v-if="snapshotFrequency !== 'off'">
+                <label class="label is-size-7">{{ $t('label.backup_time') }} (UTC, HH:MM)</label>
+                <input class="input" type="time" v-model="snapshotTime" data-testid="snapshot-time-input" />
+            </div>
+            <div class="buttons">
+                <VueButton class="button is-primary" :isLoading="isSavingSnapshotPrefs" @click="saveSnapshotPrefs" data-testid="snapshot-schedule-save">{{ $t('label.save') }}</VueButton>
             </div>
         </div>
 

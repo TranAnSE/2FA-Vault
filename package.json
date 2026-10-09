@@ -8,7 +8,7 @@
         "rebuild": "vite build --watch",
         "ci:frontend": "npm run build",
         "test:e2e": "npx playwright test",
-        "test:e2e:smoke": "npx playwright test tests/e2e/encryption.spec.ts tests/e2e/settings.spec.ts --workers=1 --reporter=line",
+        "test:e2e:smoke": "npx playwright test tests/e2e/encryption.spec.ts tests/e2e/settings.spec.ts tests/e2e/backup-snapshots.spec.ts --workers=1 --reporter=line",
         "ci:e2e": "npm run test:e2e:smoke",
         "test:e2e:ui": "npx playwright test --ui",
         "test:e2e:headed": "npx playwright test --headed",
