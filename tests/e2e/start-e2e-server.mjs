@@ -31,8 +31,16 @@ const E2E_ENV = {
   SESSION_DOMAIN: '',
   // File, not array: `php artisan serve` spawns a fresh PHP worker per
   // request, and cross-request state (backup-restore confirmation tokens,
-  // rate limiters) must survive between them.
+  // rate limiters) must survive between them. CACHE_STORE is what
+  // config/cache.php reads FIRST — CI serves with .env.testing (copied to
+  // .env, no .env.e2e exists there) whose CACHE_STORE=array would silently
+  // beat CACHE_DRIVER, evaporating the restore token between workers.
+  CACHE_STORE: 'file',
   CACHE_DRIVER: 'file',
+  // .env.testing defines no THROTTLE_* so the 60/min api default would arm
+  // against the whole suite once the file cache is shared across workers.
+  THROTTLE_API: '1000,1',
+  THROTTLE_LOGIN: '1000,1',
   CONTENT_SECURITY_POLICY: 'false',
 };
 
