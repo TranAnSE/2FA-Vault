@@ -104,6 +104,21 @@ class TwoFAccountUpdateRequestTest extends TestCase
     {
         return [
             [[
+                'account'  => 'MyAccount',
+                'otp_type' => 'totp',
+                'icon'     => '../../storage/oauth-private.key',
+            ]],
+            [[
+                'account'  => 'MyAccount',
+                'otp_type' => 'totp',
+                'icon'     => 'no-extension',
+            ]],
+            [[
+                'account'  => 'MyAccount',
+                'otp_type' => 'totp',
+                'icon'     => 'icon.exe',
+            ]],
+            [[
                 'service'   => null,
                 'account'   => 'My:Account',
                 'icon'      => null,
