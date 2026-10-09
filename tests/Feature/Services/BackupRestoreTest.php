@@ -488,4 +488,97 @@ class BackupRestoreTest extends TestCase
             ->where('action', 'backup_restored')
             ->count());
     }
+
+    public function test_replace_mode_deletes_groups_absent_from_the_snapshot() : void
+    {
+        $keptGroup     = new Group;
+        $keptGroup->name = 'Work';
+        $keptGroup->user_id = $this->user->id;
+        $keptGroup->save();
+
+        $account           = $this->makeAccount(['group_id' => $keptGroup->id]);
+        [$snapshot]        = $this->takeSnapshot();
+
+        // Post-snapshot drift: a group the snapshot does not know about,
+        // plus the user's default/active group preferences pointing at it.
+        $doomed           = new Group;
+        $doomed->name     = 'Post-snapshot';
+        $doomed->user_id  = $this->user->id;
+        $doomed->save();
+        $this->user['preferences->defaultGroup'] = $doomed->id;
+        $this->user['preferences->activeGroup']  = $doomed->id;
+        $this->user->save();
+        $doomedId = $doomed->id;
+
+        $diff = $this->service->dryRun($this->user, $snapshot, 'replace');
+        $this->service->restore($this->user, $snapshot, 'replace', $diff['token'], 'RESTORE');
+
+        // "Restores exactly the snapshot state": the unknown group is gone,
+        // the snapshot's group survives, and the dangling preferences were
+        // reset the way the GroupDeleted listener would.
+        $this->assertDatabaseMissing('groups', ['id' => $doomedId]);
+        $this->assertDatabaseHas('groups', ['id' => $keptGroup->id]);
+        $this->user->refresh();
+        $this->assertSame(0, (int) $this->user->preferences['defaultGroup']);
+        $this->assertSame(0, (int) $this->user->preferences['activeGroup']);
+        $this->assertDatabaseHas('twofaccounts', ['id' => $account->id, 'group_id' => $keptGroup->id]);
+    }
+
+    public function test_merge_mode_never_deletes_groups() : void
+    {
+        $group          = new Group;
+        $group->name    = 'Work';
+        $group->user_id = $this->user->id;
+        $group->save();
+        $this->makeAccount(['group_id' => $group->id]);
+        [$snapshot] = $this->takeSnapshot();
+
+        $extra          = new Group;
+        $extra->name    = 'Extra';
+        $extra->user_id = $this->user->id;
+        $extra->save();
+
+        $diff = $this->service->dryRun($this->user, $snapshot, 'merge');
+        $this->service->restore($this->user, $snapshot, 'merge', $diff['token']);
+
+        // Merge is non-destructive by contract: the extra group survives.
+        $this->assertDatabaseHas('groups', ['id' => $extra->id]);
+        $this->assertDatabaseHas('groups', ['id' => $group->id]);
+    }
+
+    public function test_duplicate_payload_rows_apply_exactly_as_the_diff_classified_them() : void
+    {
+        $account = $this->makeAccount();
+        [$snapshot, $payload] = $this->takeSnapshot();
+
+        // Recreate the account with a NEW id (same service+account) so the
+        // payload rows can no longer match by id — they exercise the
+        // service+account fallback.
+        $account->delete();
+        $this->makeAccount(['notes' => 'drifted since the snapshot']);
+
+        // A hand-tampered payload with a duplicated service+account row
+        // (ids stripped): the diff classifies one update + one create, so
+        // the apply must produce the same outcome — not update the same
+        // target twice.
+        $stripped            = collect($payload['accounts'][0])->except('id')->all();
+        $payload['accounts'] = [$stripped, $stripped];
+        // Rewrite the stored payload (re-encrypted, checksum refreshed) so
+        // dry-run/restore see the duplicates.
+        $encrypted = \Illuminate\Support\Facades\Crypt::encryptString(
+            json_encode($payload, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES)
+        );
+        Storage::disk('snapshots')->put($snapshot->file_path, $encrypted);
+        $snapshot->forceFill(['checksum' => hash('sha256', $encrypted)])->save();
+
+        $diff = $this->service->dryRun($this->user, $snapshot, 'merge');
+        $this->assertCount(1, $diff['to_update']);
+        $this->assertCount(1, $diff['to_create']);
+
+        $result = $this->service->restore($this->user, $snapshot, 'merge', $diff['token']);
+
+        $this->assertSame(1, $result['updated_count']);
+        $this->assertSame(1, $result['created_count']);
+        $this->assertSame(2, TwoFAccount::where('user_id', $this->user->id)->count());
+    }
 }

@@ -32,8 +32,12 @@ class RunScheduledSnapshots extends Command
 
         $now = Carbon::now('UTC');
 
+        // One query per run, not per candidate: hydrate the due set in a
+        // single keyed fetch.
+        $candidates = User::whereIn('id', $candidateIds)->get()->keyBy('id');
+
         foreach ($candidateIds as $userId) {
-            $user = User::find($userId);
+            $user = $candidates->get($userId);
             if (! $user) {
                 continue;
             }

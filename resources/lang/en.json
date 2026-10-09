@@ -1131,7 +1131,7 @@
     "settings.snapshots.mode_merge": "Merge (safe)",
     "settings.snapshots.mode_merge_help": "Re-creates missing accounts and restores lost fields. Deletes nothing.",
     "settings.snapshots.mode_replace": "Replace (destructive)",
-    "settings.snapshots.mode_replace_help": "Wipes the vault and restores exactly the snapshot state. Accounts not in the snapshot are deleted.",
+    "settings.snapshots.mode_replace_help": "Wipes the vault and restores exactly the snapshot state. Accounts and groups not in the snapshot are deleted.",
     "settings.snapshots.next_button": "Preview changes",
     "settings.snapshots.restore_button": "Restore",
     "settings.snapshots.restore_now": "Restore now",

@@ -13,6 +13,7 @@ use App\Models\OtpLog;
 use App\Models\TwoFAccount;
 use App\Models\User;
 use Illuminate\Contracts\Cache\LockTimeoutException;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Crypt;
 use Illuminate\Support\Facades\DB;
@@ -488,8 +489,19 @@ class BackupSnapshotService
 
             [$groupMap, $groupsCreated] = $this->buildGroupMap($user, $payload['groups'] ?? []);
 
+            // Vault state fetched ONCE for the whole loop: the per-row
+            // re-query was O(N×M) and would see rows created mid-loop, so
+            // duplicate payload rows applied differently than the diff
+            // classified them. $matched mirrors computeDiff's bookkeeping.
+            $current = TwoFAccount::where('user_id', $user->id)->get()->keyBy('id');
+            /** @var array<int, bool> $matched */
+            $matched = [];
+
             foreach ($payload['accounts'] as $accountData) {
-                $target = $this->resolveTarget($user, $accountData);
+                $target = $this->resolveTarget($current, $matched, $accountData);
+                if ($target !== null) {
+                    $matched[$target->id] = true;
+                }
                 try {
                     $this->upsertAccount($user, $accountData, $target, $groupMap);
                     $target === null ? $counts['created']++ : $counts['updated']++;
@@ -506,10 +518,38 @@ class BackupSnapshotService
                 }
             }
 
+            // Replace: the snapshot is the exact target state, so groups
+            // absent from the payload go too — every surviving account now
+            // points into $groupMap, so the removed ones hold no members.
+            // Event-less mass delete like the account wipe (RT-2); the
+            // restoring user's default/active group preferences are reset
+            // here the way the GroupDeleted listener would (groups are
+            // user-scoped, so only this user can reference them).
+            $groupsDeleted = 0;
+            if ($mode === 'replace') {
+                $keepIds = array_values(array_unique($groupMap));
+                $doomed  = Group::where('user_id', $user->id)
+                    ->when(count($keepIds) > 0, fn ($q) => $q->whereNotIn('id', $keepIds))
+                    ->pluck('id');
+
+                if ($doomed->isNotEmpty()) {
+                    if ($doomed->contains((int) ($user->preferences['defaultGroup'] ?? 0))) {
+                        $user['preferences->defaultGroup'] = 0;
+                    }
+                    if ($doomed->contains((int) ($user->preferences['activeGroup'] ?? 0))) {
+                        $user['preferences->activeGroup'] = 0;
+                    }
+                    $user->save();
+
+                    $groupsDeleted = Group::whereIn('id', $doomed)->delete();
+                }
+            }
+
             return [
                 'counts'         => $counts,
                 'deleted_ids'    => $deletedIds,
                 'groups_created' => $groupsCreated,
+                'groups_deleted' => $groupsDeleted,
                 'errors'         => $errors,
             ];
         });
@@ -524,11 +564,12 @@ class BackupSnapshotService
         // Exactly ONE summary audit entry per restore (RT-2: never N
         // per-account entries — the wipe fires no model events).
         app(PersonalActivityLogger::class)->log($user, PersonalAction::BACKUP_RESTORED, [
-            'snapshot_id' => $snapshot->id,
-            'mode'        => $mode,
-            'created'     => $result['counts']['created'],
-            'updated'     => $result['counts']['updated'],
-            'deleted'     => count($result['deleted_ids']),
+            'snapshot_id'    => $snapshot->id,
+            'mode'           => $mode,
+            'created'        => $result['counts']['created'],
+            'updated'        => $result['counts']['updated'],
+            'deleted'        => count($result['deleted_ids']),
+            'groups_deleted' => $result['groups_deleted'],
         ]);
 
         return [
@@ -757,21 +798,22 @@ class BackupSnapshotService
 
     /**
      * Resolve the upsert target for a snapshot row: the same-id account when
-     * it still exists (id-primary), else a decoded service+account fallback,
-     * else null (create new).
+     * it still exists (id-primary), else a decoded service+account fallback
+     * that skips already-matched rows (so duplicate payload rows classify
+     * exactly like computeDiff), else null (create new).
+     *
+     * @param  Collection<int, TwoFAccount>  $current  the user's accounts, keyed by id (fetched once per restore)
+     * @param  array<int, bool>  $matched
      */
-    private function resolveTarget(User $user, array $accountData) : ?TwoFAccount
+    private function resolveTarget(Collection $current, array $matched, array $accountData) : ?TwoFAccount
     {
         if (! empty($accountData['id'])) {
-            $byId = TwoFAccount::where('user_id', $user->id)->find($accountData['id']);
-            if ($byId) {
-                return $byId;
-            }
+            return $current->get((int) $accountData['id']);
         }
 
-        return TwoFAccount::where('user_id', $user->id)->get()
-            ->first(fn (TwoFAccount $a) => strcasecmp((string) $a->service, (string) ($accountData['service'] ?? '')) === 0
-                && strcasecmp((string) $a->account, (string) ($accountData['account'] ?? '')) === 0);
+        return $current->first(fn (TwoFAccount $a) => ! isset($matched[$a->id])
+            && strcasecmp((string) $a->service, (string) ($accountData['service'] ?? '')) === 0
+            && strcasecmp((string) $a->account, (string) ($accountData['account'] ?? '')) === 0);
     }
 
     /** Full-column assignment — every field the snapshot carried. */

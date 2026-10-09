@@ -61,6 +61,10 @@
                   <div v-if="canChangeRole(member)" class="select is-small">
                     <select :value="member.role" @change="changeRole(member, $event.target.value)" :aria-label="t('teams.role')">
                       <option v-for="r in assignableRoles" :key="r.slug" :value="r.slug">{{ roleDisplayName(r.slug) }}</option>
+                      <!-- A role the actor cannot assign (subset constraint, or a
+                           role deleted since) still renders as a visible disabled
+                           option instead of a blank select. -->
+                      <option v-if="!assignableRoles.some(r => r.slug === member.role)" :value="member.role" disabled>{{ roleDisplayName(member.role) }}</option>
                     </select>
                   </div>
                   <button v-if="canRemoveMember(member)" @click="removeMember(member)" class="button is-small is-danger">
