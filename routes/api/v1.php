@@ -26,6 +26,7 @@ use App\Http\Controllers\EncryptionController;
 use App\Http\Controllers\PushSubscriptionController;
 use App\Http\Controllers\TeamActivityController;
 use App\Http\Controllers\TeamController;
+use App\Http\Controllers\TeamRoleController;
 use App\Http\Controllers\VaultController;
 use App\Http\Controllers\WebhookController;
 use Illuminate\Support\Facades\Date;
@@ -186,6 +187,11 @@ Route::group(['middleware' => ['auth:api-guard', 'enforceMandatoryEncryption', '
     Route::post('teams/{id}/leave', [TeamController::class, 'leave'])->name('teams.leave')->middleware('pat.scopes:write');
     Route::delete('teams/{id}/members/{userId}', [TeamController::class, 'removeMember'])->name('teams.members.remove')->middleware('pat.scopes:write');
     Route::put('teams/{id}/members/{userId}/role', [TeamController::class, 'updateMemberRole'])->name('teams.members.updateRole')->middleware('pat.scopes:write');
+    // Per-team role matrix (v1.4.0). Mutations are owner-only in the controller.
+    Route::get('teams/{id}/roles', [TeamRoleController::class, 'index'])->name('teams.roles.index');
+    Route::post('teams/{id}/roles', [TeamRoleController::class, 'store'])->name('teams.roles.store')->middleware('pat.scopes:write');
+    Route::put('teams/{id}/roles/{roleId}', [TeamRoleController::class, 'update'])->name('teams.roles.update')->middleware('pat.scopes:write');
+    Route::delete('teams/{id}/roles/{roleId}', [TeamRoleController::class, 'destroy'])->name('teams.roles.destroy')->middleware('pat.scopes:write');
     Route::post('teams/{id}/transfer', [TeamController::class, 'transferOwnership'])->name('teams.transferOwnership');
     Route::get('teams/{id}/shared-accounts', [TeamController::class, 'sharedAccounts'])->name('teams.sharedAccounts.index');
     Route::post('teams/{id}/share', [TeamController::class, 'shareAccount'])->name('teams.shareAccount')->middleware('pat.scopes:write');

@@ -13,6 +13,9 @@ enum TeamAction : string
     case MEMBER_LEFT           = 'member.left';
     case MEMBER_REMOVED        = 'member.removed';
     case ROLE_CHANGED          = 'member.role_changed';
+    case ROLE_CREATED          = 'role.created';
+    case ROLE_UPDATED          = 'role.updated';
+    case ROLE_DELETED          = 'role.deleted';
     case ACCOUNT_SHARED        = 'account.shared';
     case ACCOUNT_UNSHARED      = 'account.unshared';
     case INVITATION_CANCELLED  = 'invitation.cancelled';
