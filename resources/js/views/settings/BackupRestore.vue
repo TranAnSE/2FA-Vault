@@ -219,7 +219,7 @@
     /**
      * Step 3: run the restore. A 409 (vault drifted since the diff) or an
      * expired/invalid token sends the user back to step 2 with a fresh
-     * diff instead of a dead end.
+     * diff and a visible reason instead of a dead end.
      */
     async function confirmRestore() {
         if (!canConfirmRestore.value || isRestoring.value) return
@@ -240,12 +240,17 @@
             wizardStep.value = 4
         } catch (error) {
             if (error.response?.status === 409 || error.response?.status === 422) {
-                wizardError.value =
-                    error.response.status === 409
-                        ? t('settings.snapshots.state_changed')
-                        : t('settings.snapshots.token_expired')
                 wizardConfirmText.value = ''
+                // Re-diff first (fresh token + step 2), THEN set the reason:
+                // runWizardDiff resets wizardError, so setting it beforehand
+                // would wipe the message and leave the bounce unexplained.
                 await runWizardDiff()
+                if (!wizardError.value) {
+                    wizardError.value =
+                        error.response.status === 409
+                            ? t('settings.snapshots.state_changed')
+                            : t('settings.snapshots.token_expired')
+                }
             } else {
                 errorHandler.show(error)
             }
