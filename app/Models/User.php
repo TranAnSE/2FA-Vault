@@ -10,15 +10,25 @@ use Illuminate\Auth\Events\PasswordReset;
 use Illuminate\Contracts\Translation\HasLocalePreference;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Attributes\Hidden;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Foundation\Auth\User as Authenticatable;
+use Illuminate\Notifications\DatabaseNotification;
+use Illuminate\Notifications\DatabaseNotificationCollection;
 use Illuminate\Notifications\Notifiable;
+use Illuminate\Support\Carbon;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\App;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Str;
+use Laragear\WebAuthn\Models\WebAuthnCredential;
 use Laragear\WebAuthn\WebAuthnAuthentication;
+use Laravel\Passport\Client;
 use Laravel\Passport\Contracts\OAuthenticatable;
 use Laravel\Passport\HasApiTokens;
+use Laravel\Passport\Token;
 
 /**
  * App\Models\User
@@ -26,31 +36,31 @@ use Laravel\Passport\HasApiTokens;
  * @property int $id
  * @property string $name
  * @property string $email
- * @property \Illuminate\Support\Carbon|null $email_verified_at
+ * @property Carbon|null $email_verified_at
  * @property string $password
  * @property string|null $remember_token
- * @property \Illuminate\Support\Carbon|null $created_at
- * @property \Illuminate\Support\Carbon|null $updated_at
+ * @property Carbon|null $created_at
+ * @property Carbon|null $updated_at
  * @property string|null $last_seen_at
  * @property bool $is_admin
- * @property \Illuminate\Support\Collection<array-key,mixed> $preferences
- * @property-read \Illuminate\Database\Eloquent\Collection|\Laravel\Passport\Client[] $clients
+ * @property Collection<array-key,mixed> $preferences
+ * @property-read \Illuminate\Database\Eloquent\Collection|Client[] $clients
  * @property-read int|null $clients_count
- * @property-read \Illuminate\Database\Eloquent\Collection|\App\Models\Group[] $groups
+ * @property-read \Illuminate\Database\Eloquent\Collection|Group[] $groups
  * @property-read int|null $groups_count
- * @property-read \Illuminate\Notifications\DatabaseNotificationCollection<array-key,\Illuminate\Notifications\DatabaseNotification>|\Illuminate\Notifications\DatabaseNotification[] $notifications
+ * @property-read DatabaseNotificationCollection<array-key,DatabaseNotification>|DatabaseNotification[] $notifications
  * @property-read int|null $notifications_count
- * @property-read \Illuminate\Database\Eloquent\Collection|\Laravel\Passport\Token[] $tokens
+ * @property-read \Illuminate\Database\Eloquent\Collection|Token[] $tokens
  * @property-read int|null $tokens_count
- * @property-read \Illuminate\Database\Eloquent\Collection|\App\Models\TwoFAccount[] $twofaccounts
+ * @property-read \Illuminate\Database\Eloquent\Collection|TwoFAccount[] $twofaccounts
  * @property-read int|null $twofaccounts_count
- * @property-read \Illuminate\Database\Eloquent\Collection|\Laragear\WebAuthn\Models\WebAuthnCredential[] $webAuthnCredentials
+ * @property-read \Illuminate\Database\Eloquent\Collection|WebAuthnCredential[] $webAuthnCredentials
  * @property-read int|null $web_authn_credentials_count
  * @property string|null $oauth_id
  * @property string|null $oauth_provider
- * @property-read \Illuminate\Database\Eloquent\Collection<int, \App\Models\AuthLog> $authentications
+ * @property-read \Illuminate\Database\Eloquent\Collection<int, AuthLog> $authentications
  * @property-read int|null $authentications_count
- * @property-read \App\Models\AuthLog|null $latestAuthentication
+ * @property-read AuthLog|null $latestAuthentication
  *
  * @method static \Illuminate\Database\Eloquent\Builder|User admins()
  * @method static \Database\Factories\UserFactory factory(...$parameters)
@@ -126,8 +136,8 @@ class User extends Authenticatable implements HasLocalePreference, OAuthenticata
     /**
      * Scope a query to only include admin users.
      *
-     * @param  \Illuminate\Database\Eloquent\Builder<User>  $query
-     * @return \Illuminate\Database\Eloquent\Builder<User>
+     * @param  Builder<User>  $query
+     * @return Builder<User>
      */
     public function scopeAdmins($query)
     {
@@ -137,8 +147,8 @@ class User extends Authenticatable implements HasLocalePreference, OAuthenticata
     /**
      * Scope a query to only include active users.
      *
-     * @param  \Illuminate\Database\Eloquent\Builder<User>  $query
-     * @return \Illuminate\Database\Eloquent\Builder<User>
+     * @param  Builder<User>  $query
+     * @return Builder<User>
      */
     public function scopeActive($query)
     {
@@ -205,8 +215,7 @@ class User extends Authenticatable implements HasLocalePreference, OAuthenticata
     {
         try {
             $this->notify((new ResetPassword($token))->locale($this->preferredLocale() == 'browser' ? App::currentLocale() : $this->preferredLocale()));
-        }
-        catch(\Throwable) {
+        } catch (\Throwable) {
             // Nothing to do here, LogNotificationListener will log error details
         }
     }
@@ -215,7 +224,7 @@ class User extends Authenticatable implements HasLocalePreference, OAuthenticata
      * Get Preferences attribute
      *
      * @param  string  $value
-     * @return \Illuminate\Support\Collection<array-key, mixed>
+     * @return Collection<array-key, mixed>
      */
     public function getPreferencesAttribute($value)
     {
@@ -250,21 +259,21 @@ class User extends Authenticatable implements HasLocalePreference, OAuthenticata
     /**
      * Get the TwoFAccounts of the user.
      *
-     * @return \Illuminate\Database\Eloquent\Relations\HasMany<\App\Models\TwoFAccount, $this>
+     * @return HasMany<TwoFAccount, $this>
      */
     public function twofaccounts()
     {
-        return $this->hasMany(\App\Models\TwoFAccount::class);
+        return $this->hasMany(TwoFAccount::class);
     }
 
     /**
      * Get the Groups of the user.
      *
-     * @return \Illuminate\Database\Eloquent\Relations\HasMany<\App\Models\Group, $this>
+     * @return HasMany<Group, $this>
      */
     public function groups()
     {
-        return $this->hasMany(\App\Models\Group::class);
+        return $this->hasMany(Group::class);
     }
 
     /**
@@ -272,7 +281,7 @@ class User extends Authenticatable implements HasLocalePreference, OAuthenticata
      */
     public function tags()
     {
-        return $this->hasMany(\App\Models\Tag::class);
+        return $this->hasMany(Tag::class);
     }
 
     /**
@@ -280,7 +289,7 @@ class User extends Authenticatable implements HasLocalePreference, OAuthenticata
      */
     public function vaults()
     {
-        return $this->hasMany(\App\Models\Vault::class);
+        return $this->hasMany(Vault::class);
     }
 
     /**
@@ -288,67 +297,67 @@ class User extends Authenticatable implements HasLocalePreference, OAuthenticata
      */
     public function webhooks()
     {
-        return $this->hasMany(\App\Models\Webhook::class);
+        return $this->hasMany(Webhook::class);
     }
 
     /**
      * Get the push subscriptions for the user.
      *
-     * @return \Illuminate\Database\Eloquent\Relations\HasMany<\App\Models\PushSubscription, $this>
+     * @return HasMany<PushSubscription, $this>
      */
     public function pushSubscriptions()
     {
-        return $this->hasMany(\App\Models\PushSubscription::class);
+        return $this->hasMany(PushSubscription::class);
     }
 
     /**
      * Get the personal activity logs for the user.
      *
-     * @return \Illuminate\Database\Eloquent\Relations\HasMany<\App\Models\PersonalActivityLog, $this>
+     * @return HasMany<PersonalActivityLog, $this>
      */
     public function personalActivityLogs()
     {
-        return $this->hasMany(\App\Models\PersonalActivityLog::class);
+        return $this->hasMany(PersonalActivityLog::class);
     }
 
     /**
      * Get the invitations sent by the user.
      *
-     * @return \Illuminate\Database\Eloquent\Relations\HasMany<\App\Models\UserInvitation, $this>
+     * @return HasMany<UserInvitation, $this>
      */
     public function invitations()
     {
-        return $this->hasMany(\App\Models\UserInvitation::class, 'invited_by_id');
+        return $this->hasMany(UserInvitation::class, 'invited_by_id');
     }
 
     /**
      * Get the backup destinations for the user.
      *
-     * @return \Illuminate\Database\Eloquent\Relations\HasMany<\App\Models\UserBackupDestination, $this>
+     * @return HasMany<UserBackupDestination, $this>
      */
     public function backupDestinations()
     {
-        return $this->hasMany(\App\Models\UserBackupDestination::class);
+        return $this->hasMany(UserBackupDestination::class);
     }
 
     /**
      * Get the sessions for the user.
      *
-     * @return \Illuminate\Database\Eloquent\Relations\HasMany<\App\Models\UserSession, $this>
+     * @return HasMany<UserSession, $this>
      */
     public function sessions()
     {
-        return $this->hasMany(\App\Models\UserSession::class);
+        return $this->hasMany(UserSession::class);
     }
 
     /**
      * Get the secure notes for the user.
      *
-     * @return \Illuminate\Database\Eloquent\Relations\HasMany<\App\Models\SecureNote, $this>
+     * @return HasMany<SecureNote, $this>
      */
     public function secureNotes()
     {
-        return $this->hasMany(\App\Models\SecureNote::class);
+        return $this->hasMany(SecureNote::class);
     }
 
     /**
@@ -365,11 +374,11 @@ class User extends Authenticatable implements HasLocalePreference, OAuthenticata
     /**
      * Get the teams that the user belongs to.
      *
-     * @return \Illuminate\Database\Eloquent\Relations\BelongsToMany<\App\Models\Team, $this>
+     * @return BelongsToMany<Team, $this>
      */
     public function teams()
     {
-        return $this->belongsToMany(\App\Models\Team::class, 'team_users')
+        return $this->belongsToMany(Team::class, 'team_users')
             ->withPivot('role', 'joined_at')
             ->withTimestamps();
     }
@@ -377,11 +386,11 @@ class User extends Authenticatable implements HasLocalePreference, OAuthenticata
     /**
      * Get the teams owned by the user.
      *
-     * @return \Illuminate\Database\Eloquent\Relations\HasMany<\App\Models\Team, $this>
+     * @return HasMany<Team, $this>
      */
     public function ownedTeams()
     {
-        return $this->hasMany(\App\Models\Team::class, 'owner_id');
+        return $this->hasMany(Team::class, 'owner_id');
     }
 
     /**
@@ -391,20 +400,6 @@ class User extends Authenticatable implements HasLocalePreference, OAuthenticata
     {
         return $this->teams()->where('teams.id', $teamId)->exists()
             || $this->ownedTeams()->where('id', $teamId)->exists();
-    }
-
-    /**
-     * Check if the user is an admin of a team.
-     */
-    public function isTeamAdmin(int $teamId) : bool
-    {
-        $team = $this->teams()->where('teams.id', $teamId)->first();
-
-        if (! $team) {
-            return $this->ownedTeams()->where('id', $teamId)->exists();
-        }
-
-        return in_array($team->pivot->role, ['admin', 'owner']);
     }
 
     /**

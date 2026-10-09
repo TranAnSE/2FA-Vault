@@ -3,7 +3,12 @@
 namespace App\Http\Controllers;
 
 use App\Enums\TeamAction;
+use App\Models\SharedAccount;
 use App\Models\Team;
+use App\Models\TeamInvitation;
+use App\Models\TeamRole;
+use App\Models\TwoFAccount;
+use App\Models\User;
 use App\Services\TeamActivityLogger;
 use App\Services\TeamService;
 use Illuminate\Http\Request;
@@ -157,7 +162,9 @@ class TeamController extends Controller
     {
         $validated = $request->validate([
             'email' => 'required|email',
-            'role'  => ['nullable', Rule::in(['admin', 'member', 'viewer'])],
+            // v1.4.0: any role defined in the team's matrix, never `owner`
+            // (RT-1 — rejected at the validation layer so it answers 422).
+            'role' => ['nullable', 'string', 'max:50', $this->assignableRoleRule($id)],
         ]);
 
         $team = Team::findOrFail($id);
@@ -185,7 +192,7 @@ class TeamController extends Controller
      */
     public function acceptInvitation(Request $request, $token)
     {
-        $invitation = \App\Models\TeamInvitation::where('token', $token)
+        $invitation = TeamInvitation::where('token', $token)
             ->where('status', 'pending')
             ->firstOrFail();
 
@@ -216,7 +223,7 @@ class TeamController extends Controller
             return response()->json(['message' => 'Forbidden'], 403);
         }
 
-        $invitations = \App\Models\TeamInvitation::where('team_id', $team->id)
+        $invitations = TeamInvitation::where('team_id', $team->id)
             ->where('status', 'pending')
             ->get()
             ->map(function ($inv) {
@@ -244,7 +251,7 @@ class TeamController extends Controller
             return response()->json(['message' => 'Forbidden'], 403);
         }
 
-        $invitation = \App\Models\TeamInvitation::where('id', $invitationId)
+        $invitation = TeamInvitation::where('id', $invitationId)
             ->where('team_id', $team->id)
             ->where('status', 'pending')
             ->firstOrFail();
@@ -304,7 +311,7 @@ class TeamController extends Controller
         $user = Auth::user();
 
         try {
-            $targetUser = \App\Models\User::find($userId);
+            $targetUser = User::find($userId);
             $this->teamService->removeMember($team, $user, $userId);
             if ($targetUser) {
                 $this->activityLogger->log($team, $user, TeamAction::MEMBER_REMOVED, null, $targetUser);
@@ -322,7 +329,10 @@ class TeamController extends Controller
     public function updateMemberRole(Request $request, $id, $userId)
     {
         $validated = $request->validate([
-            'role' => ['required', Rule::in(['admin', 'member', 'viewer'])],
+            // v1.4.0: any role defined in the team's matrix, never `owner`
+            // (RT-1 — rejected at the validation layer so it answers 422).
+            // The subset constraint (assignee power) is enforced in the service.
+            'role' => ['required', 'string', 'max:50', $this->assignableRoleRule($id)],
         ]);
 
         $team = Team::findOrFail($id);
@@ -383,7 +393,7 @@ class TeamController extends Controller
             return response()->json(['message' => 'Forbidden'], 403);
         }
 
-        $account = \App\Models\TwoFAccount::where('id', $validated['twofaccount_id'])
+        $account = TwoFAccount::where('id', $validated['twofaccount_id'])
             ->where('user_id', $user->id)
             ->firstOrFail();
 
@@ -423,7 +433,7 @@ class TeamController extends Controller
         $team = Team::findOrFail($id);
         $user = Auth::user();
 
-        $account = \App\Models\TwoFAccount::where('id', $validated['twofaccount_id'])
+        $account = TwoFAccount::where('id', $validated['twofaccount_id'])
             ->where('user_id', $user->id)
             ->firstOrFail();
 
@@ -457,7 +467,7 @@ class TeamController extends Controller
             return response()->json(['message' => 'User is not a team member'], 404);
         }
 
-        $member = \App\Models\User::select('id', 'name', 'public_key')->findOrFail($userId);
+        $member = User::select('id', 'name', 'public_key')->findOrFail($userId);
 
         return response()->json([
             'user_id'    => $member->id,
@@ -491,7 +501,7 @@ class TeamController extends Controller
         $team = Team::findOrFail($id);
         $user = Auth::user();
 
-        $sharedAccounts = \App\Models\SharedAccount::where('team_id', $team->id)
+        $sharedAccounts = SharedAccount::where('team_id', $team->id)
             ->where('twofaccount_id', $accountId)
             ->get();
 
@@ -500,14 +510,16 @@ class TeamController extends Controller
         }
 
         if ($sharedAccounts->first()->shared_by !== $user->id) {
-            $role = $team->getUserRole($user->id);
-            if (! in_array($role, ['owner', 'admin'])) {
+            // Not the sharer: removing others' shares needs the
+            // accounts.unshare_others permission (matrix; the policy
+            // bypass this inline check used to be).
+            if (! Gate::allows('unshareOthers', $team)) {
                 return response()->json(['message' => 'Forbidden'], 403);
             }
         }
 
         $accountToLog = $sharedAccounts->first()->twoFAccount;
-        \App\Models\SharedAccount::where('team_id', $team->id)
+        SharedAccount::where('team_id', $team->id)
             ->where('twofaccount_id', $accountId)
             ->delete();
         $this->activityLogger->log($team, $user, TeamAction::ACCOUNT_UNSHARED, null, null, $accountToLog);
@@ -557,5 +569,27 @@ class TeamController extends Controller
             });
 
         return response()->json($sharedAccounts);
+    }
+
+    /**
+     * Validation rule: the value must be a role slug defined in the team's
+     * matrix and must never be `owner` (RT-1 owner-slug escalation guard —
+     * rejected here so the API answers 422, not 403).
+     */
+    private function assignableRoleRule($teamId) : \Closure
+    {
+        return function (string $attribute, mixed $value, \Closure $fail) use ($teamId) {
+            if ($value === 'owner') {
+                $fail('The owner role cannot be assigned.');
+
+                return;
+            }
+
+            $exists = TeamRole::where('team_id', $teamId)->where('slug', $value)->exists();
+
+            if (! $exists) {
+                $fail('The selected role is invalid for this team.');
+            }
+        };
     }
 }

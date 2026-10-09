@@ -5,24 +5,22 @@ namespace App\Http\Controllers;
 use App\Models\Team;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Gate;
 
 class TeamActivityController extends Controller
 {
     /**
-     * List activity log entries for a team (owner/admin only).
+     * List activity log entries for a team (activity.view permission).
      */
-    public function index(Request $request, int $id): JsonResponse
+    public function index(Request $request, int $id) : JsonResponse
     {
         $team = Team::findOrFail($id);
 
-        if (!Gate::allows('view', $team)) {
+        if (! Gate::allows('view', $team)) {
             return response()->json(['message' => 'Forbidden'], 403);
         }
 
-        $role = $team->getUserRole(Auth::id());
-        if (!in_array($role, ['owner', 'admin'])) {
+        if (! Gate::allows('viewActivity', $team)) {
             return response()->json(['message' => 'Forbidden — only team owners and admins can view activity logs'], 403);
         }
 
@@ -54,7 +52,7 @@ class TeamActivityController extends Controller
     {
         $team = Team::findOrFail($id);
 
-        if ($team->getUserRole(Auth::id()) !== 'owner') {
+        if (! Gate::allows('exportActivity', $team)) {
             return response()->json(['message' => 'Forbidden'], 403);
         }
 

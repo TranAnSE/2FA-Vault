@@ -2,11 +2,14 @@
 
 namespace App\Services;
 
+use App\Models\SharedAccount;
 use App\Models\Team;
 use App\Models\TeamInvitation;
 use App\Models\TwoFAccount;
 use App\Models\User;
+use App\Support\TeamPermissionSet;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 
@@ -15,6 +18,10 @@ use Illuminate\Support\Str;
  *
  * Business logic layer for team management.
  * Handles team CRUD, member management, invitations, and shared accounts.
+ *
+ * Authorization goes through the TeamPolicy (permission matrix) — the
+ * service layer checks capabilities with `Gate::forUser($user)` so both
+ * controller and service paths share ONE policy implementation.
  */
 class TeamService
 {
@@ -43,6 +50,8 @@ class TeamService
             'joined_at' => now(),
         ]);
 
+        // The team's `created` model event seeds the system preset roles.
+
         Log::info('Team created', [
             'team_id'  => $team->id,
             'owner_id' => $owner->id,
@@ -59,7 +68,7 @@ class TeamService
      */
     public function updateTeam(Team $team, User $user, string $name) : Team
     {
-        if (! $this->canUpdateTeam($team, $user)) {
+        if (! Gate::forUser($user)->allows('update', $team)) {
             throw new \Exception('You do not have permission to update this team.');
         }
 
@@ -88,7 +97,7 @@ class TeamService
         // B14: clean up membership pivots and shared-account rows so a soft-deleted
         // team leaves no reusable shares behind.
         $team->users()->detach();
-        \App\Models\SharedAccount::where('team_id', $team->id)->delete();
+        SharedAccount::where('team_id', $team->id)->delete();
         TeamInvitation::where('team_id', $team->id)
             ->where('status', 'pending')
             ->update(['status' => 'cancelled']);
@@ -110,11 +119,11 @@ class TeamService
      */
     public function inviteUser(Team $team, User $inviter, string $email, string $role = 'member') : TeamInvitation
     {
-        if (! $this->canInviteUsers($team, $inviter)) {
+        if (! Gate::forUser($inviter)->allows('invite', $team)) {
             throw new \Exception('You do not have permission to invite users to this team.');
         }
 
-        if (! in_array($role, ['admin', 'member', 'viewer'])) {
+        if (! $this->isValidAssignableRole($team, $role)) {
             throw new \Exception('Invalid role specified.');
         }
 
@@ -166,6 +175,13 @@ class TeamService
         $maxMembers = config('2fauth.maxMembersPerTeam', 50);
         if ($team->users()->count() >= $maxMembers) {
             throw new \Exception("This team has reached the maximum number of members ({$maxMembers}).");
+        }
+
+        // RT-1 (owner-slug escalation guard): re-validate the invitation's
+        // role at ACCEPT time — the invitation may predate a role deletion,
+        // and a tampered/stale `owner` value must never reach the pivot.
+        if (! $this->isValidAssignableRole($team, $invitation->role)) {
+            throw new \Exception('The role attached to this invitation is no longer available.');
         }
 
         DB::beginTransaction();
@@ -293,7 +309,7 @@ class TeamService
      */
     public function removeMember(Team $team, User $actor, int $userIdToRemove) : bool
     {
-        if (! $this->canRemoveMembers($team, $actor)) {
+        if (! Gate::forUser($actor)->allows('removeMember', $team)) {
             throw new \Exception('You do not have permission to remove members from this team.');
         }
 
@@ -310,7 +326,7 @@ class TeamService
 
         try {
             $team->users()->detach($userIdToRemove);
-            \App\Models\SharedAccount::where('team_id', $team->id)
+            SharedAccount::where('team_id', $team->id)
                 ->where('member_id', $userIdToRemove)
                 ->delete();
 
@@ -339,20 +355,37 @@ class TeamService
     /**
      * Update member role
      *
+     * The actor needs `roles.assign`. A non-owner actor is SUBSET-CONSTRAINED
+     * (RT-15): they may only assign roles whose permission set is contained
+     * in their own effective permissions — otherwise a deputy could mint an
+     * all-permission role for themselves. The owner is exempt (their set is
+     * the full catalog).
+     *
      * @throws \Exception
      */
     public function updateMemberRole(Team $team, User $actor, int $targetUserId, string $newRole) : bool
     {
-        if ($team->owner_id !== $actor->id) {
+        if (! Gate::forUser($actor)->allows('updateRole', $team)) {
             throw new \Exception('Only the team owner can update member roles.');
         }
 
-        if (! in_array($newRole, ['admin', 'member', 'viewer'])) {
+        if (! $this->isValidAssignableRole($team, $newRole)) {
             throw new \Exception('Invalid role specified.');
         }
 
         if ($team->owner_id == $targetUserId) {
             throw new \Exception('Cannot change owner role.');
+        }
+
+        if ($team->owner_id !== $actor->id) {
+            $actorPermissions  = $team->permissionsFor($actor);
+            $targetPermissions = new TeamPermissionSet(
+                (array) ($team->roles()->where('slug', $newRole)->first()->permissions ?? [])
+            );
+
+            if (! $actorPermissions->covers($targetPermissions)) {
+                throw new \Exception('You cannot assign a role that exceeds your own permissions.');
+            }
         }
 
         $team->users()->updateExistingPivot($targetUserId, [
@@ -381,7 +414,7 @@ class TeamService
      *
      * @throws \Exception
      */
-    public function shareAccountWithTeam(TwoFAccount $account, Team $team, User $sharer, string $accessLevel = 'view') : \App\Models\SharedAccount
+    public function shareAccountWithTeam(TwoFAccount $account, Team $team, User $sharer, string $accessLevel = 'view') : SharedAccount
     {
         if ($account->user_id !== $sharer->id) {
             throw new \Exception('You can only share accounts you own.');
@@ -391,7 +424,7 @@ class TeamService
             throw new \Exception('You must be a member of the team to share accounts with it.');
         }
 
-        $sharedAccount = \App\Models\SharedAccount::create([
+        $sharedAccount = SharedAccount::create([
             'team_id'        => $team->id,
             'twofaccount_id' => $account->id,
             'shared_by'      => $sharer->id,
@@ -426,7 +459,7 @@ class TeamService
         }
 
         // Remove existing encrypted shares for this account in this team
-        \App\Models\SharedAccount::where('team_id', $team->id)
+        SharedAccount::where('team_id', $team->id)
             ->where('twofaccount_id', $account->id)
             ->whereNotNull('member_id')
             ->delete();
@@ -436,7 +469,7 @@ class TeamService
                 continue; // skip non-members silently
             }
 
-            \App\Models\SharedAccount::create([
+            SharedAccount::create([
                 'team_id'        => $team->id,
                 'twofaccount_id' => $account->id,
                 'shared_by'      => $sharer->id,
@@ -455,33 +488,18 @@ class TeamService
     }
 
     /**
-     * Check if user can update team
+     * Whether $slug is a valid ASSIGNABLE role for this team: the slug must
+     * exist in the team's role matrix and must never be `owner` (RT-1 — the
+     * owner identity is owner_id, not a role slug; the seeded owner preset
+     * row exists for the owner's own pivot, not for assignment).
      */
-    private function canUpdateTeam(Team $team, User $user) : bool
+    private function isValidAssignableRole(Team $team, string $slug) : bool
     {
-        $role = $team->getUserRole($user->id);
+        if ($slug === 'owner') {
+            return false;
+        }
 
-        return in_array($role, ['admin', 'owner']);
-    }
-
-    /**
-     * Check if user can invite others
-     */
-    private function canInviteUsers(Team $team, User $user) : bool
-    {
-        $role = $team->getUserRole($user->id);
-
-        return in_array($role, ['admin', 'owner']);
-    }
-
-    /**
-     * Check if user can remove members
-     */
-    private function canRemoveMembers(Team $team, User $user) : bool
-    {
-        $role = $team->getUserRole($user->id);
-
-        return in_array($role, ['admin', 'owner']);
+        return $team->roles()->where('slug', $slug)->exists();
     }
 
     /**
