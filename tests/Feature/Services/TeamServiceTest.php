@@ -2,8 +2,10 @@
 
 namespace Tests\Feature\Services;
 
+use App\Models\SharedAccount;
 use App\Models\Team;
 use App\Models\TeamInvitation;
+use App\Models\TwoFAccount;
 use App\Models\User;
 use App\Services\TeamService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -19,20 +21,21 @@ class TeamServiceTest extends TestCase
     use RefreshDatabase;
 
     private TeamService $teamService;
+
     private User $owner;
 
-    protected function setUp(): void
+    protected function setUp() : void
     {
         parent::setUp();
 
-        $this->teamService = new TeamService();
-        $this->owner = User::factory()->create();
+        $this->teamService = new TeamService;
+        $this->owner       = User::factory()->create();
     }
 
     /**
      * Test creating a team
      */
-    public function test_can_create_team(): void
+    public function test_can_create_team() : void
     {
         $team = $this->teamService->createTeam($this->owner, 'Development Team');
 
@@ -48,7 +51,7 @@ class TeamServiceTest extends TestCase
     /**
      * Test cannot create team beyond limit
      */
-    public function test_cannot_create_team_beyond_limit(): void
+    public function test_cannot_create_team_beyond_limit() : void
     {
         $this->expectException(\Exception::class);
         $this->expectExceptionMessage('reached the maximum number of teams');
@@ -65,7 +68,7 @@ class TeamServiceTest extends TestCase
     /**
      * Test updating team name
      */
-    public function test_can_update_team_name(): void
+    public function test_can_update_team_name() : void
     {
         $team = $this->teamService->createTeam($this->owner, 'Original Name');
 
@@ -77,9 +80,9 @@ class TeamServiceTest extends TestCase
     /**
      * Test non-owner admin can update team
      */
-    public function test_admin_can_update_team(): void
+    public function test_admin_can_update_team() : void
     {
-        $team = $this->teamService->createTeam($this->owner, 'Team Name');
+        $team  = $this->teamService->createTeam($this->owner, 'Team Name');
         $admin = User::factory()->create();
         $team->users()->attach($admin->id, ['role' => 'admin', 'joined_at' => now()]);
 
@@ -91,12 +94,12 @@ class TeamServiceTest extends TestCase
     /**
      * Test member cannot update team
      */
-    public function test_member_cannot_update_team(): void
+    public function test_member_cannot_update_team() : void
     {
         $this->expectException(\Exception::class);
         $this->expectExceptionMessage('do not have permission');
 
-        $team = $this->teamService->createTeam($this->owner, 'Team Name');
+        $team   = $this->teamService->createTeam($this->owner, 'Team Name');
         $member = User::factory()->create();
         $team->users()->attach($member->id, ['role' => 'member', 'joined_at' => now()]);
 
@@ -106,7 +109,7 @@ class TeamServiceTest extends TestCase
     /**
      * Test deleting a team
      */
-    public function test_owner_can_delete_team(): void
+    public function test_owner_can_delete_team() : void
     {
         $team = $this->teamService->createTeam($this->owner, 'To Delete');
 
@@ -119,12 +122,12 @@ class TeamServiceTest extends TestCase
     /**
      * Test non-owner cannot delete team
      */
-    public function test_non_owner_cannot_delete_team(): void
+    public function test_non_owner_cannot_delete_team() : void
     {
         $this->expectException(\Exception::class);
         $this->expectExceptionMessage('Only the team owner');
 
-        $team = $this->teamService->createTeam($this->owner, 'Team');
+        $team  = $this->teamService->createTeam($this->owner, 'Team');
         $other = User::factory()->create();
 
         $this->teamService->deleteTeam($team, $other);
@@ -133,9 +136,9 @@ class TeamServiceTest extends TestCase
     /**
      * Test inviting a user to team
      */
-    public function test_can_invite_user_to_team(): void
+    public function test_can_invite_user_to_team() : void
     {
-        $team = $this->teamService->createTeam($this->owner, 'Team');
+        $team    = $this->teamService->createTeam($this->owner, 'Team');
         $invitee = User::factory()->create(['email' => 'invitee@example.com']);
 
         $invitation = $this->teamService->inviteUser($team, $this->owner, $invitee->email, 'admin');
@@ -150,11 +153,11 @@ class TeamServiceTest extends TestCase
     /**
      * Test member cannot invite users
      */
-    public function test_member_cannot_invite_users(): void
+    public function test_member_cannot_invite_users() : void
     {
         $this->expectException(\Exception::class);
 
-        $team = $this->teamService->createTeam($this->owner, 'Team');
+        $team   = $this->teamService->createTeam($this->owner, 'Team');
         $member = User::factory()->create();
         $team->users()->attach($member->id, ['role' => 'member', 'joined_at' => now()]);
 
@@ -164,9 +167,9 @@ class TeamServiceTest extends TestCase
     /**
      * Test accepting team invitation
      */
-    public function test_can_accept_invitation(): void
+    public function test_can_accept_invitation() : void
     {
-        $team = $this->teamService->createTeam($this->owner, 'Team');
+        $team    = $this->teamService->createTeam($this->owner, 'Team');
         $invitee = User::factory()->create(['email' => 'invitee@example.com']);
 
         $invitation = $this->teamService->inviteUser($team, $this->owner, $invitee->email, 'member');
@@ -184,11 +187,11 @@ class TeamServiceTest extends TestCase
     /**
      * Test cannot accept invitation for different email
      */
-    public function test_cannot_accept_invitation_for_different_email(): void
+    public function test_cannot_accept_invitation_for_different_email() : void
     {
         $this->expectException(\Exception::class);
 
-        $team = $this->teamService->createTeam($this->owner, 'Team');
+        $team    = $this->teamService->createTeam($this->owner, 'Team');
         $invitee = User::factory()->create(['email' => 'invitee@example.com']);
 
         $invitation = $this->teamService->inviteUser($team, $this->owner, $invitee->email);
@@ -200,9 +203,9 @@ class TeamServiceTest extends TestCase
     /**
      * Test joining team via invite code
      */
-    public function test_can_join_team_via_invite_code(): void
+    public function test_can_join_team_via_invite_code() : void
     {
-        $team = $this->teamService->createTeam($this->owner, 'Team');
+        $team       = $this->teamService->createTeam($this->owner, 'Team');
         $inviteCode = $team->generateInviteCode();
 
         $newMember = User::factory()->create();
@@ -217,11 +220,11 @@ class TeamServiceTest extends TestCase
     /**
      * Test cannot join if already member
      */
-    public function test_cannot_join_if_already_member(): void
+    public function test_cannot_join_if_already_member() : void
     {
         $this->expectException(\Exception::class);
 
-        $team = $this->teamService->createTeam($this->owner, 'Team');
+        $team       = $this->teamService->createTeam($this->owner, 'Team');
         $inviteCode = $team->generateInviteCode();
 
         $this->teamService->joinByInviteCode($inviteCode, $this->owner);
@@ -230,9 +233,9 @@ class TeamServiceTest extends TestCase
     /**
      * Test leaving a team
      */
-    public function test_can_leave_team(): void
+    public function test_can_leave_team() : void
     {
-        $team = $this->teamService->createTeam($this->owner, 'Team');
+        $team   = $this->teamService->createTeam($this->owner, 'Team');
         $member = User::factory()->create();
         $team->users()->attach($member->id, ['role' => 'member', 'joined_at' => now()]);
 
@@ -243,9 +246,49 @@ class TeamServiceTest extends TestCase
     }
 
     /**
+     * Regression (behavior change, bugfix — not matrix compat): leaving must
+     * revoke shared access, symmetric with being removed — the member's
+     * shared_accounts rows (wrapped keys included) are deleted and their
+     * pending invitations are cancelled so an ex-member cannot regain
+     * decryption by re-accepting an old invite.
+     */
+    public function test_leaving_revokes_shared_keys_and_cancels_pending_invitations() : void
+    {
+        $team   = $this->teamService->createTeam($this->owner, 'Team');
+        $member = User::factory()->create();
+        $team->users()->attach($member->id, ['role' => 'member', 'joined_at' => now()]);
+
+        $account = TwoFAccount::factory()->forUser($this->owner)->create();
+
+        $encryptedShare = SharedAccount::create([
+            'team_id'        => $team->id,
+            'twofaccount_id' => $account->id,
+            'shared_by'      => $this->owner->id,
+            'access_level'   => 'read',
+            'member_id'      => $member->id,
+            'wrapped_key'    => 'wrapped-secret-key',
+        ]);
+
+        $pendingInvitation = TeamInvitation::create([
+            'team_id'    => $team->id,
+            'email'      => $member->email,
+            'role'       => 'member',
+            'token'      => 'still-pending',
+            'status'     => 'pending',
+            'expires_at' => now()->addDays(7),
+        ]);
+
+        $this->teamService->leaveTeam($team, $member);
+
+        $this->assertDatabaseMissing('shared_accounts', ['id' => $encryptedShare->id]);
+        $this->assertSame('cancelled', $pendingInvitation->fresh()->status);
+        $this->assertFalse($team->hasMember($member->id));
+    }
+
+    /**
      * Test owner cannot leave team
      */
-    public function test_owner_cannot_leave_team(): void
+    public function test_owner_cannot_leave_team() : void
     {
         $this->expectException(\Exception::class);
         $this->expectExceptionMessage('owner cannot leave');
@@ -258,9 +301,9 @@ class TeamServiceTest extends TestCase
     /**
      * Test removing team member
      */
-    public function test_can_remove_member(): void
+    public function test_can_remove_member() : void
     {
-        $team = $this->teamService->createTeam($this->owner, 'Team');
+        $team   = $this->teamService->createTeam($this->owner, 'Team');
         $member = User::factory()->create();
         $team->users()->attach($member->id, ['role' => 'member', 'joined_at' => now()]);
 
@@ -273,9 +316,9 @@ class TeamServiceTest extends TestCase
     /**
      * Test admin can remove member
      */
-    public function test_admin_can_remove_member(): void
+    public function test_admin_can_remove_member() : void
     {
-        $team = $this->teamService->createTeam($this->owner, 'Team');
+        $team  = $this->teamService->createTeam($this->owner, 'Team');
         $admin = User::factory()->create();
         $team->users()->attach($admin->id, ['role' => 'admin', 'joined_at' => now()]);
 
@@ -290,12 +333,12 @@ class TeamServiceTest extends TestCase
     /**
      * Test cannot remove team owner
      */
-    public function test_cannot_remove_team_owner(): void
+    public function test_cannot_remove_team_owner() : void
     {
         $this->expectException(\Exception::class);
         $this->expectExceptionMessage('Cannot remove team owner');
 
-        $team = $this->teamService->createTeam($this->owner, 'Team');
+        $team  = $this->teamService->createTeam($this->owner, 'Team');
         $admin = User::factory()->create();
         $team->users()->attach($admin->id, ['role' => 'admin', 'joined_at' => now()]);
 
@@ -305,9 +348,9 @@ class TeamServiceTest extends TestCase
     /**
      * Test updating member role
      */
-    public function test_can_update_member_role(): void
+    public function test_can_update_member_role() : void
     {
-        $team = $this->teamService->createTeam($this->owner, 'Team');
+        $team   = $this->teamService->createTeam($this->owner, 'Team');
         $member = User::factory()->create();
         $team->users()->attach($member->id, ['role' => 'member', 'joined_at' => now()]);
 
@@ -321,12 +364,12 @@ class TeamServiceTest extends TestCase
     /**
      * Test only owner can update roles
      */
-    public function test_only_owner_can_update_roles(): void
+    public function test_only_owner_can_update_roles() : void
     {
         $this->expectException(\Exception::class);
         $this->expectExceptionMessage('Only the team owner');
 
-        $team = $this->teamService->createTeam($this->owner, 'Team');
+        $team  = $this->teamService->createTeam($this->owner, 'Team');
         $admin = User::factory()->create();
         $team->users()->attach($admin->id, ['role' => 'admin', 'joined_at' => now()]);
 
@@ -339,16 +382,16 @@ class TeamServiceTest extends TestCase
     /**
      * Test sharing account with team
      */
-    public function test_can_share_account_with_team(): void
+    public function test_can_share_account_with_team() : void
     {
-        $team = $this->teamService->createTeam($this->owner, 'Team');
-        $account = \App\Models\TwoFAccount::factory()->create([
+        $team    = $this->teamService->createTeam($this->owner, 'Team');
+        $account = TwoFAccount::factory()->create([
             'user_id' => $this->owner->id,
         ]);
 
         $shared = $this->teamService->shareAccountWithTeam($account, $team, $this->owner, 'view');
 
-        $this->assertInstanceOf(\App\Models\SharedAccount::class, $shared);
+        $this->assertInstanceOf(SharedAccount::class, $shared);
         $this->assertEquals($team->id, $shared->team_id);
         $this->assertEquals($account->id, $shared->twofaccount_id);
         $this->assertEquals('view', $shared->access_level);
@@ -357,15 +400,15 @@ class TeamServiceTest extends TestCase
     /**
      * Test cannot share account you don't own
      */
-    public function test_cannot_share_account_you_dont_own(): void
+    public function test_cannot_share_account_you_dont_own() : void
     {
         $this->expectException(\Exception::class);
 
         $otherUser = User::factory()->create();
-        $team = $this->teamService->createTeam($this->owner, 'Team');
+        $team      = $this->teamService->createTeam($this->owner, 'Team');
         $team->users()->attach($otherUser->id, ['role' => 'admin', 'joined_at' => now()]);
 
-        $account = \App\Models\TwoFAccount::factory()->create([
+        $account = TwoFAccount::factory()->create([
             'user_id' => $this->owner->id,
         ]);
 
@@ -375,7 +418,7 @@ class TeamServiceTest extends TestCase
     /**
      * Test getting team stats
      */
-    public function test_get_team_stats(): void
+    public function test_get_team_stats() : void
     {
         $team = $this->teamService->createTeam($this->owner, 'Team');
 
@@ -390,7 +433,7 @@ class TeamServiceTest extends TestCase
         $this->teamService->inviteUser($team, $this->owner, $invitee->email);
 
         // Share account
-        $account = \App\Models\TwoFAccount::factory()->create(['user_id' => $this->owner->id]);
+        $account = TwoFAccount::factory()->create(['user_id' => $this->owner->id]);
         $this->teamService->shareAccountWithTeam($account, $team, $this->owner);
 
         $stats = $this->teamService->getTeamStats($team);

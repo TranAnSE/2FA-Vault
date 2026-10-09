@@ -253,7 +253,31 @@ class TeamService
             throw new \Exception('Team owner cannot leave. Transfer ownership or delete the team instead.');
         }
 
-        $team->users()->detach($user->id);
+        // BEHAVIOR CHANGE (bugfix, not matrix compat): revocation is part of
+        // leaving — mirror removeMember's transactional cleanup so leaving is
+        // symmetric with being removed: drop the member's shared-account rows
+        // (wrapped keys included) and cancel their pending invitations,
+        // otherwise an ex-member could regain decryption by re-accepting an
+        // old invite (the gap removeMember already closed as B3).
+        DB::beginTransaction();
+
+        try {
+            $team->users()->detach($user->id);
+
+            SharedAccount::where('team_id', $team->id)
+                ->where('member_id', $user->id)
+                ->delete();
+
+            TeamInvitation::where('team_id', $team->id)
+                ->where('email', $user->email)
+                ->where('status', 'pending')
+                ->update(['status' => 'cancelled']);
+
+            DB::commit();
+        } catch (\Exception $e) {
+            DB::rollBack();
+            throw $e;
+        }
 
         Log::info('User left team', [
             'team_id' => $team->id,
