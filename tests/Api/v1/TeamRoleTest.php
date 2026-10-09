@@ -115,6 +115,18 @@ class TeamRoleTest extends TestCase
         }
     }
 
+    public function test_store_requires_a_slug_instead_of_erroring() : void
+    {
+        // A missing slug must 422, not fall through to TeamRole::create and 500.
+        $this->actingAsTeamUser($this->owner);
+
+        $payload = $this->validPayload();
+        unset($payload['slug']);
+
+        $this->postJson('/api/v1/teams/' . $this->team->id . '/roles', $payload)
+            ->assertStatus(422);
+    }
+
     public function test_store_rejects_reserved_slugs_and_duplicates() : void
     {
         $this->actingAsTeamUser($this->owner);

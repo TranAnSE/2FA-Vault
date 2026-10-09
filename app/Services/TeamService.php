@@ -127,6 +127,13 @@ class TeamService
             throw new \Exception('Invalid role specified.');
         }
 
+        // RT-15 subset constraint, as in updateMemberRole: a non-owner
+        // inviter must not mint, by invitation, a membership whose powers
+        // exceed their own.
+        if ($team->owner_id !== $inviter->id && ! $this->actorCoversRole($team, $inviter, $role)) {
+            throw new \Exception('You cannot invite a user with a role that exceeds your own permissions.');
+        }
+
         $invitation = TeamInvitation::create([
             'team_id'    => $team->id,
             'email'      => $email,
@@ -390,7 +397,7 @@ class TeamService
     public function updateMemberRole(Team $team, User $actor, int $targetUserId, string $newRole) : bool
     {
         if (! Gate::forUser($actor)->allows('updateRole', $team)) {
-            throw new \Exception('Only the team owner can update member roles.');
+            throw new \Exception('You do not have permission to update member roles.');
         }
 
         if (! $this->isValidAssignableRole($team, $newRole)) {
@@ -401,15 +408,8 @@ class TeamService
             throw new \Exception('Cannot change owner role.');
         }
 
-        if ($team->owner_id !== $actor->id) {
-            $actorPermissions  = $team->permissionsFor($actor);
-            $targetPermissions = new TeamPermissionSet(
-                (array) ($team->roles()->where('slug', $newRole)->first()->permissions ?? [])
-            );
-
-            if (! $actorPermissions->covers($targetPermissions)) {
-                throw new \Exception('You cannot assign a role that exceeds your own permissions.');
-            }
+        if ($team->owner_id !== $actor->id && ! $this->actorCoversRole($team, $actor, $newRole)) {
+            throw new \Exception('You cannot assign a role that exceeds your own permissions.');
         }
 
         $team->users()->updateExistingPivot($targetUserId, [
@@ -524,6 +524,22 @@ class TeamService
         }
 
         return $team->roles()->where('slug', $slug)->exists();
+    }
+
+    /**
+     * RT-15 subset constraint, shared by role assignment and invitations:
+     * the actor's effective permissions must COVER the role's set, so no
+     * actor can mint (by assignment or invitation) a membership whose powers
+     * exceed their own. Callers exempt the owner (their set is the full
+     * catalog).
+     */
+    private function actorCoversRole(Team $team, User $actor, string $slug) : bool
+    {
+        $rolePermissions = new TeamPermissionSet(
+            (array) ($team->roles()->where('slug', $slug)->first()->permissions ?? [])
+        );
+
+        return $team->permissionsFor($actor)->covers($rolePermissions);
     }
 
     /**

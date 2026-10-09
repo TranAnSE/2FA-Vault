@@ -367,7 +367,7 @@ class TeamServiceTest extends TestCase
     public function test_only_owner_can_update_roles() : void
     {
         $this->expectException(\Exception::class);
-        $this->expectExceptionMessage('Only the team owner');
+        $this->expectExceptionMessage('You do not have permission to update member roles');
 
         $team  = $this->teamService->createTeam($this->owner, 'Team');
         $admin = User::factory()->create();

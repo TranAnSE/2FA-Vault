@@ -186,9 +186,11 @@ class TeamRoleController extends Controller
         $reservedSlugs = array_keys(TeamPermission::systemPresets());
 
         $validated = $request->validate([
+            // Required outright on store (a missing slug must 422, not fall
+            // through to TeamRole::create and 500); update keeps `sometimes`
+            // — the slug is immutable there and may be omitted.
             'slug' => [
-                'sometimes',
-                'required',
+                $existing === null ? 'required' : 'sometimes',
                 'regex:/^[a-z0-9-]{2,30}$/',
                 Rule::notIn($reservedSlugs),
                 Rule::unique('team_roles', 'slug')->where('team_id', $team->id)->ignore($existing?->id),

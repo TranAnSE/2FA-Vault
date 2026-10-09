@@ -271,6 +271,58 @@ class TeamPermissionMatrixTest extends TestCase
         $this->assertSame('admin', $this->team->getUserRole($member->id));
     }
 
+    public function test_recruiter_cannot_invite_a_role_exceeding_their_own_permissions() : void
+    {
+        // The invite path carries the same subset constraint as role
+        // assignment: a members.invite-only member must not mint, by
+        // invitation, an admin membership (a strict superset of their powers).
+        $recruiter = $this->memberWithRole(User::factory()->create(), 'recruiter');
+        $this->makeCustomRole('recruiter', [TeamPermission::MEMBERS_INVITE]);
+
+        $this->expectException(\Exception::class);
+        app(TeamService::class)->inviteUser($this->team, $recruiter, 'newmember@example.com', 'admin');
+    }
+
+    public function test_recruiter_can_invite_a_subset_role() : void
+    {
+        $recruiter = $this->memberWithRole(User::factory()->create(), 'recruiter');
+        $this->makeCustomRole('recruiter', [TeamPermission::MEMBERS_INVITE, TeamPermission::TEAM_EDIT]);
+        $this->makeCustomRole('editor', [TeamPermission::TEAM_EDIT]);
+
+        $invitation = app(TeamService::class)->inviteUser($this->team, $recruiter, 'newmember@example.com', 'editor');
+
+        $this->assertSame('editor', $invitation->role);
+    }
+
+    public function test_sharing_requires_the_accounts_share_permission() : void
+    {
+        // accounts.share is a real gate, not a decorative matrix toggle: a
+        // custom role without it cannot share, even its own account.
+        $restricted = $this->memberWithRole(User::factory()->create(), 'restricted');
+        $this->makeCustomRole('restricted', [TeamPermission::TEAM_EDIT]);
+        $account = TwoFAccount::factory()->forUser($restricted)->create();
+
+        Passport::actingAs($restricted, ['legacy_full_access'], 'api-guard');
+
+        $this->postJson('/api/v1/teams/' . $this->team->id . '/share', [
+            'twofaccount_id' => $account->id,
+        ])->assertStatus(403);
+        $this->assertDatabaseMissing('shared_accounts', ['team_id' => $this->team->id, 'twofaccount_id' => $account->id]);
+    }
+
+    public function test_member_preset_still_shares_own_account() : void
+    {
+        // v1.3.x behavior-compat: the member preset carries accounts.share.
+        $member = $this->memberWithRole(User::factory()->create(), 'member');
+        $account = TwoFAccount::factory()->forUser($member)->create();
+
+        Passport::actingAs($member, ['legacy_full_access'], 'api-guard');
+
+        $this->postJson('/api/v1/teams/' . $this->team->id . '/share', [
+            'twofaccount_id' => $account->id,
+        ])->assertStatus(201);
+    }
+
     public function test_update_member_role_with_owner_slug_answers_422() : void
     {
         Passport::actingAs($this->owner, ['legacy_full_access'], 'api-guard');

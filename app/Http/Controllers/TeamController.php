@@ -11,6 +11,7 @@ use App\Models\TwoFAccount;
 use App\Models\User;
 use App\Services\TeamActivityLogger;
 use App\Services\TeamService;
+use App\Support\TeamPermission;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Gate;
@@ -389,7 +390,10 @@ class TeamController extends Controller
         $team = Team::findOrFail($id);
         $user = Auth::user();
 
-        if (! $team->hasMember($user->id)) {
+        // The accounts.share matrix permission gates sharing (the owner's
+        // set short-circuits to the full catalog). System member/viewer
+        // presets carry it, preserving v1.3.x behavior.
+        if (! $team->hasMember($user->id) || ! $team->permissionsFor($user)->has(TeamPermission::ACCOUNTS_SHARE)) {
             return response()->json(['message' => 'Forbidden'], 403);
         }
 
@@ -432,6 +436,10 @@ class TeamController extends Controller
 
         $team = Team::findOrFail($id);
         $user = Auth::user();
+
+        if (! $team->hasMember($user->id) || ! $team->permissionsFor($user)->has(TeamPermission::ACCOUNTS_SHARE)) {
+            return response()->json(['message' => 'Forbidden'], 403);
+        }
 
         $account = TwoFAccount::where('id', $validated['twofaccount_id'])
             ->where('user_id', $user->id)
