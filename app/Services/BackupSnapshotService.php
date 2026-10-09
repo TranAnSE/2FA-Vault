@@ -212,7 +212,12 @@ class BackupSnapshotService
         $rowsRemoved = 0;
         foreach ($knownPaths as $path) {
             if (! $disk->exists($path)) {
-                BackupSnapshot::where('file_path', $path)->delete();
+                // Grace window: a row created seconds ago may predate its file
+                // write landing (row first, stream after) — never judge a
+                // fresh row dead while a create is still in flight.
+                BackupSnapshot::where('file_path', $path)
+                    ->where('created_at', '<', now()->subMinutes(5))
+                    ->delete();
                 $rowsRemoved++;
             }
         }
@@ -408,6 +413,15 @@ class BackupSnapshotService
                 throw new \InvalidArgumentException('Typed confirmation required for replace mode.');
             }
 
+            // Cheap non-consuming peek so a bogus/expired attempt does not
+            // burn a pre_restore safety snapshot (which would evict older
+            // pre_restore lanes). The authoritative consume — including the
+            // drift-hash check — stays inside the transaction below, so a
+            // drifted vault can still land here once; that is acceptable.
+            if (! $this->tokenMatches(Cache::get($this->tokenKey($user->id, $snapshot->id)), $token)) {
+                throw new RestoreTokenInvalidException;
+            }
+
             $this->createSnapshot(
                 $user,
                 self::SOURCE_PRE_RESTORE,
@@ -425,8 +439,18 @@ class BackupSnapshotService
 
             $diff = $this->computeDiff($user, $payload);
 
-            $tokenData = $this->consumeRestoreToken($user->id, $snapshot->id);
-            if ($tokenData === null || ! hash_equals((string) $tokenData['token'], (string) $token)) {
+            // Consume atomically: the account-row lock above serializes
+            // non-empty vaults, but locks NOTHING on a zero-row vault —
+            // without this lock two concurrent restores could both read the
+            // same token. A loser timed out of the lock has, by definition,
+            // been beaten to the single-use token.
+            try {
+                $tokenData = Cache::lock('restore-token-consume:' . $user->id . ':' . $snapshot->id, 5)
+                    ->block(5, fn () => $this->consumeRestoreToken($user->id, $snapshot->id));
+            } catch (LockTimeoutException) {
+                throw new RestoreTokenInvalidException;
+            }
+            if (! $this->tokenMatches($tokenData, $token)) {
                 throw new RestoreTokenInvalidException;
             }
             if ($tokenData['mode'] !== $mode || $tokenData['diff_hash'] !== $diff['diff_hash']) {
@@ -678,6 +702,12 @@ class BackupSnapshotService
         return "restore-token:{$userId}:{$snapshotId}";
     }
 
+    /** The cached token entry must exist and carry the exact token. */
+    private function tokenMatches(?array $tokenData, string $token) : bool
+    {
+        return $tokenData !== null && hash_equals((string) $tokenData['token'], (string) $token);
+    }
+
     // ---- Upsert ----
 
     /**
@@ -757,9 +787,13 @@ class BackupSnapshotService
         $account->otp_type  = $data['otp_type'] ?? 'totp';
         $account->algorithm = $data['algorithm'] ?? 'sha1';
         $account->digits    = (int) ($data['digits'] ?? 6);
-        $account->period    = isset($data['period']) ? (int) $data['period'] : 30;
-        $account->counter   = $data['counter'] ?? null;
-        $account->icon      = $data['icon'] ?? null;
+        // Null passes through for HOTP rows (period is TOTP-only); the
+        // model's setPeriodAttribute mutator defaults TOTP to 30. Hardcoding
+        // 30 here would make every restored HOTP row differ from its
+        // snapshot forever, poisoning future diffs.
+        $account->period  = isset($data['period']) ? (int) $data['period'] : null;
+        $account->counter = $data['counter'] ?? null;
+        $account->icon    = $data['icon'] ?? null;
         // Full-column parity (phase 3): the import path drops these, restore must not.
         $account->notes          = $data['notes'] ?? null;
         $account->is_pinned      = (bool) ($data['is_pinned'] ?? false);

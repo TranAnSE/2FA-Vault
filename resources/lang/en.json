@@ -1148,6 +1148,7 @@
     "settings.snapshots.source_pre_restore": "pre-restore",
     "settings.snapshots.source_scheduled": "scheduled",
     "settings.snapshots.state_changed": "The vault changed since the diff was computed. A fresh diff is shown below — review it again.",
+    "settings.snapshots.rate_limited": "Too many restore attempts. Please wait a few minutes and try again.",
     "settings.snapshots.step_mode_title": "Restoring \"{label}\" — choose how",
     "settings.snapshots.token_expired": "The confirmation expired. A fresh diff is shown below — review it again.",
     "settings.snapshots.title": "Snapshots",

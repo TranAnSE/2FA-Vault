@@ -252,7 +252,9 @@ class BackupSnapshotServiceTest extends TestCase
 
         // Rollback leftover: a file with no row.
         Storage::disk('snapshots')->put('u' . $this->user->id . '/orphan.json', 'garbage');
-        // Dead row: a row whose file is gone.
+        // Dead row: a row whose file is gone — backdated past the prune grace
+        // window (a FRESH dead row may predate its file write and must
+        // survive the sweep).
         $dead = BackupSnapshot::create([
             'user_id'             => $this->user->id,
             'source'              => 'manual',
@@ -263,14 +265,29 @@ class BackupSnapshotServiceTest extends TestCase
             'app_key_fingerprint' => $this->service->appKeyFingerprint(),
             'file_path'           => 'u' . $this->user->id . '/ghost.json',
         ]);
+        BackupSnapshot::whereKey($dead->id)->update(['created_at' => now()->subMinutes(10)]);
 
         $result = $this->service->pruneOrphans();
+
+        // A fresh dead row (file not landed yet, or just deleted) is inside
+        // the grace window and must NOT be judged dead.
+        $fresh = BackupSnapshot::create([
+            'user_id'             => $this->user->id,
+            'source'              => 'manual',
+            'accounts_count'      => 0,
+            'groups_count'        => 0,
+            'size_bytes'          => 1,
+            'checksum'            => str_repeat('0', 64),
+            'app_key_fingerprint' => $this->service->appKeyFingerprint(),
+            'file_path'           => 'u' . $this->user->id . '/inflight.json',
+        ]);
 
         $this->assertSame(1, $result['files_removed']);
         $this->assertSame(1, $result['rows_removed']);
         Storage::disk('snapshots')->assertMissing('u' . $this->user->id . '/orphan.json');
         $this->assertDatabaseMissing('backup_snapshots', ['id' => $dead->id]);
         $this->assertDatabaseHas('backup_snapshots', ['id' => $snapshot->id]);
+        $this->assertDatabaseHas('backup_snapshots', ['id' => $fresh->id]);
     }
 
     public function test_byte_quota_cannot_evict_manual_for_automatic_sources() : void

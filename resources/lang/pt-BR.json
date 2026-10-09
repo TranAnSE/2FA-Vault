@@ -1240,6 +1240,7 @@
     "settings.snapshots.mode_replace": "Replace (destructive)",
     "settings.snapshots.mode_replace_help": "Wipes the vault and restores exactly the snapshot state. Accounts not in the snapshot are deleted.",
     "settings.snapshots.next_button": "Preview changes",
+    "settings.snapshots.rate_limited": "Too many restore attempts. Please wait a few minutes and try again.",
     "settings.snapshots.restore_button": "Restore",
     "settings.snapshots.restore_now": "Restore now",
     "settings.snapshots.result_groups_created": "{count} group(s) re-created",

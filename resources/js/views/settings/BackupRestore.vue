@@ -239,17 +239,20 @@
             await loadSnapshots()
             wizardStep.value = 4
         } catch (error) {
-            if (error.response?.status === 409 || error.response?.status === 422) {
+            if ([409, 422, 429].includes(error.response?.status)) {
                 wizardConfirmText.value = ''
                 // Re-diff first (fresh token + step 2), THEN set the reason:
                 // runWizardDiff resets wizardError, so setting it beforehand
                 // would wipe the message and leave the bounce unexplained.
                 await runWizardDiff()
                 if (!wizardError.value) {
-                    wizardError.value =
-                        error.response.status === 409
-                            ? t('settings.snapshots.state_changed')
-                            : t('settings.snapshots.token_expired')
+                    if (error.response.status === 409) {
+                        wizardError.value = t('settings.snapshots.state_changed')
+                    } else if (error.response.status === 429) {
+                        wizardError.value = error.response.data?.message || t('settings.snapshots.rate_limited')
+                    } else {
+                        wizardError.value = t('settings.snapshots.token_expired')
+                    }
                 }
             } else {
                 errorHandler.show(error)
