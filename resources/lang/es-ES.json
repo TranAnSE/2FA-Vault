@@ -893,6 +893,7 @@
     "message.import_legend": "2FA-Vault puede importar datos de varias aplicaciones 2FA.",
     "message.import_legend_afterpart": "Use la función Exportar de estas aplicaciones para obtener un recurso de migración como un código QR o un archivo JSON y luego cárguelo aquí.",
     "message.imported": "Importado",
+    "message.imports_are_not_end_to_end_encrypted": "Imports are not end-to-end encrypted: account secrets transit through the server in plaintext during the import process.",
     "message.invalid_account": "- cuenta inválida -",
     "message.invalid_reset_token": "Este token de recuperación no es válido.",
     "message.invalid_service": "- servicio inválido -",

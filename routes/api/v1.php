@@ -78,8 +78,8 @@ Route::group(['middleware' => ['auth:api-guard', 'enforceMandatoryEncryption', '
     Route::get('breach/check-service', [BreachController::class, 'checkService'])->name('breach.checkService');
     Route::patch('twofaccounts/withdraw', [TwoFAccountController::class, 'withdraw'])->name('twofaccounts.withdraw')->middleware('pat.scopes:write');
     Route::post('twofaccounts/reorder', [TwoFAccountController::class, 'reorder'])->name('twofaccounts.reorder')->middleware('pat.scopes:write');
-    Route::post('twofaccounts/migration', [TwoFAccountController::class, 'migrate'])->name('twofaccounts.migrate');
-    Route::post('twofaccounts/preview', [TwoFAccountController::class, 'preview'])->name('twofaccounts.preview');
+    Route::post('twofaccounts/migration', [TwoFAccountController::class, 'migrate'])->name('twofaccounts.migrate')->middleware('pat.scopes:write');
+    Route::post('twofaccounts/preview', [TwoFAccountController::class, 'preview'])->name('twofaccounts.preview')->middleware('pat.scopes:write');
     Route::get('twofaccounts/export', [TwoFAccountController::class, 'export'])->name('twofaccounts.export')->middleware('pat.scopes:read');
     Route::get('twofaccounts/encrypted', [TwoFAccountController::class, 'encrypted'])->name('twofaccounts.encrypted');
     Route::get('twofaccounts/{twofaccount}/qrcode', [QrCodeController::class, 'show'])->name('twofaccounts.show.qrcode');

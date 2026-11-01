@@ -804,6 +804,7 @@
     "message.i_m_lucky_legend": "The 'Try my luck' button tries to get a standard icon from the selected icon collection. The simpler the Service field value, the more likely you are to get the expected icon: Do not append any extension (like '.com'), use the exact name of the service, avoid special chars.",
     "message.if_administrator": "Administrator?",
     "message.import_legend": "2FA-Vault can import data from various 2FA apps.",
+    "message.imports_are_not_end_to_end_encrypted": "Imports are not end-to-end encrypted: account secrets transit through the server in plaintext during the import process.",
     "message.import_legend_afterpart": "Use the Export feature of these apps to get a migration resource like a QR code or a JSON file then load it here.",
     "message.imported": "Imported",
     "message.invalid_account": "- invalid account -",

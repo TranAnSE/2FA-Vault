@@ -893,6 +893,7 @@
     "message.import_legend": "2FA-Vault can import data from various 2FA apps.",
     "message.import_legend_afterpart": "Use the Export feature of these apps to get a migration resource like a QR code or a JSON file then load it here.",
     "message.imported": "Импортиран",
+    "message.imports_are_not_end_to_end_encrypted": "Imports are not end-to-end encrypted: account secrets transit through the server in plaintext during the import process.",
     "message.invalid_account": "- невалиден профил -",
     "message.invalid_reset_token": "Този токен за нулиране е невалиден.",
     "message.invalid_service": "- невалидна услуга -",

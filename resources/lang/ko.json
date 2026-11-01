@@ -893,6 +893,7 @@
     "message.import_legend": "2FA-Vault는 다양한 2FA 앱에서 데이터를 가져올 수 있습니다.",
     "message.import_legend_afterpart": "다른 앱의 내보내기 기능을 사용하여 QR 코드 또는 JSON 파일과 같은 마이그레이션 리소스를 가져온 다음 여기에 불러옵니다.",
     "message.imported": "불러옴",
+    "message.imports_are_not_end_to_end_encrypted": "Imports are not end-to-end encrypted: account secrets transit through the server in plaintext during the import process.",
     "message.invalid_account": "- 올바르지 않은 계정 -",
     "message.invalid_reset_token": "이 재설정 토큰은 유효하지 않습니다.",
     "message.invalid_service": "- 올바르지 않은 서비스 -",

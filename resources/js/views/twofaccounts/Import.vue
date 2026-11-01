@@ -47,7 +47,12 @@
         {app: 'Aegis Auth', format: 'JSON'},
         {app: 'Aegis Auth', format: t('label.plain_text')},
         {app: '2FAS auth', format: 'JSON'},
+        {app: 'Ente Auth', format: t('label.plain_text')},
     ]
+
+    // E2EE vaults: the import parse and store phases send plaintext secrets
+    // to the server (upstream behavior); warn so users can pick another flow.
+    const isE2eeEnabled = computed(() => user.encryption_version > 0)
     const exportedAccounts = ref([])
     const isFetching = ref(false)
 
@@ -263,6 +268,10 @@
                     {{ $t('heading.import') }}
                 </h1>
                 <div v-if="!isFetching && exportedAccounts.length === 0">
+                    <div v-if="isE2eeEnabled" class="notification is-warning is-light px-4 py-3" role="alert">
+                        <LucideTriangleAlert class="inline icon-size-1 mr-1" />
+                        {{ $t('message.imports_are_not_end_to_end_encrypted') }}
+                    </div>
                     <div class="block is-size-7-mobile">
                         <p class="mb-2">{{ $t('message.import_legend') }}</p>
                         <p>{{ $t('message.import_legend_afterpart') }}</p>
@@ -373,32 +382,20 @@
                         </thead>
                         <tbody>
                             <tr>
-                                <th>Google Authenticator</th>
-                                <td></td>
-                                <td><LucideCheck stroke-width="3" class="icon-size-1" /></td>
-                                <td></td>
-                            </tr>
-                            <tr>
-                                <th>Aegis Auth</th>
-                                <td><LucideCheck stroke-width="3" class="icon-size-1" /></td>
-                                <td></td>
-                                <td><LucideCheck stroke-width="3" class="icon-size-1" /></td>
-                            </tr>
-                            <tr>
                                 <th>2FAS auth</th>
                                 <td></td>
                                 <td></td>
                                 <td><LucideCheck stroke-width="3" class="icon-size-1" /></td>
                             </tr>
                             <tr>
-                                <th>FreeOTP+</th>
-                                <td><LucideCheck stroke-width="3" class="icon-size-1" /></td>
-                                <td></td>
-                                <td></td>
-                            </tr>
-                            <tr>
                                 <th>2FA-Vault</th>
                                 <td></td>
+                                <td></td>
+                                <td><LucideCheck stroke-width="3" class="icon-size-1" /></td>
+                            </tr>
+                            <tr>
+                                <th>Aegis Auth</th>
+                                <td><LucideCheck stroke-width="3" class="icon-size-1" /></td>
                                 <td></td>
                                 <td><LucideCheck stroke-width="3" class="icon-size-1" /></td>
                             </tr>
@@ -413,6 +410,24 @@
                                 <td></td>
                                 <td></td>
                                 <td><LucideCheck stroke-width="3" class="icon-size-1" /></td>
+                            </tr>
+                            <tr>
+                                <th>Ente Auth</th>
+                                <td><LucideCheck stroke-width="3" class="icon-size-1" /></td>
+                                <td></td>
+                                <td></td>
+                            </tr>
+                            <tr>
+                                <th>FreeOTP+</th>
+                                <td><LucideCheck stroke-width="3" class="icon-size-1" /></td>
+                                <td></td>
+                                <td></td>
+                            </tr>
+                            <tr>
+                                <th>Google Authenticator</th>
+                                <td></td>
+                                <td><LucideCheck stroke-width="3" class="icon-size-1" /></td>
+                                <td></td>
                             </tr>
                         </tbody>
                     </table>           

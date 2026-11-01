@@ -893,6 +893,7 @@
     "message.import_legend": "2FA-Vault विभिन्न 2FA ऐप्स से डेटा आयात कर सकता है।",
     "message.import_legend_afterpart": "QR कोड या JSON फ़ाइल जैसे माइग्रेशन संसाधन प्राप्त करने के लिए इन ऐप्स की निर्यात करने की सुविधा का उपयोग करें और फिर उसे यहां अपलोड करें।",
     "message.imported": "आयात",
+    "message.imports_are_not_end_to_end_encrypted": "Imports are not end-to-end encrypted: account secrets transit through the server in plaintext during the import process.",
     "message.invalid_account": "- अवैध अकाउंट -",
     "message.invalid_reset_token": "यह रीसेट टोकन अमान्य है",
     "message.invalid_service": "- अवैध सर्विस -",

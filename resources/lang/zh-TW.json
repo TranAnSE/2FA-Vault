@@ -893,6 +893,7 @@
     "message.import_legend": "2FA-Vault 支援從各類 2FA 應用導入資料。",
     "message.import_legend_afterpart": "使用這些應用的 「導出」 功能來獲取遷移資源，例如QR Code或 JSON 檔案，然後在 2FA-Vault 中導入。",
     "message.imported": "已導入",
+    "message.imports_are_not_end_to_end_encrypted": "Imports are not end-to-end encrypted: account secrets transit through the server in plaintext during the import process.",
     "message.invalid_account": "- 無效帳號 -",
     "message.invalid_reset_token": "此密碼重置令牌無效",
     "message.invalid_service": "- 無效服務 -",
