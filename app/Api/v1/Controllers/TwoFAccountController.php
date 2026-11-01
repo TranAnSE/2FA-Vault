@@ -6,6 +6,7 @@ use App\Api\v1\Requests\ReorderRequest;
 use App\Api\v1\Requests\TwoFAccountBatchRequest;
 use App\Api\v1\Requests\TwoFAccountDynamicRequest;
 use App\Api\v1\Requests\TwoFAccountExportRequest;
+use App\Api\v1\Requests\TwoFAccountFavoriteRequest;
 use App\Api\v1\Requests\TwoFAccountImportRequest;
 use App\Api\v1\Requests\TwoFAccountIndexRequest;
 use App\Api\v1\Requests\TwoFAccountStoreRequest;
@@ -27,6 +28,7 @@ use App\Models\User;
 use App\Services\PersonalActivityLogger;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Http\Request;
+use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Validation\ValidationException;
@@ -56,7 +58,7 @@ class TwoFAccountController extends Controller
             return new TwoFAccountCollection(
                 $request->user()->twofaccounts()
                     ->whereIn('id', Helpers::commaSeparatedToArray($validated['ids']))
-                    ->with('tags')
+                    ->with(['tags', 'favorites'])
                     ->get()
                     ->sortBy('order_column')
             );
@@ -64,7 +66,7 @@ class TwoFAccountController extends Controller
 
         // Advanced search/filter
         if ($request->hasAny(['q', 'types', 'algorithms', 'digits', 'group_id', 'tags', 'encrypted', 'last_used_from', 'last_used_to', 'sort'])) {
-            $query = $request->user()->twofaccounts()->with('tags');
+            $query = $request->user()->twofaccounts()->with(['tags', 'favorites']);
 
             if ($q = $request->get('q')) {
                 $query->where(function ($sub) use ($q) {
@@ -98,7 +100,7 @@ class TwoFAccountController extends Controller
                     return new TwoFAccountCollection(
                         TwoFAccount::whereHas('sharedAccounts', function ($q) use ($request) {
                             $q->where('member_id', $request->user()->id);
-                        })->with('tags')->get()->sortBy('order_column')
+                        })->with(['tags', 'favorites'])->get()->sortBy('order_column')
                     );
                 } else {
                     $query->where('group_id', $groupId);
@@ -131,7 +133,7 @@ class TwoFAccountController extends Controller
             return new TwoFAccountCollection($query->get());
         }
 
-        return new TwoFAccountCollection($request->user()->twofaccounts()->with('tags')->get()->sortBy('order_column'));
+        return new TwoFAccountCollection($request->user()->twofaccounts()->with(['tags', 'favorites'])->get()->sortBy('order_column'));
     }
 
     /**
@@ -143,8 +145,7 @@ class TwoFAccountController extends Controller
     {
         $this->authorize('view', $twofaccount);
 
-        // $icon = $twofaccount->icon;
-        // $iconRes = $twofaccount->icon()->get();
+        $twofaccount->load(['favorites']);
 
         return new TwoFAccountReadResource($twofaccount);
     }
@@ -152,7 +153,7 @@ class TwoFAccountController extends Controller
     public function encrypted(Request $request)
     {
         return EncryptedTwoFAccountResource::collection(
-            $request->user()->twofaccounts()->where('encrypted', true)->get()->sortBy('order_column')
+            $request->user()->twofaccounts()->where('encrypted', true)->with('favorites')->get()->sortBy('order_column')
         );
     }
 
@@ -547,6 +548,28 @@ class TwoFAccountController extends Controller
         TwoFAccounts::withdraw($ids);
 
         return response()->json(['message' => 'accounts withdrawn'], 200);
+    }
+
+    /**
+     * Set one account as favorite
+     *
+     * @return \App\Api\v1\Resources\TwoFAccountReadResource
+     */
+    public function favorite(TwoFAccountFavoriteRequest $request, TwoFAccount $twofaccount) : TwoFAccountReadResource
+    {
+        // Invisible accounts are masked as 404 (same as absent) — a 403 would
+        // leak the existence of an account the caller cannot view.
+        try {
+            $this->authorize('view', $twofaccount);
+        } catch (AuthorizationException $e) {
+            abort(404);
+        }
+
+        TwoFAccounts::toggleFavorite($twofaccount->id, $request->validated()['is_favorite'], $request->user());
+
+        $twofaccount->load(['favorites']);
+
+        return new TwoFAccountReadResource($twofaccount);
     }
 
     /**

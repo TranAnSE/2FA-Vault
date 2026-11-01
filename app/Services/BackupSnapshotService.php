@@ -237,6 +237,13 @@ class BackupSnapshotService
      * model attributes (E2EE secrets stay ciphertext envelopes) — the payload
      * re-encrypts under APP_KEY at the file layer.
      *
+     * DECIDED (favorites, upstream-v9 migration phase-04): the favorites
+     * pivot (twofaccount_user_favorites) is EXCLUDED from snapshots. It is
+     * per-user presentation metadata, not account data — a restore that
+     * re-applied favorites would silently re-favorite shared accounts for a
+     * single user. Phase-05 keeps this exclusion when reworking the payload
+     * for group pivot memberships.
+     *
      * @return array<string, mixed>
      */
     public function buildPayload(User $user, string $source) : array

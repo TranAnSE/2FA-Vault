@@ -77,6 +77,7 @@ Route::group(['middleware' => ['auth:api-guard', 'enforceMandatoryEncryption', '
     Route::post('breach/check-email', [BreachController::class, 'checkEmail'])->name('breach.checkEmail');
     Route::get('breach/check-service', [BreachController::class, 'checkService'])->name('breach.checkService');
     Route::patch('twofaccounts/withdraw', [TwoFAccountController::class, 'withdraw'])->name('twofaccounts.withdraw')->middleware('pat.scopes:write');
+    Route::patch('twofaccounts/{twofaccount}/favorite', [TwoFAccountController::class, 'favorite'])->where('twofaccount', '[0-9]+')->name('twofaccounts.favorite')->middleware('pat.scopes:write');
     Route::post('twofaccounts/reorder', [TwoFAccountController::class, 'reorder'])->name('twofaccounts.reorder')->middleware('pat.scopes:write');
     Route::post('twofaccounts/migration', [TwoFAccountController::class, 'migrate'])->name('twofaccounts.migrate')->middleware('pat.scopes:write');
     Route::post('twofaccounts/preview', [TwoFAccountController::class, 'preview'])->name('twofaccounts.preview')->middleware('pat.scopes:write');

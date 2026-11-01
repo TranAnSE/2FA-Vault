@@ -237,6 +237,28 @@ class TwoFAccount extends Model implements Sortable
     }
 
     /**
+     * Get the favorite (pivot) rows of this account — one per user who
+     * favorited it. Eager-loaded by the index/show endpoints so the API
+     * resources can compute the requester's is_favorite without N+1.
+     *
+     * @return \Illuminate\Database\Eloquent\Relations\HasMany<TwoFAccountUserFavorite, $this>
+     */
+    public function favorites()
+    {
+        return $this->hasMany(TwoFAccountUserFavorite::class, 'twofaccount_id');
+    }
+
+    /**
+     * The users who favorited this account.
+     *
+     * @return \Illuminate\Database\Eloquent\Relations\BelongsToMany<User, $this>
+     */
+    public function usersWhoFavorited()
+    {
+        return $this->belongsToMany(\App\Models\User::class, 'twofaccount_user_favorites', 'twofaccount_id', 'user_id');
+    }
+
+    /**
      * Get the relation between the icon resource and the model.
      *
      * @return HasOne<\App\Models\Icon, $this>

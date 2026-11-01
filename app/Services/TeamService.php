@@ -6,6 +6,7 @@ use App\Models\SharedAccount;
 use App\Models\Team;
 use App\Models\TeamInvitation;
 use App\Models\TwoFAccount;
+use TwoFAccounts;
 use App\Models\User;
 use App\Support\TeamPermissionSet;
 use Illuminate\Support\Facades\DB;
@@ -96,8 +97,13 @@ class TeamService
 
         // B14: clean up membership pivots and shared-account rows so a soft-deleted
         // team leaves no reusable shares behind.
+        $teamUsers = $team->users()->pluck('users.id');
+        $teamAccountIds = SharedAccount::where('team_id', $team->id)->pluck('twofaccount_id');
+
         $team->users()->detach();
         SharedAccount::where('team_id', $team->id)->delete();
+        // Losing access to a shared account drops the member's favorite on it.
+        TwoFAccounts::deleteFavorites($teamAccountIds, $teamUsers);
         TeamInvitation::where('team_id', $team->id)
             ->where('status', 'pending')
             ->update(['status' => 'cancelled']);
@@ -269,11 +275,17 @@ class TeamService
         DB::beginTransaction();
 
         try {
+            $leftAccountIds = SharedAccount::where('team_id', $team->id)
+                ->where('member_id', $user->id)
+                ->pluck('twofaccount_id');
+
             $team->users()->detach($user->id);
 
             SharedAccount::where('team_id', $team->id)
                 ->where('member_id', $user->id)
                 ->delete();
+
+            TwoFAccounts::deleteFavorites($leftAccountIds, [$user->id]);
 
             TeamInvitation::where('team_id', $team->id)
                 ->where('email', $user->email)
@@ -356,10 +368,16 @@ class TeamService
         DB::beginTransaction();
 
         try {
+            $removedAccountIds = SharedAccount::where('team_id', $team->id)
+                ->where('member_id', $userIdToRemove)
+                ->pluck('twofaccount_id');
+
             $team->users()->detach($userIdToRemove);
             SharedAccount::where('team_id', $team->id)
                 ->where('member_id', $userIdToRemove)
                 ->delete();
+
+            TwoFAccounts::deleteFavorites($removedAccountIds, [$userIdToRemove]);
 
             if ($removedUser) {
                 TeamInvitation::where('team_id', $team->id)
@@ -483,10 +501,17 @@ class TeamService
         }
 
         // Remove existing encrypted shares for this account in this team
+        $previousMemberIds = SharedAccount::where('team_id', $team->id)
+            ->where('twofaccount_id', $account->id)
+            ->whereNotNull('member_id')
+            ->pluck('member_id');
+
         SharedAccount::where('team_id', $team->id)
             ->where('twofaccount_id', $account->id)
             ->whereNotNull('member_id')
             ->delete();
+
+        TwoFAccounts::deleteFavorites([$account->id], $previousMemberIds);
 
         foreach ($memberKeys as $entry) {
             if (! $team->hasMember($entry['member_id'])) {

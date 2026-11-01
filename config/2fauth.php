@@ -46,6 +46,7 @@ $preferences = [
     'showEmailInFooter'      => envUnlessEmpty('USERPREF_DEFAULT__SHOW_EMAIL_IN_FOOTER', true),
     // Off by default: email breach checks send the address to HIBP, so require explicit opt-in.
     'breachMonitoring' => envUnlessEmpty('USERPREF_DEFAULT__BREACH_MONITORING', false),
+    'enableFavorites'  => envUnlessEmpty('USERPREF_DEFAULT__ENABLE_FAVORITES', true),
     // Scheduled server-side snapshots (v1.4.0). Off by default — each snapshot
     // counts against the user's snapshot quota (see snapshotMaxCount below).
     'snapshot_frequency' => envUnlessEmpty('USERPREF_DEFAULT__SNAPSHOT_FREQUENCY', 'off'),
@@ -100,13 +101,13 @@ return [
         // How long exported .vault backup files are kept on disk before the
         // scheduled `backup:cleanup` command prunes them. Default 1 hour keeps
         // the disk clean while still allowing a failed download to be retried.
-        'backupRetentionHours'          => envUnlessEmpty('BACKUP_RETENTION_HOURS', 1),
+        'backupRetentionHours' => envUnlessEmpty('BACKUP_RETENTION_HOURS', 1),
         // Server-side snapshot quotas (per user). Count quota: oldest-first
         // eviction, lane-aware (automatic sources never evict manual
         // snapshots). Byte quota: default 100 MB of encrypted payload.
-        'snapshotMaxCount'   => envUnlessEmpty('SNAPSHOT_MAX_COUNT', 10),
-        'snapshotMaxTotalMb' => envUnlessEmpty('SNAPSHOT_MAX_TOTAL_MB', 100),
-        'snapshotDisk'       => env('SNAPSHOT_DISK', 'snapshots'),
+        'snapshotMaxCount'              => envUnlessEmpty('SNAPSHOT_MAX_COUNT', 10),
+        'snapshotMaxTotalMb'            => envUnlessEmpty('SNAPSHOT_MAX_TOTAL_MB', 100),
+        'snapshotDisk'                  => env('SNAPSHOT_DISK', 'snapshots'),
         'contentSecurityPolicy'         => envUnlessEmpty('CONTENT_SECURITY_POLICY', true),
         'blockOtpauthImagelinkFetching' => envUnlessEmpty('BLOCK_OPTAUTH_IMAGELINK_FETCHING', true),
         // Admin privacy switch: when true, the app never fetches icons from
@@ -178,6 +179,7 @@ return [
         'iconPack',
         'sharing',
         'showNextOtp',
+        'favorites',
     ],
 
     /*

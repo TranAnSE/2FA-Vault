@@ -2,22 +2,34 @@
 
 namespace App\Api\v1\Resources;
 
+use App\Models\Dto\HotpDto;
+use App\Models\Dto\TotpDto;
+use Illuminate\Http\Request;
+
 /**
  * @property mixed $id
  * @property mixed $group_id
  *
  * @method \App\Models\Dto\TotpDto|\App\Models\Dto\HotpDto getOtp(int $time)
+ * @property-read \Illuminate\Database\Eloquent\Collection<int, \App\Models\TwoFAccountUserFavorite> $favorites
  */
 class TwoFAccountReadResource extends TwoFAccountStoreResource
 {
     /**
      * Transform the resource into an array.
      *
-     * @param  \Illuminate\Http\Request  $request
+     * @param  Request  $request
      * @return array
      */
     public function toArray($request)
     {
+        // is_favorite is the requester's own pivot membership. Computed from
+        // the eager-loaded favorites relation (index/show/encrypted load it);
+        // hasFavorite() is the fallback for resources built without the load.
+        $isFavorite = $this->resource->relationLoaded('favorites')
+            ? $this->favorites->contains('user_id', $request->user()?->id)
+            : (bool) $request->user()?->hasFavorite($this->resource);
+
         return array_merge(
             [
                 'id'           => (int) $this->id,
@@ -28,6 +40,7 @@ class TwoFAccountReadResource extends TwoFAccountStoreResource
                     'name'  => $tag->name,
                     'color' => $tag->color,
                 ])->values()),
+                'is_favorite' => $isFavorite,
             ],
             parent::toArray($request),
             [
@@ -35,7 +48,7 @@ class TwoFAccountReadResource extends TwoFAccountStoreResource
                     $this->otp_type != 'hotp' && ($request->has('withOtp') || (int) filter_var($request->input('withOtp'), FILTER_VALIDATE_BOOLEAN) == 1),
                     function () use ($request) {
                         /**
-                         * @var \App\Models\Dto\TotpDto|\App\Models\Dto\HotpDto
+                         * @var TotpDto|HotpDto
                          */
                         $otp = $this->getOtp($request->at);
 

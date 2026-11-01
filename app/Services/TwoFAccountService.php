@@ -5,7 +5,9 @@ namespace App\Services;
 use App\Factories\MigratorFactoryInterface;
 use App\Helpers\Helpers;
 use App\Models\TwoFAccount;
+use App\Models\TwoFAccountUserFavorite;
 use App\Models\User;
+use Illuminate\Support\Arr;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
@@ -49,6 +51,69 @@ class TwoFAccountService
         } else {
             Log::info(sprintf('Cannot find TwoFAccounts to withdraw using ids #%s', implode(',', $ids)));
         }
+    }
+
+    /**
+     * Set one or more twofaccounts as favorite for a given user
+     *
+     * @param  int|array|string  $ids  twofaccount ids to patch
+     */
+    public static function toggleFavorite($ids, bool $is_favorite, User $owner) : void
+    {
+        // $ids as string could be a comma-separated list of ids
+        // so in this case we explode the string to an array
+        $ids = Helpers::commaSeparatedToArray($ids);
+        $ids = is_array($ids) ? $ids : [$ids]; // whereIn() expects an array
+
+        if ($is_favorite) {
+            $payload = [];
+
+            foreach ($ids as $twofaccountId) {
+                $payload[] = [
+                    'user_id'        => (int) $owner->id,
+                    'twofaccount_id' => (int) $twofaccountId,
+                ];
+            }
+
+            $affectedCount = TwoFAccountUserFavorite::query()->upsert(
+                $payload,
+                ['user_id', 'twofaccount_id'],
+            );
+        }
+        else {
+            $affectedCount = TwoFAccountUserFavorite::where('user_id', $owner->id)
+                ->whereIn('twofaccount_id', $ids)
+                ->delete();
+        }
+
+        if ($affectedCount) {
+            Log::info(sprintf('Favorite status of TwoFAccounts with IDs #%s toggled to %s', implode(',', $ids), $is_favorite));
+        } else {
+            Log::info(sprintf('Cannot find TwoFAccounts to fav/unfav using ids #%s', implode(',', $ids)));
+        }
+    }
+
+    /**
+     * Remove the favorites pivot rows of the given accounts for the given
+     * users. Called directly at the share-revocation/transfer sites — the
+     * fork fires no share-revocation events to hook a listener on.
+     *
+     * @param  mixed  $twofaccountIds  account ids (int, array, or pluck() Collection)
+     * @param  mixed  $userIds  user ids (int, array, or pluck() Collection)
+     */
+    public static function deleteFavorites($twofaccountIds, $userIds) : void
+    {
+        // pluck() returns Collections; flatten into plain, filtered arrays
+        $twofaccountIds = array_filter(Arr::flatten(Arr::wrap($twofaccountIds)));
+        $userIds = array_filter(Arr::flatten(Arr::wrap($userIds)));
+
+        if (empty($twofaccountIds) || empty($userIds)) {
+            return;
+        }
+
+        TwoFAccountUserFavorite::whereIn('twofaccount_id', $twofaccountIds)
+            ->whereIn('user_id', $userIds)
+            ->delete();
     }
 
     /**
@@ -166,6 +231,9 @@ class TwoFAccountService
 
         // Remove existing shares — the new owner controls sharing going forward.
         \App\Models\SharedAccount::where('twofaccount_id', $twofaccount->id)->delete();
+
+        // Favorites are per-user access-metadata; a transfer drops them all.
+        self::deleteFavorites([$twofaccount->id], TwoFAccountUserFavorite::where('twofaccount_id', $twofaccount->id)->pluck('user_id'));
 
         Log::info('TwoFAccount ownership transferred', [
             'twofaccount_id' => $twofaccount->id,
