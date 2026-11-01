@@ -91,8 +91,9 @@ class GroupService
                     return;
                 }
 
-                // upsert keeps multi-membership intact: an account already in
-                // another group (for this user) gains a second pivot row here
+                // The unique index on ['twofaccount_id','user_id'] makes this
+                // upsert a MOVE: an account already assigned (for this user)
+                // to another group has its pivot row's group_id updated.
                 TwoFAccountGroupAssignment::upsert(
                     $payload->all(),
                     ['twofaccount_id', 'user_id'],

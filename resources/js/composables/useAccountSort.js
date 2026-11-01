@@ -19,7 +19,6 @@ export function useAccountSort() {
     const { start, stop } = useSortable('#dv', twofaccounts.filtered, {
         animation: 200,
         handle: '.drag-handle',
-        watchElement: true,
         onUpdate: (e) => {
             const movedId = twofaccounts.filtered[e.oldIndex].id
             const inItemsIndex = twofaccounts.items.findIndex(item => item.id == movedId)

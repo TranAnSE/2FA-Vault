@@ -1,7 +1,7 @@
 <script setup>
     import { UseColorMode  } from '@vueuse/components'
     import { useUserStore } from '@/stores/user'
-    import { LucideQrCode, LucideScanQrCode, LucideTrash2 } from 'lucide-vue-next'
+    import { LucideScanQrCode } from 'lucide-vue-next'
 
     const router = useRouter()
     const user = useUserStore()
@@ -45,7 +45,7 @@
         },
     })
 
-    const emit = defineEmits(['update:inManagementMode', 'move-button-clicked', 'delete-button-clicked', 'export-button-clicked', 'switch-to-management-mode'])
+    const emit = defineEmits(['move-button-clicked', 'delete-button-clicked', 'export-button-clicked', 'switch-to-management-mode'])
 
     /**
      * Routes user to the appropriate submitting view
