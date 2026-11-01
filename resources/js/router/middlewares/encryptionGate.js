@@ -2,12 +2,11 @@
  * Enforce encryption setup/unlock routing for authenticated users
  * without creating redirect loops.
  */
-export default function encryptionGate({ to, next, nextMiddleware, stores }) {
+export default function encryptionGate({ to, stores }) {
     const { user, cryptoStore } = stores
 
     if (!user.isAuthenticated) {
-        nextMiddleware()
-        return
+        return true
     }
 
     const routeName = to.name
@@ -21,17 +20,14 @@ export default function encryptionGate({ to, next, nextMiddleware, stores }) {
         user.vault_locked = false
 
         if (requiresSetup && !isSetupRoute) {
-            next({ name: 'setup-encryption' })
-            return
+            return { name: 'setup-encryption' }
         }
 
         if (isUnlockRoute) {
-            next({ name: 'accounts' })
-            return
+            return { name: 'accounts' }
         }
 
-        nextMiddleware()
-        return
+        return true
     }
 
     if (!cryptoStore.isVaultUnlocked) {
@@ -44,20 +40,17 @@ export default function encryptionGate({ to, next, nextMiddleware, stores }) {
         }
 
         if (!isUnlockRoute) {
-            next({ name: 'unlock-vault' })
-            return
+            return { name: 'unlock-vault' }
         }
 
-        nextMiddleware()
-        return
+        return true
     }
 
     user.vault_locked = false
 
     if (isUnlockRoute || (isSetupRoute && user.e2ee_required === true)) {
-        next({ name: 'accounts' })
-        return
+        return { name: 'accounts' }
     }
 
-    nextMiddleware()
+    return true
 }
