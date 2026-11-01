@@ -8,6 +8,13 @@ use Illuminate\Support\Facades\Schema;
 return new class extends Migration
 {
     /**
+     * The SQLite path must toggle PRAGMA foreign_keys, which SQLite only
+     * honors outside any transaction — so this migration runs unwrapped
+     * (MySQL DDL auto-commits anyway, nothing is lost there).
+     */
+    public $withinTransaction = false;
+
+    /**
      * Run the migrations.
      */
     public function up() : void
@@ -16,10 +23,13 @@ return new class extends Migration
             return;
         }
 
-        // SQLite cannot drop a column carrying an FK constraint via ALTER —
-        // rebuild the table from its own CREATE statement instead. No
-        // driver-branching no-ops: every supported engine loses the column
-        // for real.
+        // No driver-branching no-ops: every supported engine loses the column
+        // for real. SQLite cannot DROP COLUMN here (its FK-clause stripping
+        // chokes on "on update <action>" tails) and must not rebuild the
+        // table with foreign keys enforced: renaming would rewrite the child
+        // FK clauses onto the temp name and dropping the live parent would
+        // fire the children's ON DELETE CASCADE (shared_accounts, tag pivot,
+        // otp_logs, the group pivot itself).
         if (DB::getDriverName() === 'sqlite') {
             $this->dropColumnSqlite('twofaccounts', 'group_id');
 
@@ -67,16 +77,23 @@ return new class extends Migration
     }
 
     /**
-     * Engine-safe SQLite dropColumn: reconstruct the CREATE TABLE statement
-     * from sqlite_master without the target column and its FOREIGN KEY
-     * clause, recreate the table, copy the rows, swap the names.
+     * Engine-safe SQLite dropColumn: with FK enforcement OFF, recreate the
+     * table from its own CREATE statement minus the target column and its
+     * FOREIGN KEY clause, copy the rows, drop the original and take its
+     * name. FK clauses stay pointing at "twofaccounts" throughout, and the
+     * identical-row copy keeps every child reference valid.
      */
     private function dropColumnSqlite(string $table, string $column) : void
     {
         $create = DB::select("SELECT sql FROM sqlite_master WHERE type = 'table' AND name = ?", [$table])[0]->sql;
 
         // Strip the quoted column definition line, e.g. `"group_id" INTEGER,`
-        $recreate = preg_replace('/\s*"' . $column . '"\s+[^,]+,/', '', $create, 1);
+        // (or the last-column form `"group_id" INTEGER)` left by a plain
+        // ALTER TABLE ADD COLUMN)
+        $recreate = preg_replace('/\s*"' . $column . '"\s+[^,]+,/', '', $create, 1, $count);
+        if ($count === 0) {
+            $recreate = preg_replace('/\s*,?\s*"' . $column . '"\s+[^,)]+\)/', ')', $create, 1);
+        }
 
         // Strip the FK clause Laravel's grammar emits for the dropped column,
         // e.g. `, foreign key("group_id") references "groups"("id") on delete
@@ -91,18 +108,25 @@ return new class extends Migration
         $tmp      = $table . '_tmp_dropcol';
         $recreate = str_replace('CREATE TABLE "' . $table . '"', 'CREATE TABLE "' . $tmp . '"', $recreate);
 
-        // create the replacement first, copy, then swap the names
-        DB::statement($recreate);
+        DB::statement('PRAGMA foreign_keys = OFF');
 
-        $columns = collect(DB::select("PRAGMA table_info('" . $tmp . "')"))
-            ->pluck('name')
-            ->reject(fn ($name) => $name === $column)
-            ->all();
+        try {
+            DB::statement($recreate);
 
-        $columnList = implode(', ', array_map(fn ($name) => '"' . $name . '"', $columns));
+            $columns = collect(DB::select("PRAGMA table_info('" . $table . "')"))
+                ->pluck('name')
+                ->reject(fn ($name) => $name === $column)
+                ->all();
 
-        DB::statement('INSERT INTO ' . $tmp . ' (' . $columnList . ') SELECT ' . $columnList . ' FROM ' . $table);
-        DB::statement('DROP TABLE ' . $table);
-        DB::statement('ALTER TABLE ' . $tmp . ' RENAME TO ' . $table);
+            $columnList = implode(', ', array_map(fn ($name) => '"' . $name . '"', $columns));
+
+            DB::statement('INSERT INTO ' . $tmp . ' (' . $columnList . ') SELECT ' . $columnList . ' FROM ' . $table);
+            DB::statement('DROP TABLE ' . $table);
+            // with FK enforcement OFF the rename does not rewrite the child
+            // FK clauses onto the temp name
+            DB::statement('ALTER TABLE ' . $tmp . ' RENAME TO ' . $table);
+        } finally {
+            DB::statement('PRAGMA foreign_keys = ON');
+        }
     }
 };
