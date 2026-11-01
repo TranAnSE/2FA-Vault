@@ -65,6 +65,13 @@ class SettingUpdateRequest extends FormRequest
                     'boolean',
                 ],
             ];
+        } elseif ($routeParam == 'useDesktopTableLayout') {
+            $rule = [
+                'value' => [
+                    'required',
+                    'boolean',
+                ],
+            ];
         } elseif ($routeParam == 'auto_backup_enabled') {
             $rule = [
                 'value' => [

@@ -338,6 +338,8 @@
                         <FormSelect v-model="user.preferences.timezone" @update:model-value="val => savePreference('timezone', val)" :options="timezones" fieldName="timezone" :isLocked="appSettings.lockedPreferences.includes('timezone')" label="field.timezone" help="field.timezone.help" />
                         <!-- display mode -->
                         <FormToggle v-model="user.preferences.displayMode" @update:model-value="val => savePreference('displayMode', val)" :choices="layouts" fieldName="displayMode" :isLocked="appSettings.lockedPreferences.includes('displayMode')" label="field.display_mode" help="field.display_mode.help" />
+                        <!-- use Desktop Table Layout -->
+                        <FormCheckbox v-model="user.preferences.useDesktopTableLayout" @update:model-value="val => savePreference('useDesktopTableLayout', val)" fieldName="useDesktopTableLayout" :isLocked="appSettings.lockedPreferences.includes('useDesktopTableLayout')" label="field.desktop_table_layout" help="field.desktop_table_layout.help" />
                         <!-- theme -->
                         <FormToggle v-model="user.preferences.theme" @update:model-value="val => savePreference('theme', val)" :choices="themes" fieldName="theme" :isLocked="appSettings.lockedPreferences.includes('theme')" label="field.theme" help="field.theme.help" />
                         <!-- show icon -->

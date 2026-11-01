@@ -29,14 +29,14 @@
         <!-- select all button -->
         <button type="button" id="btnSelectAll" @click="$emit('select-all')" class="button py-0 px-1 mr-5 has-line-height is-ghost has-text-grey pt-1" :title="$t('tooltip.select_all')">
             <span>{{ $t('label.check_all') }}</span>
-            <LucideSquareCheck class="ml-1" />
+            <LucideSquareCheck class="ml-1" stroke-width="1.5" />
         </button>
         <!-- sort asc/desc buttons -->
         <button type="button" id="btnSortAscending" @click="setSortOrder('asc')" :class="{'has-text-grey' : sortOrder != 'asc'}" class="button has-line-height p-0 is-ghost pt-1" :title="$t('tooltip.sort_ascending')">
-            <LucideArrowDownAZ />
+            <LucideArrowDownAZ stroke-width="1.5" />
         </button>
         <button type="button" id="btnSortDescending" @click="setSortOrder('desc')" :class="{'has-text-grey' : sortOrder != 'desc'}" class="button has-line-height p-0 pl-2 is-ghost pt-1" :title="$t('tooltip.sort_descending')">
-            <LucideArrowUpAZ />
+            <LucideArrowUpAZ stroke-width="1.5" />
         </button>
     </div>
 </template>

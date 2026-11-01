@@ -22,6 +22,7 @@ $preferences = [
     'vaultAutoLockMode'      => envUnlessEmpty('USERPREF_DEFAULT__VAULT_AUTO_LOCK_MODE', 'inactivity'),
     'vaultAutoLockMinutes'   => envUnlessEmpty('USERPREF_DEFAULT__VAULT_AUTO_LOCK_MINUTES', 5),
     'activeGroup'            => 0,
+    'useDesktopTableLayout'  => envUnlessEmpty('USERPREF_DEFAULT__USE_DESKTOP_TABLE_LAYOUT', false),
     'useGroupChips'          => envUnlessEmpty('USERPREF_DEFAULT__USE_GROUP_CHIPS', true),
     'showVirtualChips'       => envUnlessEmpty('USERPREF_DEFAULT__SHOW_VIRTUAL_CHIPS', true),
     'rememberActiveGroup'    => envUnlessEmpty('USERPREF_DEFAULT__REMEMBER_ACTIVE_GROUP', true),

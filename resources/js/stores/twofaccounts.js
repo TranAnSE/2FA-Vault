@@ -112,6 +112,10 @@ export const useTwofaccounts = defineStore('twofaccounts', {
 
         hasNoneSelected(state) {
             return state.selectedIds.length == 0
+        },
+
+        hasSelected(state) {
+            return !this.hasNoneSelected
         }
     },
 
