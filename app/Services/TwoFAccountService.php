@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Factories\MigratorFactoryInterface;
 use App\Helpers\Helpers;
 use App\Models\TwoFAccount;
+use App\Models\TwoFAccountGroupAssignment;
 use App\Models\TwoFAccountUserFavorite;
 use App\Models\User;
 use Illuminate\Support\Arr;
@@ -32,19 +33,25 @@ class TwoFAccountService
      *
      * @param  int|array|string  $ids  twofaccount ids to free
      */
-    public static function withdraw($ids) : void
+    public static function withdraw($ids, ?User $user = null) : void
     {
         // $ids as string could be a comma-separated list of ids
         // so in this case we explode the string to an array
         $ids = Helpers::commaSeparatedToArray($ids);
+        $ids = is_array($ids) ? $ids : [$ids]; // whereIn() expects an array
+        $user ??= Auth::user();
 
-        // whereIn() expects an array
-        $ids = is_array($ids) ? $ids : func_get_args();
+        if (! $user) {
+            Log::warning(sprintf('Cannot withdraw TwoFAccounts from groups without an authenticated user (ids: %s)', implode(',', $ids)));
 
-        $affectedCount = TwoFAccount::whereIn('id', $ids)
-            ->update(
-                ['group_id' => null]
-            );
+            return;
+        }
+
+        // user-scoped: withdrawing removes only the caller's memberships and
+        // never touches other users' multi-memberships
+        $affectedCount = TwoFAccountGroupAssignment::where('user_id', $user->id)
+            ->whereIn('twofaccount_id', $ids)
+            ->delete();
 
         if ($affectedCount) {
             Log::info(sprintf('TwoFAccounts with IDs #%s withdrawn', implode(',', $ids)));
@@ -226,8 +233,11 @@ class TwoFAccountService
 
         $twofaccount->previous_owner_id = $previousOwnerId;
         $twofaccount->user_id           = $newOwner->id;
-        $twofaccount->group_id          = null; // detach from any group
         $twofaccount->save();
+
+        // detach from any group: the transferring user's memberships are
+        // dropped; the recipient starts with their own (empty) set
+        TwoFAccountGroupAssignment::where('twofaccount_id', $twofaccount->id)->delete();
 
         // Remove existing shares — the new owner controls sharing going forward.
         \App\Models\SharedAccount::where('twofaccount_id', $twofaccount->id)->delete();

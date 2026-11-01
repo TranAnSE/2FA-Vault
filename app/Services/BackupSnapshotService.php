@@ -249,6 +249,7 @@ class BackupSnapshotService
     public function buildPayload(User $user, string $source) : array
     {
         $accounts = TwoFAccount::where('user_id', $user->id)
+            ->with(['groups' => fn ($q) => $q->where('user_id', $user->id)])
             ->orderBy('order_column')
             ->get()
             ->map(fn (TwoFAccount $a) => [
@@ -263,7 +264,7 @@ class BackupSnapshotService
                 'counter'        => $a->counter !== null ? (int) $a->counter : null,
                 'otp_type'       => $a->otp_type,
                 'icon'           => $a->icon,
-                'group_id'       => $a->group_id,
+                'group_id'       => $a->groupIdForUser($user),
                 'notes'          => $a->notes,
                 'is_pinned'      => (bool) $a->is_pinned,
                 'recovery_codes' => $a->recovery_codes,
@@ -369,9 +370,22 @@ class BackupSnapshotService
      */
     private const STABLE_COLUMNS = [
         'service', 'account', 'secret', 'encrypted', 'otp_type', 'algorithm',
-        'digits', 'period', 'group_id', 'icon', 'notes', 'is_pinned',
+        'digits', 'period', 'icon', 'notes', 'is_pinned',
         'recovery_codes', 'order_column',
     ];
+
+    /**
+     * Group memberships (m2m pivot since the phase-05 migration) are compared
+     * separately: the snapshot carries the owner's scalar group_id, the live
+     * account resolves its pivot membership per user.
+     */
+    private function groupDiffers(TwoFAccount $account, array $snap, int $userId) : bool
+    {
+        $snapGroupId = $snap['group_id'] ?? null;
+        $currentGroupId = $account->groupIdForUser(User::find($userId));
+
+        return $snapGroupId !== $currentGroupId;
+    }
 
     /**
      * Dry-run: compute the diff a restore would apply and issue a
@@ -649,7 +663,7 @@ class BackupSnapshotService
 
             $matched[$account->id] = true;
 
-            if ($this->contentDiffers($account, $snap)) {
+            if ($this->contentDiffers($account, $snap, $user->id)) {
                 $toUpdate[] = [
                     'id'          => $account->id,
                     'service'     => (string) ($snap['service'] ?? ''),
@@ -693,8 +707,12 @@ class BackupSnapshotService
     }
 
     /** Compare a current account against a snapshot row over stable columns. */
-    private function contentDiffers(TwoFAccount $account, array $snap) : bool
+    private function contentDiffers(TwoFAccount $account, array $snap, int $userId) : bool
     {
+        if ($this->groupDiffers($account, $snap, $userId)) {
+            return true;
+        }
+
         foreach (self::STABLE_COLUMNS as $column) {
             $snapValue = $snap[$column] ?? null;
 
@@ -847,9 +865,13 @@ class BackupSnapshotService
         $account->notes          = $data['notes'] ?? null;
         $account->is_pinned      = (bool) ($data['is_pinned'] ?? false);
         $account->recovery_codes = $data['recovery_codes'] ?? null;
-        // C6: unmapped group ids never attach raw.
-        $snapshotGroupId   = $data['group_id'] ?? null;
-        $account->group_id = $snapshotGroupId !== null && isset($groupMap[(int) $snapshotGroupId])
+        // C6: unmapped group ids never attach raw. Group membership is a
+        // per-user pivot row since the m2m migration — a legacy scalar
+        // snapshot group_id maps through the group map onto one pivot row.
+        // The row is saved FIRST: a newly created account has no id until
+        // then, and the pivot write below needs it.
+        $snapshotGroupId = $data['group_id'] ?? null;
+        $restoreGroupId  = $snapshotGroupId !== null && isset($groupMap[(int) $snapshotGroupId])
             ? $groupMap[(int) $snapshotGroupId]
             : null;
 
@@ -861,6 +883,18 @@ class BackupSnapshotService
         // history is current truth, not snapshot truth (RT-7).
 
         $account->save();
+
+        \App\Models\TwoFAccountGroupAssignment::where('twofaccount_id', $account->id)
+            ->where('user_id', $user->id)
+            ->delete();
+
+        if ($restoreGroupId !== null) {
+            \App\Models\TwoFAccountGroupAssignment::create([
+                'twofaccount_id' => $account->id,
+                'user_id'        => $user->id,
+                'group_id'       => $restoreGroupId,
+            ]);
+        }
     }
 
     // ---- Icon reconciliation (RT-2) ----

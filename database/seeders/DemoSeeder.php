@@ -2,6 +2,7 @@
 
 namespace Database\Seeders;
 
+use App\Models\TwoFAccountGroupAssignment;
 use App\Models\User;
 use App\Models\Group;
 use App\Models\TwoFAccount;
@@ -28,9 +29,8 @@ class DemoSeeder extends Seeder
             'name' => 'Social Networks',
         ]);
 
-        $user->twofaccounts()->createMany([
+        $socialAccounts = $user->twofaccounts()->createMany([
             [
-                'group_id' => $groupSocialNetwork->id,
                 'otp_type' => 'totp',
                 'account' => 'johndoe@facebook.com',
                 'service' => 'Facebook',
@@ -42,7 +42,6 @@ class DemoSeeder extends Seeder
                 'legacy_uri' => 'otpauth://totp/Facebook:johndoe@facebook.com?secret=A4GRFTVVRBGY7UIW',
             ],
             [
-                'group_id' => $groupSocialNetwork->id,
                 'otp_type' => 'totp',
                 'service' => 'Twitter',
                 'account' => '@john',
@@ -54,7 +53,6 @@ class DemoSeeder extends Seeder
                 'legacy_uri' => 'otpauth://totp/Twitter:@john?secret=A2GRFTVVRBGY7UIW',
             ],
             [
-                'group_id' => $groupSocialNetwork->id,
                 'otp_type' => 'totp',
                 'service' => 'Instagram',
                 'account' => '@johndoe',
@@ -66,7 +64,6 @@ class DemoSeeder extends Seeder
                 'legacy_uri' => 'otpauth://totp/Instagram:@johndoe?secret=A6GRFTVVRBGY7UIW',
             ],
             [
-                'group_id' => $groupSocialNetwork->id,
                 'otp_type' => 'totp',
                 'service' => 'LinkedIn',
                 'account' => '@johndoe',
@@ -79,12 +76,20 @@ class DemoSeeder extends Seeder
             ]
         ]);
 
+        // group membership is a per-user pivot row since the m2m migration
+        foreach ($socialAccounts as $socialAccount) {
+            TwoFAccountGroupAssignment::create([
+                'twofaccount_id' => $socialAccount->id,
+                'user_id' => $user->id,
+                'group_id' => $groupSocialNetwork->id,
+            ]);
+        }
+
         $groupECommerce = $user->groups()->create([
             'name' => 'eCommerce',
         ]);
 
-        $user->twofaccounts()->create([
-            'group_id' => $groupECommerce->id,
+        $eCommerceAccount = $user->twofaccounts()->create([
             'otp_type' => 'totp',
             'account' => 'johndoe',
             'service' => 'Amazon',
@@ -94,6 +99,12 @@ class DemoSeeder extends Seeder
             'period' => 30,
             'icon' => 'amazon.png',
             'legacy_uri' => 'otpauth://totp/Amazon:johndoe?secret=A7GRFTVVRBGY7UIW',
+        ]);
+
+        TwoFAccountGroupAssignment::create([
+            'twofaccount_id' => $eCommerceAccount->id,
+            'user_id' => $user->id,
+            'group_id' => $groupECommerce->id,
         ]);
 
         $user->twofaccounts()->createMany([

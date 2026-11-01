@@ -537,7 +537,6 @@ class AccountEncryptionE2ETest extends TestCase
         $account = TwoFAccount::factory()->create([
             'user_id'   => $this->user->id,
             'encrypted' => true,
-            'group_id'  => null,
             'secret'    => json_encode([
                 'ciphertext' => base64_encode('secret'),
                 'iv'         => base64_encode('iv'),
@@ -555,7 +554,7 @@ class AccountEncryptionE2ETest extends TestCase
         $response->assertStatus(200);
 
         $account->refresh();
-        $this->assertEquals($group->id, $account->group_id);
+        $this->assertEquals($group->id, $account->groupIdForUser($this->user));
         $this->assertTrue($account->encrypted);
     }
 
@@ -577,7 +576,11 @@ class AccountEncryptionE2ETest extends TestCase
         $account = TwoFAccount::factory()->create([
             'user_id'   => $this->user->id,
             'encrypted' => true,
-            'group_id'  => $group->id,
+        ]);
+        \App\Models\TwoFAccountGroupAssignment::create([
+            'twofaccount_id' => $account->id,
+            'user_id'        => $this->user->id,
+            'group_id'       => $group->id,
         ]);
 
         // Withdraw from group
@@ -590,7 +593,7 @@ class AccountEncryptionE2ETest extends TestCase
         $response->assertStatus(200);
 
         $account->refresh();
-        $this->assertNull($account->group_id);
+        $this->assertNull($account->groupIdForUser($this->user));
         $this->assertTrue($account->encrypted);
     }
 }

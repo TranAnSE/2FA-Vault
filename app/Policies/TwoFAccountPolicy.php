@@ -157,11 +157,32 @@ class TwoFAccountPolicy
     }
 
     /**
-     * Determine whether the user can update all provided models.
+     * Determine whether the user can assign all provided models to one of their groups.
+     *
+     * Same qualification as view(): owners, plus shared-account recipients
+     * while they remain active members of the sharing team.
      *
      * @param  \Illuminate\Support\Collection<int, \App\Models\TwoFAccount>  $twofaccounts
      * @return \Illuminate\Auth\Access\Response|bool
      */
+    public function assignToGroupEach(User $user, TwoFAccount $twofaccount, $twofaccounts)
+    {
+        $can = true;
+
+        foreach ($twofaccounts as $candidate) {
+            if (! $this->view($user, $candidate)) {
+                $can = false;
+                break;
+            }
+        }
+
+        if (! $can) {
+            Log::notice(sprintf('User ID #%s cannot assign all twofaccounts in IDs #%s to a group', $user->id, $twofaccounts->pluck('id')->implode(',')));
+        }
+
+        return $can;
+    }
+
     public function updateEach(User $user, TwoFAccount $twofaccount, $twofaccounts)
     {
         $can = $this->isOwnerOfEach($user, $twofaccounts);

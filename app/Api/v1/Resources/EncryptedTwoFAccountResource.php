@@ -23,7 +23,7 @@ class EncryptedTwoFAccountResource extends JsonResource
     {
         return [
             'id'          => (int) $this->id,
-            'group_id'    => is_null($this->group_id) ? null : (int) $this->group_id,
+            'group_id'    => ($uid = $request->user()?->id) !== null && ($gid = $this->resource->groupIdForUser($request->user())) !== null ? (int) $gid : null,
             'service'     => $this->service,
             'account'     => $this->account,
             'otp_type'    => $this->otp_type,

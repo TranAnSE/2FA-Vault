@@ -5,6 +5,7 @@ namespace Tests\Feature\Services;
 use App\Facades\TwoFAccounts;
 use App\Models\Group;
 use App\Models\TwoFAccount;
+use App\Models\TwoFAccountGroupAssignment;
 use App\Models\User;
 use App\Services\TwoFAccountService;
 use Illuminate\Support\Facades\Exceptions;
@@ -80,28 +81,32 @@ class TwoFAccountServiceTest extends FeatureTestCase
     public function test_withdraw_comma_separated_ids_deletes_relation()
     {
         $twofaccounts = collect([$this->customHotpTwofaccount, $this->customTotpTwofaccount]);
-        $this->userGroupA->twofaccounts()->saveMany($twofaccounts);
+        foreach ($twofaccounts as $twofaccount) {
+            TwoFAccountGroupAssignment::create([
+                'twofaccount_id' => $twofaccount->id,
+                'user_id'        => $this->user->id,
+                'group_id'       => $this->userGroupA->id,
+            ]);
+        }
 
-        $this->assertDatabaseHas('twofaccounts', [
-            'id'       => $this->customHotpTwofaccount->id,
-            'group_id' => $this->userGroupA->id,
+        $this->assertDatabaseHas('twofaccount_group_assignments', [
+            'twofaccount_id' => $this->customHotpTwofaccount->id,
+            'group_id'       => $this->userGroupA->id,
         ]);
 
-        $this->assertDatabaseHas('twofaccounts', [
-            'id'       => $this->customTotpTwofaccount->id,
-            'group_id' => $this->userGroupA->id,
+        $this->assertDatabaseHas('twofaccount_group_assignments', [
+            'twofaccount_id' => $this->customTotpTwofaccount->id,
+            'group_id'       => $this->userGroupA->id,
         ]);
 
-        TwoFAccounts::withdraw($this->customHotpTwofaccount->id . ',' . $this->customTotpTwofaccount->id);
+        TwoFAccounts::withdraw($this->customHotpTwofaccount->id . ',' . $this->customTotpTwofaccount->id, $this->user);
 
-        $this->assertDatabaseHas('twofaccounts', [
-            'id'       => $this->customTotpTwofaccount->id,
-            'group_id' => null,
+        $this->assertDatabaseMissing('twofaccount_group_assignments', [
+            'twofaccount_id' => $this->customTotpTwofaccount->id,
         ]);
 
-        $this->assertDatabaseHas('twofaccounts', [
-            'id'       => $this->customHotpTwofaccount->id,
-            'group_id' => null,
+        $this->assertDatabaseMissing('twofaccount_group_assignments', [
+            'twofaccount_id' => $this->customHotpTwofaccount->id,
         ]);
     }
 
@@ -109,27 +114,31 @@ class TwoFAccountServiceTest extends FeatureTestCase
     public function test_withdraw_array_of_ids_deletes_relation()
     {
         $twofaccounts = collect([$this->customHotpTwofaccount, $this->customTotpTwofaccount]);
-        $this->userGroupA->twofaccounts()->saveMany($twofaccounts);
+        foreach ($twofaccounts as $twofaccount) {
+            TwoFAccountGroupAssignment::create([
+                'twofaccount_id' => $twofaccount->id,
+                'user_id'        => $this->user->id,
+                'group_id'       => $this->userGroupA->id,
+            ]);
+        }
 
-        $this->assertDatabaseHas('twofaccounts', [
-            'id'       => $this->customHotpTwofaccount->id,
-            'group_id' => $this->userGroupA->id,
+        $this->assertDatabaseHas('twofaccount_group_assignments', [
+            'twofaccount_id' => $this->customHotpTwofaccount->id,
+            'group_id'       => $this->userGroupA->id,
         ]);
 
-        $this->assertDatabaseHas('twofaccounts', [
-            'id'       => $this->customTotpTwofaccount->id,
-            'group_id' => $this->userGroupA->id,
+        $this->assertDatabaseHas('twofaccount_group_assignments', [
+            'twofaccount_id' => $this->customTotpTwofaccount->id,
+            'group_id'       => $this->userGroupA->id,
         ]);
-        TwoFAccounts::withdraw([$this->customHotpTwofaccount->id, $this->customTotpTwofaccount->id]);
+        TwoFAccounts::withdraw([$this->customHotpTwofaccount->id, $this->customTotpTwofaccount->id], $this->user);
 
-        $this->assertDatabaseHas('twofaccounts', [
-            'id'       => $this->customTotpTwofaccount->id,
-            'group_id' => null,
+        $this->assertDatabaseMissing('twofaccount_group_assignments', [
+            'twofaccount_id' => $this->customTotpTwofaccount->id,
         ]);
 
-        $this->assertDatabaseHas('twofaccounts', [
-            'id'       => $this->customHotpTwofaccount->id,
-            'group_id' => null,
+        $this->assertDatabaseMissing('twofaccount_group_assignments', [
+            'twofaccount_id' => $this->customHotpTwofaccount->id,
         ]);
     }
 
@@ -137,18 +146,23 @@ class TwoFAccountServiceTest extends FeatureTestCase
     public function test_withdraw_single_id_deletes_relation()
     {
         $twofaccounts = collect([$this->customHotpTwofaccount, $this->customTotpTwofaccount]);
-        $this->userGroupA->twofaccounts()->saveMany($twofaccounts);
+        foreach ($twofaccounts as $twofaccount) {
+            TwoFAccountGroupAssignment::create([
+                'twofaccount_id' => $twofaccount->id,
+                'user_id'        => $this->user->id,
+                'group_id'       => $this->userGroupA->id,
+            ]);
+        }
 
-        $this->assertDatabaseHas('twofaccounts', [
-            'id'       => $this->customTotpTwofaccount->id,
-            'group_id' => $this->userGroupA->id,
+        $this->assertDatabaseHas('twofaccount_group_assignments', [
+            'twofaccount_id' => $this->customTotpTwofaccount->id,
+            'group_id'       => $this->userGroupA->id,
         ]);
 
-        TwoFAccounts::withdraw($this->customTotpTwofaccount->id);
+        TwoFAccounts::withdraw($this->customTotpTwofaccount->id, $this->user);
 
-        $this->assertDatabaseHas('twofaccounts', [
-            'id'       => $this->customTotpTwofaccount->id,
-            'group_id' => null,
+        $this->assertDatabaseMissing('twofaccount_group_assignments', [
+            'twofaccount_id' => $this->customTotpTwofaccount->id,
         ]);
     }
 

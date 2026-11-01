@@ -94,7 +94,11 @@ class BackupServiceTest extends TestCase
             'name' => 'Personal',
         ]);
 
-        TwoFAccount::factory()->create([
+        $account = TwoFAccount::factory()->create([
+            'user_id' => $this->user->id,
+        ]);
+        \App\Models\TwoFAccountGroupAssignment::create([
+            'twofaccount_id' => $account->id,
             'user_id' => $this->user->id,
             'group_id' => $group->id,
         ]);
@@ -320,7 +324,7 @@ class BackupServiceTest extends TestCase
         $this->assertEquals(1, $result['imported']);
 
         $account = TwoFAccount::where('user_id', $this->user->id)->first();
-        $this->assertNull($account->group_id);
+        $this->assertNull($account->groupIdForUser($this->user));
     }
 
     /**
@@ -859,10 +863,11 @@ class BackupServiceTest extends TestCase
         $this->assertEquals(1, $result['imported']);
 
         $account = TwoFAccount::where('user_id', $this->user->id)->first();
-        $this->assertNotNull($account->group_id);
+        $restoredGroupId = $account->groupIdForUser($this->user);
+        $this->assertNotNull($restoredGroupId);
 
         // Verify the group ID was remapped
-        $group = Group::find($account->group_id);
+        $group = Group::find($restoredGroupId);
         $this->assertEquals('Personal', $group->name);
     }
 

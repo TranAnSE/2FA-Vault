@@ -73,23 +73,15 @@ class GroupControllerTest extends FeatureTestCase
         $this->userGroupA = Group::factory()->for($this->user)->create();
         $this->userGroupB = Group::factory()->for($this->user)->create();
 
-        $this->twofaccountA = TwoFAccount::factory()->for($this->user)->create([
-            'group_id' => $this->userGroupA->id,
-        ]);
-        $this->twofaccountB = TwoFAccount::factory()->for($this->user)->create([
-            'group_id' => $this->userGroupA->id,
-        ]);
+        $this->twofaccountA = $this->createTwofaccountInGroup($this->user, $this->userGroupA);
+        $this->twofaccountB = $this->createTwofaccountInGroup($this->user, $this->userGroupA);
 
         $this->anotherUser       = $this->createEncryptedUser();
         $this->anotherUserGroupA = Group::factory()->for($this->anotherUser)->create();
         $this->anotherUserGroupB = Group::factory()->for($this->anotherUser)->create();
 
-        $this->twofaccountC = TwoFAccount::factory()->for($this->anotherUser)->create([
-            'group_id' => $this->anotherUserGroupA->id,
-        ]);
-        $this->twofaccountD = TwoFAccount::factory()->for($this->anotherUser)->create([
-            'group_id' => $this->anotherUserGroupB->id,
-        ]);
+        $this->twofaccountC = $this->createTwofaccountInGroup($this->anotherUser, $this->anotherUserGroupA);
+        $this->twofaccountD = $this->createTwofaccountInGroup($this->anotherUser, $this->anotherUserGroupB);
     }
 
     #[Test]
@@ -698,7 +690,7 @@ class GroupControllerTest extends FeatureTestCase
         $this->twofaccountA->refresh();
         $this->twofaccountB->refresh();
 
-        $this->assertNull($this->twofaccountA->group_id);
-        $this->assertNull($this->twofaccountB->group_id);
+        $this->assertNull($this->twofaccountA->groupIdForUser($this->user));
+        $this->assertNull($this->twofaccountB->groupIdForUser($this->user));
     }
 }

@@ -2,6 +2,7 @@
 
 namespace Database\Factories;
 
+use App\Models\TwoFAccountGroupAssignment;
 use App\Models\Group;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Factories\Factory;
@@ -24,7 +25,6 @@ class TwoFAccountFactory extends Factory
         $secret = Base32::encodeUpper($this->faker->regexify('[A-Z0-9]{8}'));
 
         return [
-            'group_id' => null,
             'otp_type' => 'totp',
             'account' => $account,
             'service' => $service,
@@ -63,11 +63,13 @@ class TwoFAccountFactory extends Factory
 
     public function inGroup(Group $group)
     {
-        return $this->state(function (array $attributes) use ($group) {
-            return [
-                'group_id' => $group->id,
-                'user_id' => $group->user_id,
-            ];
+        // group membership is a pivot row since the many-to-many migration
+        return $this->afterCreating(function (\App\Models\TwoFAccount $account) use ($group) {
+            TwoFAccountGroupAssignment::create([
+                'twofaccount_id' => $account->id,
+                'group_id'       => $group->id,
+                'user_id'        => $group->user_id,
+            ]);
         });
     }
 

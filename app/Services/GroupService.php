@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Models\Group;
 use App\Models\TwoFAccount;
+use App\Models\TwoFAccountGroupAssignment;
 use App\Models\User;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Database\Eloquent\Collection;
@@ -48,6 +49,10 @@ class GroupService
                 $group = Group::where('id', (int) $targetGroup)
                     ->where('user_id', $user->id)
                     ->first();
+
+                if (! $group) {
+                    throw new ModelNotFoundException('group no longer exists');
+                }
             }
         }
 
@@ -60,17 +65,39 @@ class GroupService
 
             DB::transaction(function () use ($group, $ids, $user) {
                 $group        = Group::sharedLock()->find($group->id);
-                $twofaccounts = TwoFAccount::sharedLock()->find($ids);
+                $twofaccounts = TwoFAccount::sharedLock()->whereIn('id', $ids)->get();
 
                 if (! $group) {
                     throw new ModelNotFoundException('group no longer exists');
                 }
 
-                if ($user->cannot('updateEach', [(new TwoFAccount), $twofaccounts])) {
+                if ($user->cannot('assignToGroupEach', [(new TwoFAccount), $twofaccounts])) {
                     throw new AuthorizationException;
                 }
 
-                $group->twofaccounts()->saveMany($twofaccounts);
+                $payload = $twofaccounts->map(function (TwoFAccount $twofaccount) use ($group, $user) {
+                    return [
+                        'twofaccount_id' => $twofaccount->id,
+                        'user_id'        => $user->id,
+                        'group_id'       => $group->id,
+                        'created_at'     => now(),
+                        'updated_at'     => now(),
+                    ];
+                });
+
+                if ($payload->isEmpty()) {
+                    Log::info(sprintf('No TwoFAccounts found to assign to group %s (ID #%s)', var_export($group->name, true), $group->id));
+
+                    return;
+                }
+
+                // upsert keeps multi-membership intact: an account already in
+                // another group (for this user) gains a second pivot row here
+                TwoFAccountGroupAssignment::upsert(
+                    $payload->all(),
+                    ['twofaccount_id', 'user_id'],
+                    ['group_id', 'updated_at']
+                );
 
                 Log::info(sprintf('Twofaccounts #%s assigned to group %s (ID #%s)', implode(',', $ids), var_export($group->name, true), $group->id));
             }, 5);

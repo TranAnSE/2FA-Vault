@@ -270,26 +270,16 @@ class TwoFAccountControllerTest extends FeatureTestCase
         $this->userGroupA = Group::factory()->for($this->user)->create();
         $this->userGroupB = Group::factory()->for($this->user)->create();
 
-        $this->twofaccountA = TwoFAccount::factory()->for($this->user)->create([
-            'group_id' => $this->userGroupA->id,
-        ]);
-        $this->twofaccountB = TwoFAccount::factory()->for($this->user)->create([
-            'group_id' => $this->userGroupA->id,
-        ]);
+        $this->twofaccountA = $this->createTwofaccountInGroup($this->user, $this->userGroupA);
+        $this->twofaccountB = $this->createTwofaccountInGroup($this->user, $this->userGroupA);
 
         $this->anotherUser       = $this->createEncryptedUser();
         $this->anotherUserGroupA = Group::factory()->for($this->anotherUser)->create();
         $this->anotherUserGroupB = Group::factory()->for($this->anotherUser)->create();
 
-        $this->twofaccountC = TwoFAccount::factory()->for($this->anotherUser)->create([
-            'group_id' => $this->anotherUserGroupA->id,
-        ]);
-        $this->twofaccountD = TwoFAccount::factory()->for($this->anotherUser)->create([
-            'group_id' => $this->anotherUserGroupB->id,
-        ]);
-        $this->twofaccountE = TwoFAccount::factory()->for($this->anotherUser)->create([
-            'group_id' => $this->anotherUserGroupB->id,
-        ]);
+        $this->twofaccountC = $this->createTwofaccountInGroup($this->anotherUser, $this->anotherUserGroupA);
+        $this->twofaccountD = $this->createTwofaccountInGroup($this->anotherUser, $this->anotherUserGroupB);
+        $this->twofaccountE = $this->createTwofaccountInGroup($this->anotherUser, $this->anotherUserGroupB);
     }
 
     #[Test]
@@ -966,7 +956,7 @@ class TwoFAccountControllerTest extends FeatureTestCase
     #[Test]
     public function test_update_with_assignement_to_null_group_returns_success_with_updated_resource()
     {
-        $this->assertNotEquals(null, $this->twofaccountA->group_id);
+        $this->assertNotEquals(null, $this->twofaccountA->groupIdForUser($this->user));
 
         Passport::actingAs($this->user, ['legacy_full_access'], 'api-guard');
         $response = $this
@@ -984,7 +974,7 @@ class TwoFAccountControllerTest extends FeatureTestCase
     #[Test]
     public function test_update_with_assignement_to_zero_group_returns_success_with_updated_resource()
     {
-        $this->assertNotEquals(null, $this->twofaccountA->group_id);
+        $this->assertNotEquals(null, $this->twofaccountA->groupIdForUser($this->user));
 
         Passport::actingAs($this->user, ['legacy_full_access'], 'api-guard');
         $response = $this
@@ -1002,7 +992,7 @@ class TwoFAccountControllerTest extends FeatureTestCase
     #[Test]
     public function test_update_with_assignement_to_new_groupid_returns_success_with_updated_resource()
     {
-        $this->assertEquals($this->userGroupA->id, $this->twofaccountA->group_id);
+        $this->assertEquals($this->userGroupA->id, $this->twofaccountA->groupIdForUser($this->user));
 
         Passport::actingAs($this->user, ['legacy_full_access'], 'api-guard');
         $response = $this

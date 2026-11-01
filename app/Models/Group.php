@@ -158,11 +158,25 @@ class Group extends Model implements Sortable
     /**
      * Get the TwoFAccounts of the group.
      *
-     * @return \Illuminate\Database\Eloquent\Relations\HasMany<\App\Models\TwoFAccount, $this>
+     * m2m inverse side: runs through the assignments pivot.
+     *
+     * @return \Illuminate\Database\Eloquent\Relations\BelongsToMany<\App\Models\TwoFAccount, $this, \Illuminate\Database\Eloquent\Relations\Pivot, 'pivot'>
      */
     public function twofaccounts()
     {
-        return $this->hasMany(\App\Models\TwoFAccount::class);
+        return $this->belongsToMany(\App\Models\TwoFAccount::class, 'twofaccount_group_assignments', 'group_id', 'twofaccount_id')
+            ->withPivot('user_id')
+            ->withTimestamps();
+    }
+
+    /**
+     * Get the assignment rows for this group.
+     *
+     * @return \Illuminate\Database\Eloquent\Relations\HasMany<\App\Models\TwoFAccountGroupAssignment, $this>
+     */
+    public function twofaccountGroupAssignments()
+    {
+        return $this->hasMany(\App\Models\TwoFAccountGroupAssignment::class, 'group_id');
     }
 
     /**

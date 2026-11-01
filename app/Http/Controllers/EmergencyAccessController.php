@@ -216,8 +216,18 @@ class EmergencyAccessController extends Controller
         }
 
         $accounts = \App\Models\TwoFAccount::where('user_id', $contact->owner_id)
+            ->with(['groups' => function ($q) use ($contact) {
+                $q->where('user_id', $contact->owner_id);
+            }])
             ->orderBy('order_column')
-            ->get(['id', 'service', 'account', 'otp_type', 'secret', 'encrypted', 'digits', 'algorithm', 'counter', 'period', 'icon', 'group_id', 'last_used_at']);
+            ->get()
+            ->map(function ($account) use ($contact) {
+                // group_id column dropped by the m2m migration — emit the
+                // owner's per-user grouping as the scalar the payload always had
+                return collect($account)
+                    ->only(['id', 'service', 'account', 'otp_type', 'secret', 'encrypted', 'digits', 'algorithm', 'counter', 'period', 'icon', 'last_used_at'])
+                    ->put('group_id', $account->groupIdForUser(\App\Models\User::find($contact->owner_id)));
+            });
 
         return response()->json([
             'contact_id'   => $contact->id,

@@ -26,9 +26,8 @@ class TestingSeeder extends Seeder
             'name' => 'Social Networks (admin)',
         ]);
 
-        $admin->twofaccounts()->createMany([
+        $adminSocialAccountIds = $admin->twofaccounts()->createMany([
             [
-                'group_id' => $groupSocialNetwork->id,
                 'otp_type' => 'totp',
                 'account' => 'johndoe@facebook.com',
                 'service' => 'Facebook',
@@ -40,7 +39,6 @@ class TestingSeeder extends Seeder
                 'legacy_uri' => 'otpauth://totp/Facebook:johndoe@facebook.com?secret=A4GRFTVVRBGY7UIW',
             ],
             [
-                'group_id' => $groupSocialNetwork->id,
                 'otp_type' => 'totp',
                 'service' => 'Twitter',
                 'account' => '@john',
@@ -52,7 +50,6 @@ class TestingSeeder extends Seeder
                 'legacy_uri' => 'otpauth://totp/Twitter:@john?secret=A2GRFTVVRBGY7UIW',
             ],
             [
-                'group_id' => $groupSocialNetwork->id,
                 'otp_type' => 'totp',
                 'service' => 'Instagram',
                 'account' => '@johndoe',
@@ -65,13 +62,21 @@ class TestingSeeder extends Seeder
             ]
         ]);
 
+        // m2m: memberships are pivot rows per user
+        foreach ($adminSocialAccountIds as $socialAccount) {
+            \App\Models\TwoFAccountGroupAssignment::create([
+                'twofaccount_id' => $socialAccount->id,
+                'user_id' => $admin->id,
+                'group_id' => $groupSocialNetwork->id,
+            ]);
+        }
+
         $groupCloud = $admin->groups()->create([
             'name' => 'Cloud',
         ]);
 
-        $admin->twofaccounts()->createMany([
+        $adminCloudAccountIds = $admin->twofaccounts()->createMany([
             [
-                'group_id' => $groupCloud->id,
                 'otp_type' => 'totp',
                 'account' => 'john.doe',
                 'service' => 'Dropbox',
@@ -83,6 +88,14 @@ class TestingSeeder extends Seeder
                 'legacy_uri' => 'otpauth://totp/Dropbox:john.doe?secret=A3GRFTVVRBGY7UIW',
             ]
         ]);
+
+        foreach ($adminCloudAccountIds as $cloudAccount) {
+            \App\Models\TwoFAccountGroupAssignment::create([
+                'twofaccount_id' => $cloudAccount->id,
+                'user_id' => $admin->id,
+                'group_id' => $groupCloud->id,
+            ]);
+        }
 
         $admin->twofaccounts()->createMany([
             [
@@ -120,9 +133,8 @@ class TestingSeeder extends Seeder
             'name' => 'Social Networks (user)',
         ]);
 
-        $user->twofaccounts()->createMany([
+        $userSocialAccountIds = $user->twofaccounts()->createMany([
             [
-                'group_id' => $groupSocialNetworkUser->id,
                 'otp_type' => 'totp',
                 'service' => 'LinkedIn',
                 'account' => '@johndoe',
@@ -135,13 +147,20 @@ class TestingSeeder extends Seeder
             ]
         ]);
 
+        foreach ($userSocialAccountIds as $socialUserAccount) {
+            \App\Models\TwoFAccountGroupAssignment::create([
+                'twofaccount_id' => $socialUserAccount->id,
+                'user_id' => $user->id,
+                'group_id' => $groupSocialNetworkUser->id,
+            ]);
+        }
+
         $groupGafam = $user->groups()->create([
             'name' => 'GAFAM',
         ]);
 
-        $user->twofaccounts()->createMany([
+        $userGafamAccountIds = $user->twofaccounts()->createMany([
             [
-                'group_id' => $groupGafam->id,
                 'otp_type' => 'totp',
                 'service' => 'Google',
                 'account' => 'john.doe@gmail.com',
@@ -153,6 +172,14 @@ class TestingSeeder extends Seeder
                 'legacy_uri' => 'otpauth://totp/Google:john.doe@gmail.com?secret=A5GRFTVVRBGY7UIW',
             ]
         ]);
+
+        foreach ($userGafamAccountIds as $gafamAccount) {
+            \App\Models\TwoFAccountGroupAssignment::create([
+                'twofaccount_id' => $gafamAccount->id,
+                'user_id' => $user->id,
+                'group_id' => $groupGafam->id,
+            ]);
+        }
 
         $user->twofaccounts()->createMany([
             [

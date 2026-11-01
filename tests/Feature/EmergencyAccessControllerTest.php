@@ -542,4 +542,45 @@ class EmergencyAccessControllerTest extends TestCase
 
         $this->assertSame(1, EmergencyAccessRequest::where('contact_id', $contact->id)->where('status', 'pending')->count());
     }
+
+    public function test_vault_data_resolves_owner_group_assignment_post_m2m() : void
+    {
+        $owner   = $this->createEncryptedUser();
+        $grantee = $this->createEncryptedUser(['public_key' => $this->granteePublicKey()]);
+
+        // the owner grouped the account before sharing emergency access —
+        // the payload must still carry the owner's scalar group_id even
+        // though the memberships are pivot rows since the m2m migration
+        $group   = \App\Models\Group::factory()->for($owner)->create(['name' => 'Personal']);
+        $account = \App\Models\TwoFAccount::factory()->create([
+            'user_id' => $owner->id,
+            'service' => 'GitHub',
+            'account' => 'alice@example.com',
+            'secret'  => 'JBSWY3DPEHPK3PXP',
+            'otp_type' => 'totp',
+        ]);
+        \App\Models\TwoFAccountGroupAssignment::create([
+            'twofaccount_id' => $account->id,
+            'user_id'        => $owner->id,
+            'group_id'       => $group->id,
+        ]);
+
+        $contact = EmergencyContact::factory()->create([
+            'owner_id'                       => $owner->id,
+            'trusted_user_id'                => $grantee->id,
+            'status'                         => 'active',
+            'access_type'                    => 'view_only',
+            'encrypted_key'                  => 'wrapped-vault-key',
+            'grantee_public_key_fingerprint' => \App\Services\EmergencyAccessService::publicKeyFingerprint($grantee->public_key),
+        ]);
+
+        Passport::actingAs($grantee, ['legacy_full_access'], 'api-guard');
+        $this
+            ->getJson("/api/v1/emergency-contacts/{$contact->id}/vault-data")
+            ->assertStatus(200)
+            ->assertJsonFragment([
+                'service'  => 'GitHub',
+                'group_id' => $group->id,
+            ]);
+    }
 }

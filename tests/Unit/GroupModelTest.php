@@ -6,6 +6,7 @@ use App\Events\GroupDeleted;
 use App\Models\Group;
 use App\Models\TwoFAccount;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
 use Tests\ModelTestCase;
@@ -42,7 +43,12 @@ class GroupModelTest extends ModelTestCase
     {
         $group    = new Group;
         $accounts = $group->twofaccounts();
-        $this->assertHasManyRelation($accounts, $group, new TwoFAccount);
+
+        // m2m: the inverse side runs through the assignments pivot
+        $this->assertInstanceOf(BelongsToMany::class, $accounts);
+        $this->assertSame('twofaccount_group_assignments', $accounts->getTable());
+        $this->assertSame('group_id', $accounts->getForeignPivotKeyName());
+        $this->assertSame('twofaccount_id', $accounts->getRelatedPivotKeyName());
     }
 
     #[Test]

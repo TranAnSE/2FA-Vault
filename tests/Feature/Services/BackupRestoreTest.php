@@ -49,10 +49,21 @@ class BackupRestoreTest extends TestCase
         $account->account  = 'alice@example.com';
         $account->secret   = 'JBSWY3DPEHPK3PXP';
         $account->otp_type = 'totp';
+        $groupId = $overrides['group_id'] ?? null;
+        unset($overrides['group_id']);
         foreach ($overrides as $key => $value) {
             $account->{$key} = $value;
         }
         $account->save();
+
+        if ($groupId !== null) {
+            // m2m: membership is a pivot row
+            \App\Models\TwoFAccountGroupAssignment::create([
+                'twofaccount_id' => $account->id,
+                'user_id'        => $this->user->id,
+                'group_id'       => $groupId,
+            ]);
+        }
 
         return $account;
     }
@@ -282,8 +293,11 @@ class BackupRestoreTest extends TestCase
         $group->name    = 'Work';
         $group->user_id = $this->user->id;
         $group->save();
-        $account->group_id = $group->id;
-        $account->save();
+        \App\Models\TwoFAccountGroupAssignment::create([
+            'twofaccount_id' => $account->id,
+            'user_id'        => $this->user->id,
+            'group_id'       => $group->id,
+        ]);
 
         [$snapshot] = $this->takeSnapshot();
 
@@ -293,7 +307,9 @@ class BackupRestoreTest extends TestCase
         $account->is_pinned      = false;
         $account->recovery_codes = null;
         $account->digits         = 6;
-        $account->group_id       = null;
+        \App\Models\TwoFAccountGroupAssignment::where('twofaccount_id', $account->id)
+            ->where('user_id', $this->user->id)
+            ->delete();
         $account->save();
 
         $diff   = $this->service->dryRun($this->user, $snapshot, 'merge');
@@ -308,7 +324,7 @@ class BackupRestoreTest extends TestCase
         $this->assertSame(['aaaa-bbbb'], json_decode($restored->recovery_codes, true));
         $this->assertSame(8, $restored->digits);
         $this->assertSame('sha512', $restored->algorithm);
-        $this->assertSame($group->id, $restored->group_id);
+        $this->assertSame($group->id, $restored->groupIdForUser($this->user));
     }
 
     public function test_merge_recreates_deleted_account_and_maps_group_by_name() : void
@@ -332,7 +348,7 @@ class BackupRestoreTest extends TestCase
         $this->assertSame('GitHub', $restored->service);
         $this->assertNotSame($accountId, $restored->id);
         // The group still exists — mapped back, not duplicated.
-        $this->assertSame($group->id, $restored->group_id);
+        $this->assertSame($group->id, $restored->groupIdForUser($this->user));
         $this->assertSame(0, $result['groups_created']);
     }
 
@@ -355,9 +371,10 @@ class BackupRestoreTest extends TestCase
 
         $this->assertSame(1, $result['groups_created']);
         $restored = TwoFAccount::where('user_id', $this->user->id)->firstOrFail();
-        $this->assertNotNull($restored->group_id);
-        $this->assertNotSame($groupId, $restored->group_id);
-        $this->assertSame('Gone', Group::find($restored->group_id)->name);
+        $restoredGroupId = $restored->groupIdForUser($this->user);
+        $this->assertNotNull($restoredGroupId);
+        $this->assertNotSame($groupId, $restoredGroupId);
+        $this->assertSame('Gone', Group::find($restoredGroupId)->name);
     }
 
     // ---- Replace mode ----
@@ -521,7 +538,7 @@ class BackupRestoreTest extends TestCase
         $this->user->refresh();
         $this->assertSame(0, (int) $this->user->preferences['defaultGroup']);
         $this->assertSame(0, (int) $this->user->preferences['activeGroup']);
-        $this->assertDatabaseHas('twofaccounts', ['id' => $account->id, 'group_id' => $keptGroup->id]);
+        $this->assertDatabaseHas('twofaccount_group_assignments', ['twofaccount_id' => $account->id, 'group_id' => $keptGroup->id]);
     }
 
     public function test_merge_mode_never_deletes_groups() : void

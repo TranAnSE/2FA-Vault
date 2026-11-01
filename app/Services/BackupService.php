@@ -87,9 +87,11 @@ class BackupService
         }
 
         $accounts = $accountsQuery
-            ->when($includeGroups, fn ($q) => $q->with('group'))
+            ->with(['groups' => fn ($q) => $q->where('user_id', $user->id)])
             ->get()
-            ->map(function ($account) {
+            ->map(function ($account) use ($user) {
+                $groupId = $account->groupIdForUser($user);
+
                 return [
                     'id' => $account->id,
                     'service' => $account->service,
@@ -102,8 +104,10 @@ class BackupService
                     'counter' => $account->counter,
                     'otp_type' => $account->otp_type,
                     'icon' => $account->icon,
-                    'group_id' => $account->group_id,
-                    'group_name' => $account->group?->name,
+                    'group_id' => $groupId,
+                    'group_name' => $groupId !== null
+                        ? \App\Models\Group::find($groupId)?->name
+                        : null,
                     'created_at' => $account->created_at?->toIso8601String(),
                     'updated_at' => $account->updated_at?->toIso8601String(),
                 ];
@@ -373,17 +377,20 @@ class BackupService
                     $account->otp_type = $accountData['otp_type'] ?? 'totp';
                     $account->icon = $accountData['icon'] ?? null;
 
-                    if (!$importGroups) {
-                        $account->group_id = null;
-                    } elseif (isset($accountData['group_id']) && isset($groupMapping[$accountData['group_id']])) {
-                        $account->group_id = $groupMapping[$accountData['group_id']];
-                    } else {
-                        // C6: an unmapped group_id belongs to another user (or
-                        // a group that failed to import) — never attach it raw.
-                        $account->group_id = null;
+                    $restoreGroupId = null;
+                    if ($importGroups && isset($accountData['group_id']) && isset($groupMapping[$accountData['group_id']])) {
+                        $restoreGroupId = $groupMapping[$accountData['group_id']];
                     }
-
+                    // C6: an unmapped group_id belongs to another user (or a
+                    // group that failed to import) — never attach it raw.
                     $account->save();
+
+                    if ($restoreGroupId !== null) {
+                        \App\Models\TwoFAccountGroupAssignment::updateOrCreate(
+                            ['twofaccount_id' => $account->id, 'user_id' => $user->id],
+                            ['group_id' => $restoreGroupId]
+                        );
+                    }
                     $imported++;
                     $importedIds[] = $account->id;
 

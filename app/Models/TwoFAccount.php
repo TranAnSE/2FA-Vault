@@ -41,7 +41,7 @@ use SteamTotp\SteamTotp;
  * @property \Illuminate\Support\Carbon|null $created_at
  * @property \Illuminate\Support\Carbon|null $updated_at
  * @property int|null $order_column
- * @property int|null $group_id
+ * @property-read \Illuminate\Database\Eloquent\Collection<int, \App\Models\TwoFAccountGroupAssignment> $groups
  * @property string $otp_type
  * @property string $secret
  * @property string $algorithm
@@ -229,11 +229,30 @@ class TwoFAccount extends Model implements Sortable
     }
 
     /**
-     * Get the group that the account belongs to
+     * Get the group assignments defined for this account (many-to-many,
+     * per-user memberships).
+     *
+     * @return \Illuminate\Database\Eloquent\Relations\HasMany<TwoFAccountGroupAssignment, $this>
      */
-    public function group()
+    public function groups()
     {
-        return $this->belongsTo(\App\Models\Group::class);
+        return $this->hasMany(TwoFAccountGroupAssignment::class, 'twofaccount_id');
+    }
+
+    /**
+     * Return the group id assigned to this account by the provided user.
+     */
+    public function groupIdForUser(User $user) : ?int
+    {
+        if ($this->relationLoaded('groups')) {
+            return $this->groups
+                ->where('user_id', (int) $user->id)
+                ->first()?->group_id;
+        }
+
+        return $this->groups()
+            ->where('user_id', $user->id)
+            ->value('group_id');
     }
 
     /**

@@ -52,10 +52,16 @@ class BackupControllerTest extends TestCase
             'name'    => 'Personal',
         ]);
 
-        TwoFAccount::factory()->count(3)->create([
+        $accounts = TwoFAccount::factory()->count(3)->create([
             'user_id'  => $this->user->id,
-            'group_id' => $group->id,
         ]);
+        foreach ($accounts as $account) {
+            \App\Models\TwoFAccountGroupAssignment::create([
+                'twofaccount_id' => $account->id,
+                'user_id'        => $this->user->id,
+                'group_id'       => $group->id,
+            ]);
+        }
 
         Passport::actingAs($this->user, ['legacy_full_access'], 'api-guard');
         $response = $this
@@ -108,10 +114,16 @@ class BackupControllerTest extends TestCase
             'name'    => 'Legacy Alias Group',
         ]);
 
-        TwoFAccount::factory()->count(2)->create([
+        $legacyAccounts = TwoFAccount::factory()->count(2)->create([
             'user_id'  => $this->user->id,
-            'group_id' => $group->id,
         ]);
+        foreach ($legacyAccounts as $account) {
+            \App\Models\TwoFAccountGroupAssignment::create([
+                'twofaccount_id' => $account->id,
+                'user_id'        => $this->user->id,
+                'group_id'       => $group->id,
+            ]);
+        }
 
         Passport::actingAs($this->user, ['legacy_full_access'], 'api-guard');
         $response = $this
@@ -190,8 +202,14 @@ class BackupControllerTest extends TestCase
 
         $accounts = TwoFAccount::factory()->count(2)->create([
             'user_id'  => $this->user->id,
-            'group_id' => $group->id,
         ]);
+        foreach ($accounts as $account) {
+            \App\Models\TwoFAccountGroupAssignment::create([
+                'twofaccount_id' => $account->id,
+                'user_id'        => $this->user->id,
+                'group_id'       => $group->id,
+            ]);
+        }
 
         $backupData = [
             'format'           => '2FA-Vault',

@@ -8,7 +8,7 @@ use Illuminate\Http\Request;
 
 /**
  * @property mixed $id
- * @property mixed $group_id
+ * @method int|null groupIdForUser(\App\Models\User $user)
  *
  * @method \App\Models\Dto\TotpDto|\App\Models\Dto\HotpDto getOtp(int $time)
  * @property-read \Illuminate\Database\Eloquent\Collection<int, \App\Models\TwoFAccountUserFavorite> $favorites
@@ -23,6 +23,7 @@ class TwoFAccountReadResource extends TwoFAccountStoreResource
      */
     public function toArray($request)
     {
+        $groupId = $this->groupIdForUser($request->user());
         // is_favorite is the requester's own pivot membership. Computed from
         // the eager-loaded favorites relation (index/show/encrypted load it);
         // hasFavorite() is the fallback for resources built without the load.
@@ -33,7 +34,7 @@ class TwoFAccountReadResource extends TwoFAccountStoreResource
         return array_merge(
             [
                 'id'           => (int) $this->id,
-                'group_id'     => is_null($this->group_id) ? null : (int) $this->group_id,
+                'group_id'     => is_null($groupId) ? null : (int) $groupId,
                 'last_used_at' => $this->last_used_at?->toISOString(),
                 'tags'         => $this->whenLoaded('tags', fn () => $this->tags->map(fn ($tag) => [
                     'id'    => $tag->id,

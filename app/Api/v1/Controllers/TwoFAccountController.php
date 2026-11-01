@@ -58,7 +58,7 @@ class TwoFAccountController extends Controller
             return new TwoFAccountCollection(
                 $request->user()->twofaccounts()
                     ->whereIn('id', Helpers::commaSeparatedToArray($validated['ids']))
-                    ->with(['tags', 'favorites'])
+                    ->with(['tags', 'favorites', 'groups' => fn ($q) => $q->where('user_id', $request->user()->id)])
                     ->get()
                     ->sortBy('order_column')
             );
@@ -66,7 +66,7 @@ class TwoFAccountController extends Controller
 
         // Advanced search/filter
         if ($request->hasAny(['q', 'types', 'algorithms', 'digits', 'group_id', 'tags', 'encrypted', 'last_used_from', 'last_used_to', 'sort'])) {
-            $query = $request->user()->twofaccounts()->with(['tags', 'favorites']);
+            $query = $request->user()->twofaccounts()->with(['tags', 'favorites', 'groups' => fn ($q) => $q->where('user_id', $request->user()->id)]);
 
             if ($q = $request->get('q')) {
                 $query->where(function ($sub) use ($q) {
@@ -100,10 +100,14 @@ class TwoFAccountController extends Controller
                     return new TwoFAccountCollection(
                         TwoFAccount::whereHas('sharedAccounts', function ($q) use ($request) {
                             $q->where('member_id', $request->user()->id);
-                        })->with(['tags', 'favorites'])->get()->sortBy('order_column')
+                        })->with(['tags', 'favorites', 'groups' => function ($q) use ($request) {
+                            $q->where('user_id', $request->user()->id);
+                        }])->get()->sortBy('order_column')
                     );
                 } else {
-                    $query->where('group_id', $groupId);
+                    $query->whereHas('groups', function ($q) use ($groupId, $request) {
+                        $q->where('group_id', $groupId)->where('user_id', $request->user()->id);
+                    });
                 }
             }
             if ($request->filled('tags')) {
@@ -133,7 +137,7 @@ class TwoFAccountController extends Controller
             return new TwoFAccountCollection($query->get());
         }
 
-        return new TwoFAccountCollection($request->user()->twofaccounts()->with(['tags', 'favorites'])->get()->sortBy('order_column'));
+        return new TwoFAccountCollection($request->user()->twofaccounts()->with(['tags', 'favorites', 'groups' => fn ($q) => $q->where('user_id', $request->user()->id)])->get()->sortBy('order_column'));
     }
 
     /**
@@ -145,7 +149,12 @@ class TwoFAccountController extends Controller
     {
         $this->authorize('view', $twofaccount);
 
-        $twofaccount->load(['favorites']);
+        $twofaccount->load([
+            'favorites',
+            'groups' => function ($query) {
+                $query->where('user_id', auth()->id());
+            },
+        ]);
 
         return new TwoFAccountReadResource($twofaccount);
     }
@@ -200,7 +209,13 @@ class TwoFAccountController extends Controller
 
         $this->activityLogger->log($request->user(), PersonalAction::ACCOUNT_CREATED, [], $twofaccount->id);
 
-        return (new TwoFAccountReadResource($twofaccount->refresh()))
+        $twofaccount = $twofaccount->refresh()->load([
+            'groups' => function ($query) use ($request) {
+                $query->where('user_id', $request->user()->id);
+            },
+        ]);
+
+        return (new TwoFAccountReadResource($twofaccount))
             ->response()
             ->setStatusCode(201);
     }
@@ -246,23 +261,31 @@ class TwoFAccountController extends Controller
             }
         }
 
-        // Possible group change
-        $groupId = Arr::get($validated, 'group_id', null);
-        if ($twofaccount->group_id != $groupId) {
+        // Possible group change (per-user scalar semantics)
+        $groupId        = Arr::get($validated, 'group_id', null);
+        $currentGroupId = $twofaccount->groupIdForUser($request->user());
+
+        if ($currentGroupId != $groupId) {
             if ((int) $groupId === 0) {
-                TwoFAccounts::withdraw($twofaccount->id);
+                TwoFAccounts::withdraw($twofaccount->id, $request->user());
             } else {
                 try {
                     Groups::assign($twofaccount->id, $request->user(), $groupId);
                 } catch (ModelNotFoundException $exc) {
                     // The destination group no longer exists, the twofaccount is withdrawn
-                    TwoFAccounts::withdraw($twofaccount->id);
+                    TwoFAccounts::withdraw($twofaccount->id, $request->user());
                 }
             }
             $twofaccount->refresh();
         }
 
         $this->activityLogger->log($request->user(), PersonalAction::ACCOUNT_UPDATED, [], $twofaccount->id);
+
+        $twofaccount->load([
+            'groups' => function ($query) use ($request) {
+                $query->where('user_id', $request->user()->id);
+            },
+        ]);
 
         $response = (new TwoFAccountReadResource($twofaccount))->response()->setStatusCode(200);
 
@@ -543,9 +566,9 @@ class TwoFAccountController extends Controller
         $ids          = Helpers::commaSeparatedToArray($validated['ids']);
         $twofaccounts = TwoFAccount::whereIn('id', $ids)->get();
 
-        $this->authorize('updateEach', [new TwoFAccount, $twofaccounts]);
+        $this->authorize('assignToGroupEach', [new TwoFAccount, $twofaccounts]);
 
-        TwoFAccounts::withdraw($ids);
+        TwoFAccounts::withdraw($ids, $request->user());
 
         return response()->json(['message' => 'accounts withdrawn'], 200);
     }

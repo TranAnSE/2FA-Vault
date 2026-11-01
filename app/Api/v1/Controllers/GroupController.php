@@ -34,7 +34,12 @@ class GroupController extends Controller
 
         // We do not use fluent call all over the call chain to ease tests
         $user   = $request->user();
-        $groups = $user->groups()->withCount('twofaccounts')->get()->sortBy('order_column');
+        // pivot rows are per-user — count only the requester's memberships.
+        // wherePivot() mis-qualifies inside the withCount subquery (returns
+        // 0), the explicit table-qualified where does not.
+        $groups = $user->groups()->withCount(['twofaccounts' => function ($q) use ($user) {
+            $q->where('twofaccount_group_assignments.user_id', $user->id);
+        }])->get()->sortBy('order_column');
 
         $groups = Groups::prependTheAllGroup($groups, $request->user());
 
