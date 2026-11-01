@@ -1368,6 +1368,8 @@
     "tooltip.sort_by_date_desc": "Show most recent first",
     "tooltip.sort_descending": "Sort descending",
     "tooltip.toggle_pin": "Pin or unpin this account",
+    "tooltip.set_as_favorite": "Set as favorite",
+    "tooltip.remove_from_favorites": "Remove from favorites",
     "tooltip.toggle_favorite": "Set or unset this account as a favorite",
     "tooltip.twofauth_export_format_sub": "Export data using the 2FA-Vault json schema",
     "tooltip.unlock": "Unlock it (at your own risk)",
