@@ -285,7 +285,9 @@
     "field.service": "Service",
     "field.service.placeholder": "Google, Twitter, Apple",
     "field.show_accounts_icons": "Show icons",
-    "field.show_accounts_icons.help": "Show account icons in the main view",
+
+    "field.enable_favorites": "Enable favorites",
+    "field.enable_favorites.help": "Let the user mark accounts as favorites and filter the accounts view to favorites only.",    "field.show_accounts_icons.help": "Show account icons in the main view",
     "field.show_email_in_footer": "Show email in footer",
     "field.show_email_in_footer.help": "Display the logged-in user's email in the footer instead of direct navigation links. The links are then available in a menu behind a click/tap on the email address.",
     "field.show_in_chips": "Show in chip toggles",
@@ -530,7 +532,8 @@
     "label.grid": "Grid",
     "label.group": "Group",
     "label.group_less": "Group-less",
-    "label.group_less_accounts": "Group-less accounts",
+
+    "label.favorites_only": "Favorites only",    "label.group_less_accounts": "Group-less accounts",
     "label.half": "by Half",
     "label.half.legend": "Split digits into two equals groups",
     "label.half_digit": "1234 5678",
@@ -987,7 +990,9 @@
     "notification.cache_cleared": "Cache cleared",
     "notification.connection_tested": "Connection test completed.",
     "notification.copied_to_clipboard": "Copied to clipboard",
-    "notification.data_refreshed_to_reflect_server_changes": "Data has been refresh to reflect server-side changes",
+
+    "notification.favorite_update_failed": "Cannot update favorite",
+    "notification.favorite_updated": "Favorite updated",    "notification.data_refreshed_to_reflect_server_changes": "Data has been refresh to reflect server-side changes",
     "notification.destination_created": "Backup destination created.",
     "notification.destination_deleted": "Backup destination deleted.",
     "notification.destination_test_failed": "Connection test failed.",
@@ -1349,7 +1354,8 @@
     "tooltip.show_last_month_log": "Show entries from the last month",
     "tooltip.show_one_year_log": "Show entries from the last year",
     "tooltip.show_qrcode": "Show QR code",
-    "tooltip.show_six_months_log": "Show entries from the last 6 months",
+
+    "tooltip.show_favorites_only": "Show favorites only",    "tooltip.show_six_months_log": "Show entries from the last 6 months",
     "tooltip.show_three_months_log": "Show entries from the last 3 months",
     "tooltip.sign_in_using_security_device": "Sign in using a security device",
     "tooltip.sort_ascending": "Sort ascending",
@@ -1357,7 +1363,8 @@
     "tooltip.sort_by_date_desc": "Show most recent first",
     "tooltip.sort_descending": "Sort descending",
     "tooltip.toggle_pin": "Pin or unpin this account",
-    "tooltip.twofauth_export_format_sub": "Export data using the 2FA-Vault json schema",
+
+    "tooltip.toggle_favorite": "Set or unset this account as a favorite",    "tooltip.twofauth_export_format_sub": "Export data using the 2FA-Vault json schema",
     "tooltip.unlock": "Unlock it (at your own risk)",
     "tooltip.use_qrcode": "Use a QR code to fill the form magically",
     "tooltip.visit_x": "Visit {website}",

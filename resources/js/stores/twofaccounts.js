@@ -16,6 +16,9 @@ export const useTwofaccounts = defineStore('twofaccounts', {
             backendWasNewer: false,
             fetchedOn: null,
             groupLessOnly: false,
+            // Favorites-only filter, wired on the GroupChips usage; composes
+            // as an AND within each branch of the `filtered` getter below.
+            showFavoritesOnly: false,
             // IDs of own accounts shared BY the user (virtual group -3).
             sharedByMeIds: [],
         }
@@ -25,6 +28,10 @@ export const useTwofaccounts = defineStore('twofaccounts', {
         filtered(state) {
             const user = useUserStore()
 
+            // Favorites-only composes as an AND within each branch so the
+            // shared-account exclusion invariant (is_shared only in -4) holds.
+            const matchFavoritesOnly = (item) => !state.showFavoritesOnly || item.is_favorite === true
+
             return state.items.filter(
                 item => {
                     // B9: shared-with-me accounts only appear in the -4 virtual
@@ -32,7 +39,7 @@ export const useTwofaccounts = defineStore('twofaccounts', {
                     const activeGroup = parseInt(user.preferences.activeGroup)
 
                     if (activeGroup === -4) {
-                        return item.is_shared === true &&
+                        return item.is_shared === true && matchFavoritesOnly(item) &&
                             ((item.service ? item.service.toLowerCase().includes(state.filter.toLowerCase()) : false) ||
                             item.account.toLowerCase().includes(state.filter.toLowerCase()))
                     }
@@ -46,22 +53,22 @@ export const useTwofaccounts = defineStore('twofaccounts', {
                     // resource carries no shared-by-me marker), so the IDs are
                     // loaded by fetchSharedByMe().
                     if (activeGroup === -3) {
-                        return state.sharedByMeIds.includes(item.id) &&
+                        return state.sharedByMeIds.includes(item.id) && matchFavoritesOnly(item) &&
                             ((item.service ? item.service.toLowerCase().includes(state.filter.toLowerCase()) : false) ||
                             item.account.toLowerCase().includes(state.filter.toLowerCase()))
                     }
 
                     if (state.groupLessOnly) {
-                        return item.group_id == null
+                        return item.group_id == null && matchFavoritesOnly(item)
                     }
                     else if (activeGroup > 0) {
                         return ((item.service ? item.service.toLowerCase().includes(state.filter.toLowerCase()) : false) ||
                             item.account.toLowerCase().includes(state.filter.toLowerCase())) &&
-                            (item.group_id == activeGroup)
+                            (item.group_id == activeGroup) && matchFavoritesOnly(item)
                     }
                     else {
                         return ((item.service ? item.service.toLowerCase().includes(state.filter.toLowerCase()) : false) ||
-                            item.account.toLowerCase().includes(state.filter.toLowerCase()))
+                            item.account.toLowerCase().includes(state.filter.toLowerCase())) && matchFavoritesOnly(item)
                     }
                 }
             )
@@ -219,10 +226,11 @@ export const useTwofaccounts = defineStore('twofaccounts', {
         },
 
         /**
-         * Selects all accounts
+         * Selects all visible (filtered) accounts — under an active filter,
+         * batch actions must never touch accounts the user cannot see
          */
         selectAll() {
-            this.selectedIds = this.items.map(a => a.id)
+            this.selectedIds = this.filtered.map(a => a.id)
         },
 
         /**
@@ -268,6 +276,23 @@ export const useTwofaccounts = defineStore('twofaccounts', {
                         useNotify().success({ text: this.$i18n.global.t('notification.accounts_deleted') })
                     })
                 }
+            }
+        },
+
+        /**
+         * Toggles the is_favorite flag on an account optimistically
+         */
+        async toggleFavorite(account) {
+            const previous = account.is_favorite
+            account.is_favorite = !account.is_favorite
+
+            try {
+                await twofaccountService.toggleFavorite(account.id, account.is_favorite)
+                useNotify().success({ text: this.$i18n.global.t('notification.favorite_updated') })
+            }
+            catch (error) {
+                account.is_favorite = previous
+                useNotify().alert({ text: this.$i18n.global.t('notification.favorite_update_failed') })
             }
         },
 

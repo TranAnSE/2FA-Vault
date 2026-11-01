@@ -342,6 +342,7 @@
                         <FormToggle v-model="user.preferences.theme" @update:model-value="val => savePreference('theme', val)" :choices="themes" fieldName="theme" :isLocked="appSettings.lockedPreferences.includes('theme')" label="field.theme" help="field.theme.help" />
                         <!-- show icon -->
                         <FormCheckbox v-model="user.preferences.showAccountsIcons" @update:model-value="val => savePreference('showAccountsIcons', val)" fieldName="showAccountsIcons" :isLocked="appSettings.lockedPreferences.includes('showAccountsIcons')" label="field.show_accounts_icons" help="field.show_accounts_icons.help" />
+                        <FormCheckbox v-model="user.preferences.enableFavorites" @update:model-value="val => savePreference('enableFavorites', val)" fieldName="enableFavorites" :isLocked="appSettings.lockedPreferences.includes('enableFavorites')" label="field.enable_favorites" help="field.enable_favorites.help" />
                         <!-- Official icons -->
                         <FormCheckbox v-model="user.preferences.getOfficialIcons" @update:model-value="val => savePreference('getOfficialIcons', val)" fieldName="getOfficialIcons" :isLocked="appSettings.lockedPreferences.includes('getOfficialIcons')" label="field.get_official_icons" help="field.get_official_icons.help" />
                         <!-- icon source -->

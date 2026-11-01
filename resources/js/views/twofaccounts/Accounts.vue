@@ -17,7 +17,7 @@
     import { useErrorHandler } from '@2fauth/stores'
     import { useOtpDisplay } from '@/composables/useOtpDisplay'
     import { useAccountSort } from '@/composables/useAccountSort'
-    import { LucideChevronDown, LucideCircleAlert, LucideEye, LucideEyeOff, LucideMenu, LucidePin, LucideQrCode, LucideTrash2 } from 'lucide-vue-next'
+    import { LucideChevronDown, LucideCircleAlert, LucideEye, LucideEyeOff, LucideMenu, LucidePin, LucideQrCode, LucideStar, LucideTrash2 } from 'lucide-vue-next'
 
     const errorHandler = useErrorHandler()
     const { t } = useI18n()
@@ -228,10 +228,12 @@
                         <GroupChips v-if="user.preferences.useGroupChips"
                             v-model:active-group="chipsActiveGroup"
                             v-model:show-group-switch="showGroupSwitch"
+                            v-model:show-favorites-only="twofaccounts.showFavoritesOnly"
                             :groups="groups.items"
                             :filteredCount="twofaccounts.filteredCount"
                             :useVirtualChips="user.preferences.showVirtualChips"
-                            :useShare="true" />
+                            :useShare="true"
+                            :useFavorites="user.preferences.enableFavorites" />
                         <button v-else type="button" id="btnShowGroupSwitch" :title="$t('tooltip.show_group_selector')" tabindex="1" class="button is-text is-like-text has-text-grey-dark" :class="{'has-text-grey' : mode != 'dark'}" @click.stop="showGroupSwitch = !showGroupSwitch">
                             <template v-if="twofaccounts.groupLessOnly">{{ $t('label.group_less') }} ({{ twofaccounts.filteredCount }})&nbsp;</template>
                             <template v-else-if="groups.current">{{ groups.current }} ({{ twofaccounts.filteredCount }})&nbsp;</template>
@@ -289,6 +291,12 @@
                                     <transition name="fadeInOut">
                                         <button v-if="!bus.inManagementMode" type="button" class="tfa-cell tfa-pin button is-ghost pr-0" :class="{ 'has-text-warning': account.is_pinned, 'has-text-grey': !account.is_pinned }" :title="$t('tooltip.toggle_pin')" @click.stop="togglePin(account)" :aria-label="$t('tooltip.toggle_pin')">
                                             <LucidePin />
+                                        </button>
+                                    </transition>
+                                    <!-- favorite toggle (optimistic) -->
+                                    <transition name="fadeInOut">
+                                        <button v-if="!bus.inManagementMode && user.preferences.enableFavorites" type="button" class="tfa-cell tfa-favorite button is-ghost pr-0" :class="{ 'has-text-warning': account.is_favorite, 'has-text-grey': !account.is_favorite }" :title="$t('tooltip.toggle_favorite')" @click.stop="twofaccounts.toggleFavorite(account)" :aria-label="$t('tooltip.toggle_favorite')">
+                                            <LucideStar :fill="account.is_favorite ? '#ffb400' : 'none'" :stroke-width="1.5" />
                                         </button>
                                     </transition>
                                     <transition name="popLater" v-if="user.preferences.showOtpAsDot && user.preferences.revealDottedOTP">
