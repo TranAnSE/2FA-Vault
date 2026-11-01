@@ -208,6 +208,17 @@ export const useTwofaccounts = defineStore('twofaccounts', {
         },
 
         /**
+         * Removes an account from the current selection
+         */
+        unselect(id) {
+            const index = this.selectedIds.indexOf(id);
+
+            if (index !== -1) {
+                this.selectedIds.splice(index, 1);
+            }
+        },
+
+        /**
          * Selects all accounts
          */
         selectAll() {
@@ -236,6 +247,27 @@ export const useTwofaccounts = defineStore('twofaccounts', {
                     this.selectNone()
                     useNotify().success({ text: this.$i18n.global.t('notification.accounts_deleted') })
                 })
+            }
+        },
+
+        /**
+         * Deletes the given account
+         */
+        async delete(accountId) {
+            const accountIndex = this.items.findIndex(a => a.id == accountId)
+
+            if (accountIndex == -1) {
+                useNotify().alert({ text: this.$i18n.global.t('error.account_no_longer_exists') })
+            }
+            else {
+                if(confirm(this.$i18n.global.t('confirmation.delete_twofaccount'))) {
+                    await twofaccountService.delete(accountId)
+                    .then(response => {
+                        this.unselect(accountId)
+                        this.items.splice(accountIndex, 1)
+                        useNotify().success({ text: this.$i18n.global.t('notification.accounts_deleted') })
+                    })
+                }
             }
         },
 

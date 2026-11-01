@@ -17,7 +17,7 @@
     import { useErrorHandler } from '@2fauth/stores'
     import { useOtpDisplay } from '@/composables/useOtpDisplay'
     import { useAccountSort } from '@/composables/useAccountSort'
-    import { LucideChevronDown, LucideCircleAlert, LucideEye, LucideEyeOff, LucideMenu, LucidePin, LucideQrCode } from 'lucide-vue-next'
+    import { LucideChevronDown, LucideCircleAlert, LucideEye, LucideEyeOff, LucideMenu, LucidePin, LucideQrCode, LucideTrash2 } from 'lucide-vue-next'
 
     const errorHandler = useErrorHandler()
     const { t } = useI18n()
@@ -112,6 +112,18 @@
 
     async function deleteAccounts() {
         await twofaccounts.deleteSelected()
+        if (twofaccounts.isEmpty) {
+            bus.inManagementMode = false
+            router.push({ name: 'start' })
+        }
+    }
+
+    /**
+     * Deletes the given account without touching the selection
+     */
+    async function deleteAccount(accountId) {
+        await twofaccounts.delete(accountId)
+
         if (twofaccounts.isEmpty) {
             bus.inManagementMode = false
             router.push({ name: 'start' })
@@ -289,6 +301,7 @@
                                         <div class="tfa-cell tfa-edit has-text-grey" v-if="bus.inManagementMode">
                                             <RouterLink :to="{ name: 'editAccount', params: { twofaccountId: account.id }}" class="tag is-rounded mr-1" :class="mode == 'dark' ? 'is-dark' : 'is-white'">{{ $t('link.edit') }}</RouterLink>
                                             <RouterLink :to="{ name: 'showQRcode', params: { twofaccountId: account.id }}" class="tag is-rounded" :class="mode == 'dark' ? 'is-dark' : 'is-white'" :title="$t('tooltip.show_qrcode')"><LucideQrCode class="icon-size-1" /></RouterLink>
+                                            <button type="button" class="tag is-rounded ml-1" :class="mode == 'dark' ? 'is-dark' : 'is-white'" :title="$t('tooltip.delete_account')" @click.stop="deleteAccount(account.id)"><LucideTrash2 class="icon-size-1" /></button>
                                         </div>
                                     </transition>
                                     <transition name="fadeInOut">
