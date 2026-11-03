@@ -150,7 +150,9 @@ jobs:
 
   e2e-smoke:
     name: E2E Smoke (Playwright)
-    runs-on: ubuntu-latest
+    # pinned: playwright 1.59 has no chromium host build for ubuntu-26.04
+    # (ubuntu-latest since 2026-11); bump @playwright/test before unpinning
+    runs-on: ubuntu-24.04
     needs: [backend-tests, frontend-build]
 
     steps:
