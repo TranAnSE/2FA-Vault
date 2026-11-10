@@ -40,7 +40,8 @@
         "sentry/sentry-laravel": "^4.0",
         "socialiteproviders/manager": "^4.9.2",
         "spatie/eloquent-sortable": "^5.0",
-        "spomky-labs/otphp": "^11.3"
+        "spomky-labs/otphp": "^11.3",
+        "web-auth/webauthn-lib": "5.3.12"
     },
     "require-dev": {
         "barryvdh/laravel-ide-helper": "^3.7",
