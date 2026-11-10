@@ -1,0 +1,107 @@
+[
+  {
+    "step": "virtual-authenticator",
+    "ok": true,
+    "detail": ""
+  },
+  {
+    "step": "A1 account-registered",
+    "ok": true,
+    "detail": "status=201 {\"message\":\"account created\",\"name\":\"Spike User\",\"email\":\"spike-user@example.test\",\"preferences\":{\"showOtpAsDot\":false,\""
+  },
+  {
+    "step": "A2 password-login",
+    "ok": true,
+    "detail": "status=200 {\"message\":\"authenticated\",\"id\":1,\"name\":\"Spike User\",\"email\":\"spike-user@example.test\",\"oauth_provider\":null,\"authentic"
+  },
+  {
+    "step": "A3 laragear-register-options",
+    "ok": true,
+    "detail": "status=200 keys=rp,authenticatorSelection,user,pubKeyCredParams,attestation,excludeCredentials,timeout,challenge"
+  },
+  {
+    "step": "A4 browser-attestation-created",
+    "ok": true,
+    "detail": "id=W-qqnG1O41eN11z1..."
+  },
+  {
+    "step": "A5 laragear-credential-saved",
+    "ok": true,
+    "detail": "status=204 "
+  },
+  {
+    "step": "A6 laragear-login-options",
+    "ok": true,
+    "detail": "status=200"
+  },
+  {
+    "step": "A7 browser-assertion-created",
+    "ok": true,
+    "detail": "userHandle=null"
+  },
+  {
+    "step": "A8 laragear-login-works",
+    "ok": true,
+    "detail": "status=200 {\"message\":\"authenticated\",\"id\":1,\"name\":\"Spike User\",\"email\":\"spike-user@example.test\",\"oauth_provi"
+  },
+  {
+    "step": "B1 spike-ETL",
+    "ok": true,
+    "detail": "status=200 report=[{\"id\":\"W-qqnG1O41eN...\",\"result\":\"OK\",\"handle_hex\":\"7357dd7deedd6dcf76e1dd7a6fb69fdb46f6774df677ddfc\"}] passkeys=1"
+  },
+  {
+    "step": "C1 passkeys-verify-options",
+    "ok": true,
+    "detail": "status=200 allowCred=1"
+  },
+  {
+    "step": "C2 browser-assertion-against-converted",
+    "ok": true,
+    "detail": "id=W-qqnG1O41eN11z1..."
+  },
+  {
+    "step": "C3 R2-GATE VerifyPasskey-verifies-converted-credential",
+    "ok": true,
+    "detail": "status=200 body={\"verified\":true,\"passkey_id\":1,\"passkey_user_id\":1,\"counter_in_record\":3}"
+  },
+  {
+    "step": "C4a second-user-created",
+    "ok": true,
+    "detail": "status=201"
+  },
+  {
+    "step": "C4b cross-user-assertion-rejected",
+    "ok": true,
+    "detail": "status=422 body={\"message\":\"Passkey not recognized. It may have been removed from your account.\",\"errors\":{\"credential\":[\"Passkey not recognized. It may have been removed from your account.\"]}}"
+  },
+  {
+    "step": "D-prep re-login-user-1",
+    "ok": true,
+    "detail": "status=200"
+  },
+  {
+    "step": "D0 session-auth-alive",
+    "ok": true,
+    "detail": "{\"auth_check\":true,\"user_id\":1,\"session_id_len\":40}"
+  },
+  {
+    "step": "D1 fresh-register-options",
+    "ok": true,
+    "detail": "status=200 residentKey=required"
+  },
+  {
+    "step": "D2 fresh-attestation-created",
+    "ok": true,
+    "detail": ""
+  },
+  {
+    "step": "D3 StorePasskey-saves",
+    "ok": true,
+    "detail": "status=200 body={\"id\":2,\"name\":\"fresh-spike-device\",\"user_id\":1}"
+  },
+  {
+    "step": "D4 fresh-passkey-verifies",
+    "ok": true,
+    "detail": "status=200 body={\"verified\":true,\"passkey_id\":2,\"passkey_user_id\":1,\"counter_in_record\":2}"
+  }
+]

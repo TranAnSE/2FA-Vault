@@ -29,6 +29,7 @@
         "koel/dotenv-editor": "^3.0",
         "laragear/webauthn": "^5.0",
         "laravel/framework": "^13.0",
+        "laravel/passkeys": "0.2.1",
         "laravel/passport": "^13.0",
         "laravel/socialite": "^5.24.3",
         "laravel/tinker": "^3.0",

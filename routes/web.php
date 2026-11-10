@@ -166,3 +166,136 @@ if (filter_var(env('SENTRY_TEST_ENABLED', false), FILTER_VALIDATE_BOOLEAN)) {
  * Route for the main landing view
  */
 Route::get('/{any}', [SinglePageController::class, 'index'])->where('any', '.*')->name('landing');
+
+/*
+|--------------------------------------------------------------------------
+| SPIKE ROUTES (branch spike/passkeys-poc ONLY — removed before merge)
+|--------------------------------------------------------------------------
+| Scratch endpoints proving laravel/passkeys actions end-to-end against
+| converted laragear credentials (plan 261009-passkeys-migration, Phase 1).
+*/
+
+use App\Support\Passkeys\CredentialRecordFactory;
+use Laravel\Passkeys\Actions\GenerateRegistrationOptions;
+use Laravel\Passkeys\Actions\GenerateVerificationOptions;
+use Laravel\Passkeys\Actions\StorePasskey;
+use Laravel\Passkeys\Actions\VerifyPasskey;
+use Laravel\Passkeys\Support\WebAuthn;
+use Webauthn\PublicKeyCredential;
+
+Route::post('spike/etl', function () {
+    $rows = \Laragear\WebAuthn\Models\WebAuthnCredential::all();
+    $report = [];
+
+    foreach ($rows as $row) {
+        try {
+            $record = CredentialRecordFactory::fromLegacyCredential($row);
+
+            $userId = $row->authenticatable_id;
+
+            \DB::table('passkeys')->updateOrInsert(
+                ['credential_id' => $row->id],
+                [
+                    'user_id' => $userId,
+                    'name' => $row->alias ?? 'Passkey 1',
+                    'credential_id' => $row->id,
+                    'credential' => CredentialRecordFactory::toCredentialJson($record),
+                    'last_used_at' => null,
+                    'created_at' => now(),
+                    'updated_at' => now(),
+                ]
+            );
+
+            $report[] = ['id' => substr($row->id, 0, 12).'...', 'result' => 'OK', 'handle_hex' => bin2hex($record->userHandle)];
+        } catch (Throwable $e) {
+            $report[] = ['id' => substr($row->id, 0, 12).'...', 'result' => 'FAIL', 'reason' => $e->getMessage()];
+        }
+    }
+
+    return response()->json(['report' => $report, 'passkeys' => \DB::table('passkeys')->count()]);
+});
+
+Route::post('spike/register-options', function (GenerateRegistrationOptions $generate) {
+    $user = auth()->user();
+    abort_unless($user, 401);
+
+    $options = $generate($user);
+    session()->put('passkey.registration_options', WebAuthn::toJson($options));
+
+    return response()->json(WebAuthn::toBrowserArray($options));
+});
+
+Route::post('spike/register', function (StorePasskey $store) {
+    $user = auth()->user();
+    abort_unless($user, 401);
+
+    $serialized = session()->pull('passkey.registration_options');
+    abort_unless($serialized, 422, 'No registration options in session.');
+
+    $options = WebAuthn::fromJson($serialized, \Webauthn\PublicKeyCredentialCreationOptions::class);
+    $credential = WebAuthn::fromJson(json_encode(request()->json('credential')), PublicKeyCredential::class);
+
+    $passkey = $store($user, request()->json('name', 'spike-passkey'), $credential, $options);
+
+    return response()->json(['id' => $passkey->id, 'name' => $passkey->name, 'user_id' => $passkey->user_id]);
+});
+
+Route::post('spike/verify-options', function (GenerateVerificationOptions $generate) {
+    $email = request()->json('email');
+    $user = \App\Models\User::where('email', $email)->first();
+    abort_unless($user, 404);
+
+    $options = $generate($user);
+    session()->put('passkey.verification_options', WebAuthn::toJson($options));
+
+    return response()->json(WebAuthn::toBrowserArray($options));
+});
+
+Route::post('spike/verify', function (VerifyPasskey $verify) {
+    $serialized = session()->pull('passkey.verification_options');
+    abort_unless($serialized, 422, 'No verification options in session.');
+
+    $options = WebAuthn::fromJson($serialized, \Webauthn\PublicKeyCredentialRequestOptions::class);
+    $credential = WebAuthn::fromJson(json_encode(request()->json('credential')), PublicKeyCredential::class);
+
+    $expectedUser = request()->json('as_user_id')
+        ? \App\Models\User::find(request()->json('as_user_id'))
+        : null;
+
+    $passkey = $verify($credential, $options, $expectedUser);
+
+    return response()->json([
+        'verified' => true,
+        'passkey_id' => $passkey->id,
+        'passkey_user_id' => $passkey->user_id,
+        'counter_in_record' => $passkey->credential['counter'] ?? null,
+    ]);
+});
+
+Route::post('spike/user-id', function () {
+    $user = \App\Models\User::where('email', request()->json('email'))->first();
+    abort_unless($user, 404);
+
+    return response()->json(['user_id' => $user->id]);
+});
+
+Route::post('spike/whoami', function () {
+    return response()->json([
+        'auth_check' => auth()->check(),
+        'user_id' => auth()->id(),
+        'session_id_len' => strlen(session()->getId()),
+    ]);
+});
+
+Route::post('spike/clear-cache', function () {
+    \Illuminate\Support\Facades\Cache::flush();
+    \Illuminate\Support\Facades\RateLimiter::clear('user.register');
+
+    return response()->json(['cleared' => true]);
+});
+
+Route::post('spike/clear-passkeys', function () {
+    $n = \DB::table('passkeys')->delete();
+
+    return response()->json(['deleted' => $n]);
+});

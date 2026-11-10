@@ -86,7 +86,7 @@ use Laravel\Passport\Token;
  */
 #[Fillable(['name', 'email', 'password', 'oauth_id', 'oauth_provider', 'is_admin', 'is_active', 'encryption_salt', 'encryption_test_value', 'encryption_version', 'vault_locked', 'last_backup_at', 'public_key'])]
 #[Hidden(['password', 'remember_token', 'encryption_salt', 'encryption_test_value'])]
-class User extends Authenticatable implements HasLocalePreference, OAuthenticatable, WebAuthnAuthenticatable
+class User extends Authenticatable implements HasLocalePreference, OAuthenticatable, WebAuthnAuthenticatable, \Laravel\Passkeys\Contracts\PasskeyUser
 {
     use HasApiTokens, Notifiable;
     use HasAuthenticationLog;
@@ -95,6 +95,11 @@ class User extends Authenticatable implements HasLocalePreference, OAuthenticata
      * @use HasFactory<UserFactory>
      */
     use HasFactory;
+
+    // SPIKE ONLY (branch spike/passkeys-poc): minimal laravel/passkeys
+    // integration to prove package actions against converted credentials.
+    // Phase 3 replaces the laragear traits with this contract.
+    use \Laravel\Passkeys\PasskeyAuthenticatable;
 
     use WebAuthnAuthentication, WebAuthnManageCredentials;
 
