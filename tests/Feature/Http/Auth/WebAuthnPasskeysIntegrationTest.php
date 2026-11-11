@@ -140,4 +140,44 @@ class WebAuthnPasskeysIntegrationTest extends FeatureTestCase
         $this->json('POST', '/webauthn/register', $attestation + ['name' => 'x'])
             ->assertStatus(422);
     }
+
+    /**
+     * Immediate replay (M2 sibling): the one-shot session options are pulled
+     * by the first attempt, so resubmitting the same assertion fails even
+     * within the TTL window.
+     */
+    #[Test]
+    public function replayed_assertion_is_rejected_immediately(): void
+    {
+        $handle = PasskeyAssertionFactory::convertedCredential($this->user);
+
+        $challenge = $this->postJson('/webauthn/login/options', ['email' => $this->user->email])->json('challenge');
+
+        $assertion = $handle->assertion($challenge);
+
+        $this->postJson('/webauthn/login', $assertion['credential'] + ['email' => $this->user->email])
+            ->assertStatus(200);
+
+        // Replay the SAME payload against the drained session.
+        $this->postJson('/webauthn/login', $assertion['credential'] + ['email' => $this->user->email])
+            ->assertStatus(401);
+    }
+
+    /**
+     * SSO-only defense in depth (R2): the route middleware already returns
+     * the generic shape without a challenge for a non-administrator while
+     * SSO-only is on; the authorizeLoginUsing closure in AuthServiceProvider
+     * additionally re-checks the policy behind the middleware as a
+     * bypass guard (covered by the admin variant above + code review).
+     */
+    #[Test]
+    public function sso_only_hides_challenge_from_non_administrators(): void
+    {
+        \App\Facades\Settings::set('useSsoOnly', true);
+
+        $response = $this->postJson('/webauthn/login/options', ['email' => $this->user->email]);
+
+        $response->assertStatus(401);
+        $this->assertGuest();
+    }
 }

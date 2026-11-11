@@ -96,6 +96,7 @@ class MigrateWebauthnCredentials extends Command
     {
         WebAuthnCredential::query()->orderBy('id')->chunkById(self::CHUNK, function ($rows) use (&$report) {
             foreach ($rows as $row) {
+                /** @var WebAuthnCredential $row */
                 $this->collectRowStats($row, $report);
 
                 if (DB::table('passkeys')->where('credential_id', $row->id)->exists()) {
@@ -111,7 +112,7 @@ class MigrateWebauthnCredentials extends Command
                             $record = CredentialRecordFactory::fromLegacyCredential($row);
 
                             DB::table('passkeys')->insert([
-                                'user_id' => $row->authenticatable_id,
+                                'user_id' => $row->getAttribute('authenticatable_id'),
                                 'name' => $row->alias ?? ('Passkey '.($report['ok'] + $report['skipped'] + 1)),
                                 'credential_id' => $row->id,
                                 'credential' => CredentialRecordFactory::toCredentialJson($record),
@@ -155,12 +156,13 @@ class MigrateWebauthnCredentials extends Command
 
         DB::table('passkeys')->orderBy('id')->chunk(500, function ($rows) use (&$checked, &$failed) {
             foreach ($rows as $row) {
+                /** @var object{id: int, credential: string} $row */
                 try {
                     // Full denormalization round-trip: parses the embedded
                     // COSE key, aaguid and trust path.
                     $record = WebAuthn::fromJson($row->credential, CredentialRecord::class);
 
-                    if (! is_string($record->credentialPublicKey) || strlen($record->credentialPublicKey) === 0) {
+                    if (strlen($record->credentialPublicKey) === 0) {
                         throw new \RuntimeException('Empty COSE key.');
                     }
 

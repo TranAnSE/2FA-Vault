@@ -68,10 +68,11 @@ class WebAuthnLoginController extends Controller
         // of a 422 validation failure: the 200-vs-422 difference was a
         // registered-email enumeration oracle (A8). The response body is
         // deliberately identical to what the SPA already handles for failed
-        // challenges. The unknown branch time-equalizes with the known one
-        // (M7): both run the users query and the options generation, and the
-        // unknown branch pads with a randomized sleep to absorb its missing
-        // passkeys query. Statistical adequacy asserted in the Phase 6 suite.
+        // challenges. Both branches run the users query and the options
+        // generation, and BOTH carry the same randomized sleep floor (M7):
+        // padding only the unknown branch made it reliably SLOWER and merely
+        // flipped the oracle direction. Statistical adequacy measured in the
+        // Phase 6 validation notes.
         if ($user === null) {
             $this->generateOptions($generate, null);
 
@@ -83,6 +84,8 @@ class WebAuthnLoginController extends Controller
         $options = $this->generateOptions($generate, $user);
 
         OptionsSession::put($request, OptionsSession::VERIFY_KEY, WebAuthn::toJson($options));
+
+        usleep(random_int(15000, 35000));
 
         return response()->json(WebAuthn::toBrowserArray($options), 200);
     }
