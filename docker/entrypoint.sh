@@ -109,6 +109,16 @@ if [ -f /2fauth/installed ]; then
     php artisan config:clear
     php artisan migrate --force
   fi
+  # v1.6.0 (plan 261009): one-time migration of laragear WebAuthn
+  # credentials into laravel/passkeys rows before the service starts.
+  # Idempotent: converted ids are skipped, so post-cutover re-boots
+  # sweep late registrations made by old-code containers.
+    if ! php artisan 2fauth:migrate-webauthn-credentials --force; then
+      echo "!! WebAuthn credentials migration FAILED -- refusing to start."
+      echo "!! See docs/guides/passkeys-migration.md (operator runbook) and fix"
+      echo "!! or restore from backup, then re-create this container."
+      exit 1
+    fi
 else
   php artisan migrate:fresh --force
   php artisan passport:install --no-interaction
