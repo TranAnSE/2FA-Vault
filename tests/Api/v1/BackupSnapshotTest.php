@@ -156,9 +156,12 @@ class BackupSnapshotTest extends TestCase
 
     public function test_dry_run_returns_diff_with_token() : void
     {
-        $this->createSnapshotFor($this->user);
+        // Do NOT hardcode the snapshot id: MySQL AUTO_INCREMENT counters do not
+        // reset between RefreshDatabase tests (sqlite rowids do), so the id is
+        // only 1 in the first test of a process.
+        $snapshot = $this->createSnapshotFor($this->user);
 
-        $this->postJson('/api/v1/backups/snapshots/1/dry-run', ['mode' => 'merge'])
+        $this->postJson("/api/v1/backups/snapshots/{$snapshot->id}/dry-run", ['mode' => 'merge'])
             ->assertStatus(200)
             ->assertJsonStructure([
                 'mode', 'token', 'expires_at', 'to_create', 'to_update', 'to_delete',
@@ -169,12 +172,12 @@ class BackupSnapshotTest extends TestCase
 
     public function test_dry_run_validates_mode() : void
     {
-        $this->createSnapshotFor($this->user);
+        $snapshot = $this->createSnapshotFor($this->user);
 
-        $this->postJson('/api/v1/backups/snapshots/1/dry-run', ['mode' => 'obliterate'])
+        $this->postJson("/api/v1/backups/snapshots/{$snapshot->id}/dry-run", ['mode' => 'obliterate'])
             ->assertStatus(422);
 
-        $this->postJson('/api/v1/backups/snapshots/1/dry-run', [])
+        $this->postJson("/api/v1/backups/snapshots/{$snapshot->id}/dry-run", [])
             ->assertStatus(422);
     }
 

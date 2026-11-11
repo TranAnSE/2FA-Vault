@@ -30,9 +30,13 @@ class MetricsController extends Controller
             $this->addGauge($lines, 'twofavault_teams_total', 'Total number of teams', 'gauge', Team::count());
             $this->addGauge($lines, 'twofavault_secure_notes_total', 'Total number of secure notes', 'gauge', SecureNote::count());
 
-            // Webhook deliveries (counter metric, split by status label)
-            $successful = WebhookDelivery::where('status', 'success')->count();
-            $failed = WebhookDelivery::where('status', 'failed')->count();
+            // Webhook deliveries (counter metric, split by status label).
+            // The real columns are the `success` boolean and `status_code`
+            // integer; `status` never existed. sqlite's double-quoted-string
+            // fallback turned the old query into a silent always-false
+            // comparison, MySQL correctly errors on it.
+            $successful = WebhookDelivery::where('success', true)->count();
+            $failed = WebhookDelivery::where('success', false)->count();
             $lines[] = '# HELP twofavault_webhook_deliveries_total Total webhook deliveries by status';
             $lines[] = '# TYPE twofavault_webhook_deliveries_total counter';
             $lines[] = sprintf('twofavault_webhook_deliveries_total{status="success"} %d', $successful);

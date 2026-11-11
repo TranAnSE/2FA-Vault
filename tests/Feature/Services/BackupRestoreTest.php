@@ -135,7 +135,11 @@ class BackupRestoreTest extends TestCase
         $this->assertCount(0, $diff['to_create'], 'decoded fallback must classify the recreated row as an update');
         $this->assertCount(1, $diff['to_update']);
         $this->assertSame($recreated->id, $diff['to_update'][0]['id']);
-        $this->assertSame($originalId, $snapshot->fresh()->id);
+        // Snapshot row identity check: the fresh row is the same row. The
+        // former assertion compared the ACCOUNT id against the SNAPSHOT id,
+        // which only coincided on sqlite (rowid resets after rollback) and
+        // fails on MySQL where AUTO_INCREMENT counters never reset.
+        $this->assertSame($snapshot->id, $snapshot->fresh()->id);
         $this->assertNotSame($originalId, $recreated->id);
         $this->assertNotEmpty($diff['warnings'], 'a decoded fallback match must be disclosed');
     }
