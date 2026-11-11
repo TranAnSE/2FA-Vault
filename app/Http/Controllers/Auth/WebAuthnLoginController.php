@@ -73,6 +73,15 @@ class WebAuthnLoginController extends Controller
         // padding only the unknown branch made it reliably SLOWER and merely
         // flipped the oracle direction. Statistical adequacy measured in the
         // Phase 6 validation notes.
+        //
+        // Accepted residual oracle: the two bodies still differ (options
+        // JSON vs the generic message) so a determined caller can still
+        // distinguish registered emails by content. That body-level
+        // distinction predates this migration (master leaked it via the
+        // 422-vs-200 status, a stronger signal) and is kept for SPA
+        // contract parity: closing it would require emitting real
+        // discoverable options for unknown emails and changing the SPA
+        // failure UX. Only the status-code and timing oracles are closed.
         if ($user === null) {
             $this->generateOptions($generate, null);
 
@@ -94,7 +103,7 @@ class WebAuthnLoginController extends Controller
      * Generate verification options (scoped to the user's passkeys when a
      * user is given, discoverable otherwise).
      */
-    protected function generateOptions(GenerateVerificationOptions $generate, ?User $user) : \Webauthn\PublicKeyCredentialRequestOptions
+    protected function generateOptions(GenerateVerificationOptions $generate, ?User $user) : PublicKeyCredentialRequestOptions
     {
         return $generate($user);
     }
@@ -102,7 +111,7 @@ class WebAuthnLoginController extends Controller
     /**
      * Log the user in.
      *
-     * @return \Illuminate\Http\Response|\Illuminate\Http\JsonResponse
+     * @return Response|JsonResponse
      */
     public function login(WebauthnAssertedRequest $request, VerifyPasskey $verify)
     {
@@ -183,12 +192,14 @@ class WebAuthnLoginController extends Controller
             $this->passkey = $passkey;
 
             return true;
-        } catch (InvalidPasskeyException | WebauthnException) {
+        } catch (InvalidPasskeyException|WebauthnException|\RangeException) {
             // InvalidPasskeyException: unrecognized credential or ownership
             // mismatch. WebauthnException is the base of every webauthn-lib
             // ceremony rejection (signature, challenge, origin, rpId,
             // counter) and of its serializer failures on malformed
-            // assertions -- all contract-401 outcomes.
+            // assertions. \RangeException escapes a few vendor base64url
+            // decoders (clientDataJSON/id) that do not wrap into
+            // InvalidDataException -- all contract-401 outcomes.
             return false;
         } catch (ValidationException) {
             // Expired or missing session options (server-side TTL gate, M2):
@@ -200,15 +211,13 @@ class WebAuthnLoginController extends Controller
 
     /**
      * The passkey verified during attemptLogin.
-     *
-     * @var Passkey|null
      */
     protected ?Passkey $passkey = null;
 
     /**
      * Send the response after the user was authenticated.
      *
-     * @return \Illuminate\Http\JsonResponse
+     * @return JsonResponse
      */
     protected function sendLoginResponse(WebauthnAssertedRequest $request)
     {
@@ -243,7 +252,7 @@ class WebAuthnLoginController extends Controller
     /**
      * Get the failed login response instance.
      *
-     * @return \Illuminate\Http\JsonResponse
+     * @return JsonResponse
      */
     protected function sendFailedLoginResponse(WebauthnAssertedRequest $request)
     {
@@ -253,7 +262,7 @@ class WebAuthnLoginController extends Controller
     /**
      * Redirect the user after determining they are locked out.
      *
-     * @return \Illuminate\Http\JsonResponse
+     * @return JsonResponse
      */
     protected function sendLockoutResponse(WebauthnAssertedRequest $request)
     {

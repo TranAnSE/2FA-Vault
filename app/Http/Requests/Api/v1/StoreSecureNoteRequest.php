@@ -20,7 +20,7 @@ class StoreSecureNoteRequest extends FormRequest
     /**
      * Prepare the data for validation.
      */
-    protected function prepareForValidation(): void
+    protected function prepareForValidation() : void
     {
         if (! $this->has('content_type') || $this->input('content_type') === null) {
             $this->merge(['content_type' => 'plain']);
@@ -35,10 +35,10 @@ class StoreSecureNoteRequest extends FormRequest
     public function rules()
     {
         return [
-            'title'       => 'required|string|max:255',
-            'content'     => 'required|string',
+            'title'        => 'required|string|max:255',
+            'content'      => 'required|string',
             'content_type' => 'sometimes|nullable|string|in:plain,markdown',
-            'is_pinned'   => 'sometimes|nullable|boolean',
+            'is_pinned'    => 'sometimes|nullable|boolean',
         ];
     }
 }

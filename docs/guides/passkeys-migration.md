@@ -21,8 +21,14 @@ v1.6.0 writes to it again.
 ### Docker installs (recommended path)
 
 The container entrypoint runs the migration automatically and idempotently
-before the service starts whenever `webauthn_credentials` is non-empty and
-`passkeys` is empty. The service refuses to start if the migration fails.
+before the service starts on every commit-change boot (the command itself
+no-ops when both tables are empty, and converted ids are always skipped --
+which is what makes the post-cutover re-run sweep work). **The service
+refuses to start if the migration fails** -- this is deliberate: a failed
+row means that user cannot passkey-login and, with `useWebauthnOnly` set,
+could not fall back to a password either, so starting would leave them
+fully locked out. Resolve per the report below (or restore from backup),
+then re-create the container.
 **After cutover, run the migration once more** (see "Post-cutover re-run").
 
 ### Bare-metal / composer installs (manual order)

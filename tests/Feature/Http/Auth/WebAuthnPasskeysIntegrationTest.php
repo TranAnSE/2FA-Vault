@@ -180,4 +180,46 @@ class WebAuthnPasskeysIntegrationTest extends FeatureTestCase
         $response->assertStatus(401);
         $this->assertGuest();
     }
+    /**
+     * P1 regression (code review 261112): malformed base64url in the
+     * binary members must be a clean 422 (validation rules) -- the vendor
+     * deserializer throws bare RangeException for some of them, which
+     * used to escape as a 500.
+     */
+    #[Test]
+    public function malformed_base64url_members_are_validation_errors(): void
+    {
+        PasskeyAssertionFactory::convertedCredentialId($this->user);
+
+        $challenge = $this->postJson('/webauthn/login/options', ['email' => $this->user->email])->json('challenge');
+
+        $assertion = (PasskeyAssertionFactory::convertedCredential($this->user))->assertion($challenge);
+
+        $payload = $assertion['credential'] + ['email' => $this->user->email];
+        $payload['response']['clientDataJSON'] = '!!!not-base64url!!!';
+
+        $this->postJson('/webauthn/login', $payload)
+            ->assertStatus(422)
+            ->assertJsonValidationErrors('response.clientDataJSON');
+
+        $this->assertGuest();
+    }
+
+    /**
+     * Register-side twin: malformed attestationObject is a 422, not 500.
+     */
+    #[Test]
+    public function malformed_attestation_is_validation_error(): void
+    {
+        $this->actingAs($this->user, 'web-guard');
+
+        $challenge = $this->json('POST', '/webauthn/register/options')->json('challenge');
+
+        $attestation = PasskeyAttestationFactory::create($challenge);
+        $attestation['response']['attestationObject'] = '###';
+
+        $this->json('POST', '/webauthn/register', $attestation + ['name' => 'x'])
+            ->assertStatus(422)
+            ->assertJsonValidationErrors('response.attestationObject');
+    }
 }

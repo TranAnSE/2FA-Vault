@@ -7,13 +7,15 @@ use App\Http\Requests\WebauthnAttestationRequest;
 use App\Http\Requests\WebauthnAttestedRequest;
 use App\Support\Passkeys\OptionsSession;
 use Illuminate\Contracts\Support\Responsable;
-use Illuminate\Http\Request;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Response;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Validation\ValidationException;
 use Laravel\Passkeys\Actions\GenerateRegistrationOptions;
 use Laravel\Passkeys\Actions\StorePasskey;
+use Laravel\Passkeys\Exceptions\InvalidPasskeyException;
 use Laravel\Passkeys\Support\WebAuthn;
+use Webauthn\Exception\WebauthnException;
 use Webauthn\PublicKeyCredentialCreationOptions;
 
 class WebAuthnRegisterController extends Controller
@@ -45,13 +47,11 @@ class WebAuthnRegisterController extends Controller
 
         OptionsSession::put($request, OptionsSession::REGISTER_KEY, WebAuthn::toJson($options));
 
-        return new class (WebAuthn::toBrowserArray($options)) implements Responsable
+        return new class(WebAuthn::toBrowserArray($options)) implements Responsable
         {
-            public function __construct(protected array $payload)
-            {
-            }
+            public function __construct(protected array $payload) {}
 
-            public function toResponse($request) : \Illuminate\Http\JsonResponse
+            public function toResponse($request) : JsonResponse
             {
                 return response()->json($this->payload);
             }
@@ -61,9 +61,9 @@ class WebAuthnRegisterController extends Controller
     /**
      * Registers a device for further WebAuthn authentication.
      *
-     * @throws \Illuminate\Validation\ValidationException on ceremony failure
-     *         (malformed or mismatched attestation, expired options) -- the
-     *         SPA surfaces the 422 payload generically.
+     * @throws ValidationException on ceremony failure
+     *                             (malformed or mismatched attestation, expired options) -- the
+     *                             SPA surfaces the 422 payload generically.
      */
     public function register(WebauthnAttestedRequest $request, StorePasskey $store) : Response
     {
@@ -75,11 +75,17 @@ class WebAuthnRegisterController extends Controller
         try {
             $store(
                 $request->user(),
-                $request->deviceName() ?? 'Device '.($request->user()->passkeys()->count() + 1),
+                $request->deviceName() ?? 'Device ' . ($request->user()->passkeys()->count() + 1),
                 $request->credential(),
                 $options
             );
-        } catch (\Webauthn\Exception\WebauthnException) {
+        } catch (InvalidPasskeyException|WebauthnException|\RangeException) {
+            // InvalidPasskeyException: duplicate credential id (re-adding the
+            // same security key) or unrecognized credential -- the vendor
+            // message stays untranslated, so rethrow with the lang key.
+            // WebauthnException: ceremony rejection (signature, origin,
+            // challenge, COSE parse). \RangeException: bare base64url decode
+            // failures that escape a few vendor denormalizers. All 422s.
             throw ValidationException::withMessages([
                 'credential' => __('error.passkey_not_verified'),
             ]);

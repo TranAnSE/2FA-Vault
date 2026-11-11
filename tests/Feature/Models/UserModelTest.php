@@ -150,7 +150,7 @@ class UserModelTest extends FeatureTestCase
             'email' => $user->email,
         ]);
         $this->assertDatabaseMissing('auth_logs', [
-            'user_id' => $user->id,
+            'authenticatable_id' => $user->id,
         ]);
     }
 

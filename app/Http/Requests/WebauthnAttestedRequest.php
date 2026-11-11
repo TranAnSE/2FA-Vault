@@ -36,14 +36,17 @@ class WebauthnAttestedRequest extends FormRequest
 
     public function rules() : array
     {
+        // Strict base64url on the binary members (see WebauthnAssertedRequest).
+        $b64url = ['required', 'string', 'regex:/^[A-Za-z0-9_-]+$/'];
+
         return [
-            'id' => ['required', 'string'],
-            'rawId' => ['required', 'string'],
-            'type' => ['required', 'string', 'in:public-key'],
-            'response' => ['required', 'array'],
-            'response.clientDataJSON' => ['required', 'string'],
-            'response.attestationObject' => ['required', 'string'],
-            'name' => ['sometimes', 'string', 'max:255'],
+            'id'                         => $b64url,
+            'rawId'                      => $b64url,
+            'type'                       => ['required', 'string', 'in:public-key'],
+            'response'                   => ['required', 'array'],
+            'response.clientDataJSON'    => $b64url,
+            'response.attestationObject' => $b64url,
+            'name'                       => ['sometimes', 'string', 'max:255'],
         ];
     }
 

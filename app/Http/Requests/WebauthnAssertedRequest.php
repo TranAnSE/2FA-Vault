@@ -23,15 +23,21 @@ class WebauthnAssertedRequest extends FormRequest
 
     public function rules() : array
     {
+        // The binary members are strict base64url (WebAuthn Level 3 JSON);
+        // rejecting non-base64url characters here converts malformed
+        // payloads into clean 422s before any deserialization (webauthn-lib
+        // throws bare \RangeException for some of them).
+        $b64url = ['required', 'string', 'regex:/^[A-Za-z0-9_-]+$/'];
+
         return [
-            'email' => ['required', 'email'],
-            'id' => ['required', 'string'],
-            'rawId' => ['required', 'string'],
-            'type' => ['required', 'string', 'in:public-key'],
-            'response' => ['required', 'array'],
-            'response.clientDataJSON' => ['required', 'string'],
-            'response.authenticatorData' => ['required', 'string'],
-            'response.signature' => ['required', 'string'],
+            'email'                      => ['required', 'email'],
+            'id'                         => $b64url,
+            'rawId'                      => $b64url,
+            'type'                       => ['required', 'string', 'in:public-key'],
+            'response'                   => ['required', 'array'],
+            'response.clientDataJSON'    => $b64url,
+            'response.authenticatorData' => $b64url,
+            'response.signature'         => $b64url,
         ];
     }
 

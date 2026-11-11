@@ -4,7 +4,9 @@ namespace App\Console\Commands;
 
 use App\Support\Passkeys\CredentialRecordFactory;
 use Illuminate\Console\Command;
+use Illuminate\Support\Facades\Crypt;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 use Laragear\WebAuthn\Models\WebAuthnCredential;
 use Laravel\Passkeys\Support\WebAuthn;
 use Webauthn\CredentialRecord;
@@ -27,7 +29,7 @@ class MigrateWebauthnCredentials extends Command
 {
     protected $signature = '2fauth:migrate-webauthn-credentials
         {--dry-run : Report without writing}
-        {--force : Run without confirmation prompt}
+        {--force : Run without confirmation prompts (populated target included)}
         {--verify : Post-conversion structural verification of every passkeys row}';
 
     protected $description = 'One-time migration of laragear webauthn_credentials into laravel/passkeys rows';
@@ -38,11 +40,19 @@ class MigrateWebauthnCredentials extends Command
 
     public function handle() : int
     {
+        // v1.6.1 drops the legacy table; this command must then no-op
+        // (the docker entrypoint keeps calling it until then).
+        if (! Schema::hasTable('webauthn_credentials')) {
+            $this->info('Legacy webauthn_credentials table not present -- nothing to migrate.');
+
+            return self::SUCCESS;
+        }
+
         $legacyCount = DB::table('webauthn_credentials')->count();
 
         $this->info("webauthn_credentials rows: {$legacyCount}");
 
-                if ($legacyCount === 0 && DB::table('passkeys')->count() === 0) {
+        if ($legacyCount === 0 && DB::table('passkeys')->count() === 0) {
             $this->info('Nothing to migrate.');
 
             return self::SUCCESS;
@@ -57,20 +67,29 @@ class MigrateWebauthnCredentials extends Command
             return self::FAILURE;
         }
 
+        // R6: live runs confirm before touching data unless --force.
+        if (! $this->option('dry-run') && ! $this->option('force')) {
+            if (! $this->confirm('Convert webauthn_credentials rows into passkeys now?')) {
+                $this->info('Aborted.');
+
+                return self::FAILURE;
+            }
+        }
+
         // R6: APP_KEY decrypt pre-flight on a random sample before any write.
         if (! $this->option('dry-run') && ! $this->preflightDecryptCheck()) {
             return self::FAILURE;
         }
 
         $report = [
-            'total' => $legacyCount,
-            'ok' => 0,
-            'fail' => 0,
-            'skipped' => 0,
-            'algorithms' => [],
-            'nullColumns' => ['transports' => 0, 'counter' => 0, 'aaguid' => 0, 'alias' => 0],
+            'total'        => $legacyCount,
+            'ok'           => 0,
+            'fail'         => 0,
+            'skipped'      => 0,
+            'algorithms'   => [],
+            'nullColumns'  => ['transports' => 0, 'counter' => 0, 'aaguid' => 0, 'alias' => 0],
             'credentialId' => ['min' => PHP_INT_MAX, 'max' => 0],
-            'failures' => [],
+            'failures'     => [],
         ];
 
         $this->migrate($report);
@@ -101,6 +120,7 @@ class MigrateWebauthnCredentials extends Command
 
                 if (DB::table('passkeys')->where('credential_id', $row->id)->exists()) {
                     $report['skipped']++;
+
                     continue;
                 }
 
@@ -112,13 +132,13 @@ class MigrateWebauthnCredentials extends Command
                             $record = CredentialRecordFactory::fromLegacyCredential($row);
 
                             DB::table('passkeys')->insert([
-                                'user_id' => $row->getAttribute('authenticatable_id'),
-                                'name' => $row->alias ?? ('Passkey '.($report['ok'] + $report['skipped'] + 1)),
+                                'user_id'       => $row->getAttribute('authenticatable_id'),
+                                'name'          => $row->alias ?? ('Passkey ' . ($report['ok'] + $report['skipped'] + 1)),
                                 'credential_id' => $row->id,
-                                'credential' => CredentialRecordFactory::toCredentialJson($record),
-                                'last_used_at' => null,
-                                'created_at' => now(),
-                                'updated_at' => now(),
+                                'credential'    => CredentialRecordFactory::toCredentialJson($record),
+                                'last_used_at'  => null,
+                                'created_at'    => now(),
+                                'updated_at'    => now(),
                             ]);
 
                             return true;
@@ -152,7 +172,7 @@ class MigrateWebauthnCredentials extends Command
         $this->info('Verifying converted rows...');
 
         $checked = 0;
-        $failed = 0;
+        $failed  = 0;
 
         DB::table('passkeys')->orderBy('id')->chunk(500, function ($rows) use (&$checked, &$failed) {
             foreach ($rows as $row) {
@@ -167,13 +187,15 @@ class MigrateWebauthnCredentials extends Command
                     }
 
                     // C2 correction: converted handles are base64UrlDecode of the
-                    // 32-hex user id -- exactly 24 bytes.
-                    if (strlen($record->userHandle) !== 24) {
+                    // 32-hex user id (24 bytes); rows registered through the new flow carry
+                    // the package's 32-byte HMAC handles. Accept both.
+                    if (! in_array(strlen($record->userHandle), [24, 32], true)) {
                         throw new \RuntimeException('Unexpected userHandle length.');
                     }
                 } catch (\Throwable $e) {
                     $failed++;
                     $this->warn('VERIFY FAIL row #' . $row->id . ' : ' . $e->getMessage());
+
                     continue;
                 }
 
@@ -235,10 +257,10 @@ class MigrateWebauthnCredentials extends Command
             $details = openssl_pkey_get_details(openssl_pkey_get_public($row->public_key));
 
             return match ($details['type'] ?? null) {
-                OPENSSL_KEYTYPE_EC => 'ES256',
-                OPENSSL_KEYTYPE_RSA => 'RS256',
+                OPENSSL_KEYTYPE_EC      => 'ES256',
+                OPENSSL_KEYTYPE_RSA     => 'RS256',
                 OPENSSL_KEYTYPE_ED25519 => 'EdDSA',
-                default => 'unknown',
+                default                 => 'unknown',
             };
         } catch (\Throwable) {
             return 'undecryptable';
@@ -263,9 +285,9 @@ class MigrateWebauthnCredentials extends Command
             // Raw table access: values are still APP_KEY-encrypted here
             // (no model cast), so decrypt manually.
             try {
-                $decrypted = \Illuminate\Support\Facades\Crypt::decryptString($pem);
+                $decrypted = Crypt::decryptString($pem);
             } catch (\Throwable $e) {
-                $this->error('Pre-flight decrypt FAILED (APP_KEY mismatch?): run aborted. '.$e->getMessage());
+                $this->error('Pre-flight decrypt FAILED (APP_KEY mismatch?): run aborted. ' . $e->getMessage());
 
                 return false;
             }
@@ -277,7 +299,7 @@ class MigrateWebauthnCredentials extends Command
             }
         }
 
-        $this->info('Pre-flight decrypt check passed on '.$sample->count().' sample row(s).');
+        $this->info('Pre-flight decrypt check passed on ' . $sample->count() . ' sample row(s).');
 
         return true;
     }
@@ -293,10 +315,10 @@ class MigrateWebauthnCredentials extends Command
             ['Metric', 'Value'],
             [
                 ['Total legacy rows', $report['total']],
-                ['Converted'.($this->option('dry-run') ? ' (dry-run)' : ''), $report['ok']],
+                ['Converted' . ($this->option('dry-run') ? ' (dry-run)' : ''), $report['ok']],
                 ['Skipped (already converted)', $report['skipped']],
                 ['Failed', $report['fail']],
-                ['Credential-id length (min/max)', $report['credentialId']['min'].' / '.$report['credentialId']['max']],
+                ['Credential-id length (min/max)', $report['credentialId']['min'] . ' / ' . $report['credentialId']['max']],
                 ['Null transports', $report['nullColumns']['transports']],
                 ['Null counter', $report['nullColumns']['counter']],
                 ['Null aaguid', $report['nullColumns']['aaguid']],
@@ -310,7 +332,7 @@ class MigrateWebauthnCredentials extends Command
         }
 
         foreach ($report['failures'] as $failure) {
-            $this->warn('FAIL '.$failure['id'].' : '.$failure['reason']);
+            $this->warn('FAIL ' . $failure['id'] . ' : ' . $failure['reason']);
         }
 
         if ($report['fail'] > 0) {
