@@ -188,13 +188,20 @@ class WebauthnService {
     }
 
     /**
-     * Encodes an array of bytes to a BASE64 URL string
+     * Encodes an array of bytes to a BASE64 URL string (unpadded).
+     *
+     * The backend (laravel/passkeys -> webauthn-lib) validates response
+     * members as strict base64url (WebAuthn Level 3 JSON): standard base64
+     * characters ("+", "/") and padding are refused.
      *
      * @param arrayBuffer {ArrayBuffer|Uint8Array}
      * @returns {string}
      */
     static arrayToBase64String(arrayBuffer) {
-        return btoa(String.fromCharCode(...new Uint8Array(arrayBuffer)));
+        return btoa(String.fromCharCode(...new Uint8Array(arrayBuffer)))
+            .replace(/\+/g, '-')
+            .replace(/\//g, '_')
+            .replace(/=+$/, '');
     }
 
     
