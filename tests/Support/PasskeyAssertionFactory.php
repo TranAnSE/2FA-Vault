@@ -26,6 +26,17 @@ use Ramsey\Uuid\Uuid;
 class PasskeyAssertionFactory
 {
     /**
+     * A real ES256 SPKI PEM (for fixtures needing decryptable-but-failing rows).
+     */
+    public static function pemFixture() : string
+    {
+        $key = self::freshEs256Key();
+
+        $details = openssl_pkey_get_details($key);
+
+        return self::pemOf($details['ec']['x'], $details['ec']['y']);
+    }
+    /**
      * Seed a legacy-format credential for the user, convert it via the real
      * ETL factory, and return a ceremony handle producing valid assertions.
      */
@@ -36,6 +47,8 @@ class PasskeyAssertionFactory
         $credentialId = Base64UrlSafe::encodeUnpadded(random_bytes(32));
 
         self::seedLegacyRow($user, $credentialId, $privateKey);
+
+        self::convertLegacyRow($user, $credentialId);
 
         return new PasskeyCredentialHandle($credentialId, $privateKey);
     }
@@ -52,9 +65,27 @@ class PasskeyAssertionFactory
 
         self::seedLegacyRow($user, $credentialId, $privateKey);
 
+        self::convertLegacyRow($user, $credentialId);
+
         return $credentialId;
     }
 
+    /**
+     * Seed a legacy-format row WITHOUT converting it (ETL fixture):
+     * returns the credential id and the private key for later assertions.
+     *
+     * @return array{credentialId: string, privateKey: OpenSSLAsymmetricKey}
+     */
+    public static function legacyOnly(Authenticatable $user) : array
+    {
+        $privateKey = self::freshEs256Key();
+
+        $credentialId = Base64UrlSafe::encodeUnpadded(random_bytes(32));
+
+        self::seedLegacyRow($user, $credentialId, $privateKey);
+
+        return ['credentialId' => $credentialId, 'privateKey' => $privateKey];
+    }
     /**
      * Seed a legacy laragear-format webauthn_credentials row and convert it
      * into the passkeys table through the REAL ETL factory
@@ -82,6 +113,16 @@ class PasskeyAssertionFactory
         $legacy->attestation_format = 'none';
         $legacy->disabled_at = null;
         $legacy->save();
+
+    }
+
+    /**
+     * Convert a seeded legacy row into its passkeys row via the real ETL
+     * factory.
+     */
+    protected static function convertLegacyRow(Authenticatable $user, string $credentialId) : void
+    {
+        $legacy = \Laragear\WebAuthn\Models\WebAuthnCredential::query()->where('id', $credentialId)->firstOrFail();
 
         $record = CredentialRecordFactory::fromLegacyCredential($legacy);
 
