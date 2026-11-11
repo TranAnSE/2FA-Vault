@@ -61,7 +61,7 @@ class UserManagerResource extends UserResource
         $this->with = [
             'password_reset'               => $password_reset,
             'valid_personal_access_tokens' => $PATs_count,
-            'webauthn_credentials'         => $this->resource->webAuthnCredentials()->count(),
+            'webauthn_credentials'         => $this->resource->passkeys()->count(),
         ];
     }
 

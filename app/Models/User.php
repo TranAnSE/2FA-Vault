@@ -23,8 +23,7 @@ use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\App;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Str;
-use Laragear\WebAuthn\Models\WebAuthnCredential;
-use Laragear\WebAuthn\WebAuthnAuthentication;
+use Laravel\Passkeys\Passkey;
 use Laravel\Passport\Client;
 use Laravel\Passport\Contracts\OAuthenticatable;
 use Laravel\Passport\HasApiTokens;
@@ -54,8 +53,8 @@ use Laravel\Passport\Token;
  * @property-read int|null $tokens_count
  * @property-read \Illuminate\Database\Eloquent\Collection|TwoFAccount[] $twofaccounts
  * @property-read int|null $twofaccounts_count
- * @property-read \Illuminate\Database\Eloquent\Collection|WebAuthnCredential[] $webAuthnCredentials
- * @property-read int|null $web_authn_credentials_count
+ * @property-read \Illuminate\Database\Eloquent\Collection|\Laravel\Passkeys\Passkey[] $passkeys
+ * @property-read int|null $passkeys_count
  * @property string|null $oauth_id
  * @property string|null $oauth_provider
  * @property-read \Illuminate\Database\Eloquent\Collection<int, AuthLog> $authentications
@@ -86,7 +85,7 @@ use Laravel\Passport\Token;
  */
 #[Fillable(['name', 'email', 'password', 'oauth_id', 'oauth_provider', 'is_admin', 'is_active', 'encryption_salt', 'encryption_test_value', 'encryption_version', 'vault_locked', 'last_backup_at', 'public_key'])]
 #[Hidden(['password', 'remember_token', 'encryption_salt', 'encryption_test_value'])]
-class User extends Authenticatable implements HasLocalePreference, OAuthenticatable, WebAuthnAuthenticatable, \Laravel\Passkeys\Contracts\PasskeyUser
+class User extends Authenticatable implements HasLocalePreference, OAuthenticatable, \Laravel\Passkeys\Contracts\PasskeyUser
 {
     use HasApiTokens, Notifiable;
     use HasAuthenticationLog;
@@ -96,12 +95,13 @@ class User extends Authenticatable implements HasLocalePreference, OAuthenticata
      */
     use HasFactory;
 
-    // SPIKE ONLY (branch spike/passkeys-poc): minimal laravel/passkeys
-    // integration to prove package actions against converted credentials.
-    // Phase 3 replaces the laragear traits with this contract.
+    // laravel/passkeys user integration (plan 261009-passkeys-migration,
+    // phase 3): replaces the former laragear WebAuthnAuthentication trait and
+    // the WebAuthnAuthenticatable contract. Passkey credentials live in the
+    // `passkeys` table via the package Passkey model; the manage helpers
+    // (rename/flush/recovery notification) stay fork-owned in the trait below.
     use \Laravel\Passkeys\PasskeyAuthenticatable;
-
-    use WebAuthnAuthentication, WebAuthnManageCredentials;
+    use \App\Models\Traits\WebAuthnManageCredentials;
 
     /**
      * The attributes that should be cast.
@@ -249,14 +249,14 @@ class User extends Authenticatable implements HasLocalePreference, OAuthenticata
     }
 
     /**
-     * Returns an WebAuthnAuthenticatable user from a given Credential ID.
+     * Returns an User owning the given credential id.
      */
-    public static function getFromCredentialId(string $id) : ?WebAuthnAuthenticatable
+    public static function getFromCredentialId(string $id) : ?self
     {
         return static::whereHas(
-            'webauthnCredentials',
+            'passkeys',
             static function ($query) use ($id) {
-                return $query->whereKey($id);
+                return $query->where('credential_id', $id);
             }
         )->first();
     }

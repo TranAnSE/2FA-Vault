@@ -39,7 +39,7 @@ class WebauthnAssertedRequestTest extends TestCase
             [[
                 'id'       => 'string',
                 'rawId'    => 'string',
-                'type'     => 'string',
+                'type'     => 'public-key',
                 'response' => [
                     'clientDataJSON'    => 'string',
                     'authenticatorData' => 'string',

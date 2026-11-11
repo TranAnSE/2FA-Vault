@@ -35,18 +35,12 @@ class WebAuthnRecoveryController extends Controller
         $response = $broker->reset(
             $credentials,
             function ($user) use ($request) {
-                // At this time, the WebAuthnUserProvider is already registered in the Laravel Service Container,
-                // with a password_fallback value set using the useWebauthnOnly user setting (see AuthServiceProvider.php).
-                // To ensure user login with email+pwd credentials, we replace the registered WebAuthnUserProvider instance
-                // with a new instance configured with password_fallback On.
-                $provider = new \Laragear\WebAuthn\Auth\WebAuthnUserProvider(
-                    app()->make('hash'),
-                    \App\Models\User::class,
-                    app()->make(\Laragear\WebAuthn\Assertion\Validator\AssertionValidator::class),
-                    true,
-                );
-
-                Auth::setProvider($provider);
+                // At this time, the TwoFAuthUserProvider is already registered in the Laravel Service Container,
+                // and rejects password validation for useWebauthnOnly users (see AuthServiceProvider.php and
+                // TwoFAuthUserProvider.php). To ensure user login with email+pwd credentials during recovery,
+                // we replace the registered provider with a stock EloquentUserProvider, which performs plain
+                // password validation (plan 261009-passkeys-migration, red-team H5).
+                Auth::setProvider(new \Illuminate\Auth\EloquentUserProvider(app()->make('hash'), \App\Models\User::class));
 
                 if (Auth::attempt($request->only('email', 'password'))) {
                     if ($this->shouldRevokeAllCredentials($request)) {
