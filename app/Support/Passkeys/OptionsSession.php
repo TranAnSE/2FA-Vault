@@ -5,7 +5,6 @@ namespace App\Support\Passkeys;
 use Illuminate\Http\Request;
 use Illuminate\Validation\ValidationException;
 use Laravel\Passkeys\Support\WebAuthn;
-use RuntimeException;
 
 /**
  * Session persistence for WebAuthn ceremony options with a server-side
@@ -36,7 +35,7 @@ class OptionsSession
     public static function put(Request $request, string $key, string $serializedOptions) : void
     {
         $request->session()->put($key, $serializedOptions);
-        $request->session()->put($key.self::AGED_KEY_SUFFIX, now()->timestamp);
+        $request->session()->put($key . self::AGED_KEY_SUFFIX, now()->timestamp);
     }
 
     /**
@@ -48,15 +47,11 @@ class OptionsSession
     public static function pull(Request $request, string $key) : string
     {
         $serialized = $request->session()->pull($key);
-        $storedAt = $request->session()->pull($key.self::AGED_KEY_SUFFIX);
+        $storedAt   = $request->session()->pull($key . self::AGED_KEY_SUFFIX);
 
-        if (! $serialized || ! $storedAt) {
-            throw ValidationException::withMessages([
-                'credential' => __('Passkey session expired. Please try again.'),
-            ]);
-        }
-
-        if (now()->timestamp - $storedAt > PasskeysTimeout::seconds()) {
+        // A missing pair and an aged-out pair are the same ceremony failure.
+        // The null checks short-circuit before the timestamp arithmetic runs.
+        if (! $serialized || ! $storedAt || now()->timestamp - $storedAt > PasskeysTimeout::seconds()) {
             throw ValidationException::withMessages([
                 'credential' => __('Passkey session expired. Please try again.'),
             ]);

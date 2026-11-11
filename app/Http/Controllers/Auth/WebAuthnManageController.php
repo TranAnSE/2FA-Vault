@@ -68,10 +68,8 @@ class WebAuthnManageController extends Controller
 
     /**
      * Remove the specified credential from storage.
-     *
-     * @return \Illuminate\Http\JsonResponse
      */
-    public function delete(Request $request, $credential)
+    public function delete(Request $request, string $credential) : JsonResponse
     {
         Log::info('Deletion of security device requested');
 
@@ -86,8 +84,8 @@ class WebAuthnManageController extends Controller
         // no more registered device exists.
         // See #110
         if ($user->passkeys()->doesntExist()) {
-            $request->user()->preferences['useWebauthnOnly'] = false;
-            $request->user()->save();
+            $user->preferences['useWebauthnOnly'] = false;
+            $user->save();
             Log::notice(sprintf('No more Webauthn credential for user ID #%s, useWebauthnOnly user preference reset to false', $user->id));
         }
 
@@ -102,9 +100,9 @@ class WebAuthnManageController extends Controller
     protected function present($passkey) : array
     {
         return [
-            'id' => $passkey->credential_id,
-            'alias' => $passkey->name,
-            'aaguid' => $passkey->credential['aaguid'] ?? null,
+            'id'           => $passkey->credential_id,
+            'alias'        => $passkey->name,
+            'aaguid'       => $passkey->credential['aaguid'] ?? null,
             'last_used_at' => $passkey->last_used_at?->toISOString(),
         ];
     }

@@ -11,12 +11,19 @@ use RuntimeException;
 class PemToCoseConverter
 {
     public const KTY_EC2 = 2;
+
     public const KTY_RSA = 3;
+
     public const KTY_OKP = 1;
+
     public const ALG_ES256 = -7;
+
     public const ALG_RS256 = -257;
+
     public const ALG_EDDSA = -8;
+
     public const CRV_P256 = 1;
+
     public const CRV_ED25519 = 6;
 
     /**
@@ -24,7 +31,7 @@ class PemToCoseConverter
      *
      * @throws RuntimeException on malformed PEM or unsupported key class
      */
-    public static function convert(string $pem): string
+    public static function convert(string $pem) : string
     {
         $details = self::keyDetails($pem);
 
@@ -47,26 +54,26 @@ class PemToCoseConverter
     /**
      * Map the openssl key class to the COSE kty label.
      */
-    protected static function ktyFor(int $opensslType): int
+    protected static function ktyFor(int $opensslType) : int
     {
         return match ($opensslType) {
-            OPENSSL_KEYTYPE_EC => self::KTY_EC2,
-            OPENSSL_KEYTYPE_RSA => self::KTY_RSA,
+            OPENSSL_KEYTYPE_EC      => self::KTY_EC2,
+            OPENSSL_KEYTYPE_RSA     => self::KTY_RSA,
             OPENSSL_KEYTYPE_ED25519 => self::KTY_OKP,
-            default => throw new RuntimeException(sprintf('Unsupported openssl key type %d.', $opensslType)),
+            default                 => throw new RuntimeException(sprintf('Unsupported openssl key type %d.', $opensslType)),
         };
     }
 
     /**
-     * COSE alg label reconstructed by key class (see class docblock).
+     * The COSE alg label implied by each supported key class.
      */
-    public static function algFor(int $kty): int
+    public static function algFor(int $kty) : int
     {
         return match ($kty) {
             self::KTY_EC2 => self::ALG_ES256,
             self::KTY_RSA => self::ALG_RS256,
             self::KTY_OKP => self::ALG_EDDSA,
-            default => throw new RuntimeException('Unsupported COSE key type '.$kty),
+            default       => throw new RuntimeException('Unsupported COSE key type ' . $kty),
         };
     }
 
@@ -75,7 +82,7 @@ class PemToCoseConverter
      *
      * @return array<string, mixed> openssl_pkey_get_details output
      */
-    protected static function keyDetails(string $pem): array
+    protected static function keyDetails(string $pem) : array
     {
         $key = openssl_pkey_get_public($pem);
 
@@ -97,20 +104,20 @@ class PemToCoseConverter
      *
      * @return array<int, mixed>
      */
-    protected static function coseParams(array $details, string $pem): array
+    protected static function coseParams(array $details, string $pem) : array
     {
         return match ($details['type']) {
-            OPENSSL_KEYTYPE_EC => self::ec2Params($details),
-            OPENSSL_KEYTYPE_RSA => self::rsaParams($details),
+            OPENSSL_KEYTYPE_EC      => self::ec2Params($details),
+            OPENSSL_KEYTYPE_RSA     => self::rsaParams($details),
             OPENSSL_KEYTYPE_ED25519 => self::okpParams($pem),
-            default => throw new RuntimeException(sprintf('Unsupported key class %d.', $details['type'])),
+            default                 => throw new RuntimeException(sprintf('Unsupported key class %d.', $details['type'])),
         };
     }
 
     /**
      * @return array<int, mixed>
      */
-    protected static function ec2Params(array $details): array
+    protected static function ec2Params(array $details) : array
     {
         return [
             -1 => self::CRV_P256,
@@ -122,7 +129,7 @@ class PemToCoseConverter
     /**
      * @return array<int, mixed>
      */
-    protected static function rsaParams(array $details): array
+    protected static function rsaParams(array $details) : array
     {
         return [
             -1 => $details['rsa']['n'],
@@ -133,7 +140,7 @@ class PemToCoseConverter
     /**
      * @return array<int, mixed>
      */
-    protected static function okpParams(string $pem): array
+    protected static function okpParams(string $pem) : array
     {
         // Ed25519 SPKI DER has a fixed prefix; the 32 raw key bytes are the DER tail.
         return [
@@ -142,7 +149,7 @@ class PemToCoseConverter
         ];
     }
 
-    protected static function derFromPem(string $pem): string
+    protected static function derFromPem(string $pem) : string
     {
         $body = str_replace(['-----BEGIN PUBLIC KEY-----', '-----END PUBLIC KEY-----'], '', $pem);
 

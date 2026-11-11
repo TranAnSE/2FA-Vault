@@ -2,6 +2,7 @@
 
 namespace Tests\Feature\Http\Auth;
 
+use App\Facades\Settings;
 use App\Models\User;
 use App\Support\Passkeys\OptionsSession;
 use Illuminate\Support\Facades\Hash;
@@ -35,7 +36,7 @@ class WebAuthnPasskeysIntegrationTest extends FeatureTestCase
     }
 
     #[Test]
-    public function converted_credential_logs_in_with_valid_assertion(): void
+    public function converted_credential_logs_in_with_valid_assertion() : void
     {
         $options = $this->postJson('/webauthn/login/options', ['email' => $this->user->email]);
         $options->assertStatus(200);
@@ -53,9 +54,9 @@ class WebAuthnPasskeysIntegrationTest extends FeatureTestCase
     }
 
     #[Test]
-    public function wrong_key_signature_is_rejected(): void
+    public function wrong_key_signature_is_rejected() : void
     {
-        $options = $this->postJson('/webauthn/login/options', ['email' => $this->user->email]);
+        $options   = $this->postJson('/webauthn/login/options', ['email' => $this->user->email]);
         $challenge = $options->json('challenge');
 
         $handle = PasskeyAssertionFactory::convertedCredential($this->user);
@@ -71,11 +72,11 @@ class WebAuthnPasskeysIntegrationTest extends FeatureTestCase
     }
 
     #[Test]
-    public function cross_user_assertion_is_rejected(): void
+    public function cross_user_assertion_is_rejected() : void
     {
         $victim = User::factory()->create(['password' => Hash::make('password')]);
 
-        $options = $this->postJson('/webauthn/login/options', ['email' => $victim->email]);
+        $options   = $this->postJson('/webauthn/login/options', ['email' => $victim->email]);
         $challenge = $options->json('challenge');
 
         // Attacker owns a converted credential; the request targets the victim's email.
@@ -88,7 +89,7 @@ class WebAuthnPasskeysIntegrationTest extends FeatureTestCase
     }
 
     #[Test]
-    public function unknown_email_gets_generic_200_shape(): void
+    public function unknown_email_gets_generic_200_shape() : void
     {
         $response = $this->postJson('/webauthn/login/options', ['email' => 'ghost@example.test']);
 
@@ -102,7 +103,7 @@ class WebAuthnPasskeysIntegrationTest extends FeatureTestCase
      * laragear's server-side TTL gate.
      */
     #[Test]
-    public function expired_session_options_reject_the_ceremony(): void
+    public function expired_session_options_reject_the_ceremony() : void
     {
         $handle = PasskeyAssertionFactory::convertedCredential($this->user);
 
@@ -123,7 +124,7 @@ class WebAuthnPasskeysIntegrationTest extends FeatureTestCase
      * The same server-side TTL gate protects the registration ceremony.
      */
     #[Test]
-    public function expired_registration_options_reject_the_ceremony(): void
+    public function expired_registration_options_reject_the_ceremony() : void
     {
         $this->actingAs($this->user, 'web-guard');
 
@@ -133,7 +134,7 @@ class WebAuthnPasskeysIntegrationTest extends FeatureTestCase
 
         // Simulate expiry: age the stored options beyond passkeys.timeout.
         $this->app['session.store']->put(
-            OptionsSession::REGISTER_KEY.OptionsSession::AGED_KEY_SUFFIX,
+            OptionsSession::REGISTER_KEY . OptionsSession::AGED_KEY_SUFFIX,
             now()->timestamp - 120
         );
 
@@ -147,7 +148,7 @@ class WebAuthnPasskeysIntegrationTest extends FeatureTestCase
      * within the TTL window.
      */
     #[Test]
-    public function replayed_assertion_is_rejected_immediately(): void
+    public function replayed_assertion_is_rejected_immediately() : void
     {
         $handle = PasskeyAssertionFactory::convertedCredential($this->user);
 
@@ -171,15 +172,16 @@ class WebAuthnPasskeysIntegrationTest extends FeatureTestCase
      * bypass guard (covered by the admin variant above + code review).
      */
     #[Test]
-    public function sso_only_hides_challenge_from_non_administrators(): void
+    public function sso_only_hides_challenge_from_non_administrators() : void
     {
-        \App\Facades\Settings::set('useSsoOnly', true);
+        Settings::set('useSsoOnly', true);
 
         $response = $this->postJson('/webauthn/login/options', ['email' => $this->user->email]);
 
         $response->assertStatus(401);
         $this->assertGuest();
     }
+
     /**
      * P1 regression (code review 261112): malformed base64url in the
      * binary members must be a clean 422 (validation rules) -- the vendor
@@ -187,7 +189,7 @@ class WebAuthnPasskeysIntegrationTest extends FeatureTestCase
      * used to escape as a 500.
      */
     #[Test]
-    public function malformed_base64url_members_are_validation_errors(): void
+    public function malformed_base64url_members_are_validation_errors() : void
     {
         PasskeyAssertionFactory::convertedCredentialId($this->user);
 
@@ -195,7 +197,7 @@ class WebAuthnPasskeysIntegrationTest extends FeatureTestCase
 
         $assertion = (PasskeyAssertionFactory::convertedCredential($this->user))->assertion($challenge);
 
-        $payload = $assertion['credential'] + ['email' => $this->user->email];
+        $payload                               = $assertion['credential'] + ['email' => $this->user->email];
         $payload['response']['clientDataJSON'] = '!!!not-base64url!!!';
 
         $this->postJson('/webauthn/login', $payload)
@@ -209,13 +211,13 @@ class WebAuthnPasskeysIntegrationTest extends FeatureTestCase
      * Register-side twin: malformed attestationObject is a 422, not 500.
      */
     #[Test]
-    public function malformed_attestation_is_validation_error(): void
+    public function malformed_attestation_is_validation_error() : void
     {
         $this->actingAs($this->user, 'web-guard');
 
         $challenge = $this->json('POST', '/webauthn/register/options')->json('challenge');
 
-        $attestation = PasskeyAttestationFactory::create($challenge);
+        $attestation                                  = PasskeyAttestationFactory::create($challenge);
         $attestation['response']['attestationObject'] = '###';
 
         $this->json('POST', '/webauthn/register', $attestation + ['name' => 'x'])

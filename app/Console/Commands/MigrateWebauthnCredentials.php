@@ -48,17 +48,16 @@ class MigrateWebauthnCredentials extends Command
             return self::SUCCESS;
         }
 
-        $legacyCount = DB::table('webauthn_credentials')->count();
+        $legacyCount  = DB::table('webauthn_credentials')->count();
+        $passkeyCount = DB::table('passkeys')->count();
 
         $this->info("webauthn_credentials rows: {$legacyCount}");
 
-        if ($legacyCount === 0 && DB::table('passkeys')->count() === 0) {
+        if ($legacyCount === 0 && $passkeyCount === 0) {
             $this->info('Nothing to migrate.');
 
             return self::SUCCESS;
         }
-
-        $passkeyCount = DB::table('passkeys')->count();
 
         // R6: never convert into a populated target without --force.
         if ($passkeyCount > 0 && ! $this->option('dry-run') && ! $this->option('force')) {
@@ -150,8 +149,10 @@ class MigrateWebauthnCredentials extends Command
                 }
 
                 if ($ok === true) {
+                    $algorithm = $this->algorithmOf($row);
+
                     $report['ok']++;
-                    $report['algorithms'][$this->algorithmOf($row)] = ($report['algorithms'][$this->algorithmOf($row)] ?? 0) + 1;
+                    $report['algorithms'][$algorithm] = ($report['algorithms'][$algorithm] ?? 0) + 1;
                 } else {
                     $report['fail']++;
                     $report['failures'][] = ['id' => $row->id, 'reason' => $ok];
@@ -174,7 +175,7 @@ class MigrateWebauthnCredentials extends Command
         $checked = 0;
         $failed  = 0;
 
-        DB::table('passkeys')->orderBy('id')->chunk(500, function ($rows) use (&$checked, &$failed) {
+        DB::table('passkeys')->orderBy('id')->chunk(self::CHUNK, function ($rows) use (&$checked, &$failed) {
             foreach ($rows as $row) {
                 /** @var object{id: int, credential: string} $row */
                 try {

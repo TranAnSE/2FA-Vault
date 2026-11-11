@@ -7,6 +7,7 @@ use Laravel\Passkeys\Support\WebAuthn;
 use ParagonIE\ConstantTime\Base64UrlSafe;
 use Ramsey\Uuid\Uuid;
 use RuntimeException;
+use Symfony\Component\Uid\Uuid as SymfonyUuid;
 use Webauthn\CredentialRecord;
 use Webauthn\TrustPath\EmptyTrustPath;
 
@@ -21,7 +22,7 @@ class CredentialRecordFactory
      *
      * @throws RuntimeException on decrypt/parse/conversion failure
      */
-    public static function fromLegacyCredential(WebAuthnCredential $credential): CredentialRecord
+    public static function fromLegacyCredential(WebAuthnCredential $credential) : CredentialRecord
     {
         // laragear's `encrypted` cast decrypts on attribute access: the
         // model attribute IS the PEM already (no manual Crypt::decryptString).
@@ -33,19 +34,17 @@ class CredentialRecordFactory
 
         $coseKeyBytes = PemToCoseConverter::convert($pem);
 
-        $record = CredentialRecord::create(
+        return CredentialRecord::create(
             publicKeyCredentialId: Base64UrlSafe::decodeNoPadding($credential->id),
             type: 'public-key',
             transports: is_array($credential->transports) ? $credential->transports : [],
             attestationType: $credential->attestation_format ?? 'none',
             trustPath: EmptyTrustPath::create(),
-            aaguid: \Symfony\Component\Uid\Uuid::fromString($credential->aaguid ?? self::NIL_UUID),
+            aaguid: SymfonyUuid::fromString($credential->aaguid ?? self::NIL_UUID),
             credentialPublicKey: $coseKeyBytes,
             userHandle: self::deviceUserHandle($credential->user_id),
             counter: (int) ($credential->counter ?? 0),
         );
-
-        return $record;
     }
 
     /**
@@ -59,7 +58,7 @@ class CredentialRecordFactory
      * the hex bytes. Converted records must carry exactly those bytes or any
      * assertion that echoes a userHandle fails CheckUserHandle.
      */
-    public static function deviceUserHandle(string $dashedUuid): string
+    public static function deviceUserHandle(string $dashedUuid) : string
     {
         $hex = Uuid::fromString($dashedUuid)->getHex()->toString();
 
@@ -70,7 +69,7 @@ class CredentialRecordFactory
      * The serialized form stored in the passkeys.credential JSON column
      * (exactly what VerifyPasskey deserializes on the login path).
      */
-    public static function toCredentialJson(CredentialRecord $record): string
+    public static function toCredentialJson(CredentialRecord $record) : string
     {
         return WebAuthn::toJson($record);
     }

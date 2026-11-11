@@ -30,13 +30,6 @@ class WebAuthnLoginController extends Controller
 {
     use AuthenticatesUsers;
 
-    /**
-     * The login throttle.
-     *
-     * @var int
-     */
-    protected $maxAttempts;
-
     /*
     |--------------------------------------------------------------------------
     | WebAuthn (passkey) Login Controller
@@ -51,6 +44,18 @@ class WebAuthnLoginController extends Controller
     */
 
     /**
+     * The login throttle.
+     *
+     * @var int
+     */
+    protected $maxAttempts;
+
+    /**
+     * The passkey verified during attemptLogin.
+     */
+    protected ?Passkey $passkey = null;
+
+    /**
      * Returns the challenge to assertion.
      */
     public function options(Request $request, GenerateVerificationOptions $generate) : JsonResponse
@@ -62,7 +67,7 @@ class WebAuthnLoginController extends Controller
             ],
         ]);
 
-        $user = User::whereRaw('email = ?' . (DB::connection()->getDriverName() === 'sqlite' ? ' COLLATE NOCASE' : ''), [strtolower($validated['email'])])->first();
+        $user = $this->findUserForCeremony($validated['email']);
 
         // Return a 200-shaped generic response for an unknown email instead
         // of a 422 validation failure: the 200-vs-422 difference was a
@@ -83,14 +88,14 @@ class WebAuthnLoginController extends Controller
         // discoverable options for unknown emails and changing the SPA
         // failure UX. Only the status-code and timing oracles are closed.
         if ($user === null) {
-            $this->generateOptions($generate, null);
+            $generate(null);
 
             usleep(random_int(15000, 35000));
 
             return response()->json(['message' => __('auth.failed')], 200);
         }
 
-        $options = $this->generateOptions($generate, $user);
+        $options = $generate($user);
 
         OptionsSession::put($request, OptionsSession::VERIFY_KEY, WebAuthn::toJson($options));
 
@@ -100,12 +105,13 @@ class WebAuthnLoginController extends Controller
     }
 
     /**
-     * Generate verification options (scoped to the user's passkeys when a
-     * user is given, discoverable otherwise).
+     * Resolve the user by email for a ceremony. sqlite (the test driver)
+     * collates case-sensitively by default, so NOCASE is added there to
+     * match the case-insensitive lookups of the production drivers.
      */
-    protected function generateOptions(GenerateVerificationOptions $generate, ?User $user) : PublicKeyCredentialRequestOptions
+    protected function findUserForCeremony(string $email) : ?User
     {
-        return $generate($user);
+        return User::whereRaw('email = ?' . (DB::connection()->getDriverName() === 'sqlite' ? ' COLLATE NOCASE' : ''), [strtolower($email)])->first();
     }
 
     /**
@@ -168,7 +174,7 @@ class WebAuthnLoginController extends Controller
     protected function attemptLogin(WebauthnAssertedRequest $request, VerifyPasskey $verify)
     {
         try {
-            $user = User::whereRaw('email = ?' . (DB::connection()->getDriverName() === 'sqlite' ? ' COLLATE NOCASE' : ''), [strtolower($request->input('email'))])->first();
+            $user = $this->findUserForCeremony($request->input('email'));
 
             if ($user === null) {
                 return false;
@@ -210,11 +216,6 @@ class WebAuthnLoginController extends Controller
     }
 
     /**
-     * The passkey verified during attemptLogin.
-     */
-    protected ?Passkey $passkey = null;
-
-    /**
      * Send the response after the user was authenticated.
      *
      * @return JsonResponse
@@ -247,16 +248,6 @@ class WebAuthnLoginController extends Controller
             ], (new UserResource($user))->resolve($request)),
             Response::HTTP_OK
         );
-    }
-
-    /**
-     * Get the failed login response instance.
-     *
-     * @return JsonResponse
-     */
-    protected function sendFailedLoginResponse(WebauthnAssertedRequest $request)
-    {
-        return response()->json(['message' => 'unauthorized'], Response::HTTP_UNAUTHORIZED);
     }
 
     /**

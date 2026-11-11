@@ -6,7 +6,6 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\WebauthnAttestationRequest;
 use App\Http\Requests\WebauthnAttestedRequest;
 use App\Support\Passkeys\OptionsSession;
-use Illuminate\Contracts\Support\Responsable;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Response;
 use Illuminate\Support\Facades\Log;
@@ -41,21 +40,13 @@ class WebAuthnRegisterController extends Controller
     /**
      * Returns a challenge to be verified by the user device.
      */
-    public function options(WebauthnAttestationRequest $request, GenerateRegistrationOptions $generate) : Responsable
+    public function options(WebauthnAttestationRequest $request, GenerateRegistrationOptions $generate) : JsonResponse
     {
         $options = $generate($request->user());
 
         OptionsSession::put($request, OptionsSession::REGISTER_KEY, WebAuthn::toJson($options));
 
-        return new class(WebAuthn::toBrowserArray($options)) implements Responsable
-        {
-            public function __construct(protected array $payload) {}
-
-            public function toResponse($request) : JsonResponse
-            {
-                return response()->json($this->payload);
-            }
-        };
+        return response()->json(WebAuthn::toBrowserArray($options));
     }
 
     /**

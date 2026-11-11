@@ -2,6 +2,7 @@
 
 namespace App\Extensions;
 
+use App\Models\User;
 use Illuminate\Auth\EloquentUserProvider;
 
 /**
@@ -27,7 +28,7 @@ class TwoFAuthUserProvider extends EloquentUserProvider
     /**
      * Validate a user against the given credentials.
      *
-     * @param  \App\Models\User  $user
+     * @param  User  $user
      */
     public function validateCredentials($user, array $credentials) : bool
     {
