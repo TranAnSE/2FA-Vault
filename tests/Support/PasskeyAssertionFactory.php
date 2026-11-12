@@ -65,12 +65,9 @@ class PasskeyAssertionFactory
         // coordinates are complete 32-byte P-256 components.
         $details = openssl_pkey_get_details($privateKey);
 
-        for ($attempts = 0; $details === false
-            || ! isset($details["ec"]["x"], $details["ec"]["y"])
-            || strlen($details["ec"]["x"]) !== 32
-            || strlen($details["ec"]["y"]) !== 32; $attempts++) {
+        for ($attempts = 0; ! self::hasCompleteEcCoordinates($details); $attempts++) {
             if ($attempts >= 5) {
-                self::fail('OpenSSL kept returning truncated EC coordinates after 5 key generations');
+                self::fail();
             }
 
             $privateKey = self::freshEs256Key();
@@ -96,12 +93,23 @@ class PasskeyAssertionFactory
 
         $user->passkeys()->create([
             'name'          => 'test-device',
-            'credential_id' => $seedingCredentialId = $credentialId,
+            'credential_id' => $credentialId,
             'credential'    => json_decode(WebAuthn::toJson($record), true),
             'last_used_at'  => null,
         ]);
 
-        return ['credentialId' => $seedingCredentialId, 'privateKey' => $privateKey];
+        return ['credentialId' => $credentialId, 'privateKey' => $privateKey];
+    }
+
+    /**
+     * Whether the key details carry complete 32-byte P-256 coordinates
+     * (false when OpenSSL returned no details at all).
+     */
+    protected static function hasCompleteEcCoordinates(array|false $details) : bool
+    {
+        return isset($details['ec']['x'], $details['ec']['y'])
+            && strlen($details['ec']['x']) === 32
+            && strlen($details['ec']['y']) === 32;
     }
 
     /**

@@ -161,7 +161,7 @@ class BackupSnapshotTest extends TestCase
         // only 1 in the first test of a process.
         $snapshot = $this->createSnapshotFor($this->user);
 
-        $this->postJson("/api/v1/backups/snapshots/{$snapshot->id}/dry-run", ['mode' => 'merge'])
+        $this->postJson('/api/v1/backups/snapshots/' . $snapshot->id . '/dry-run', ['mode' => 'merge'])
             ->assertStatus(200)
             ->assertJsonStructure([
                 'mode', 'token', 'expires_at', 'to_create', 'to_update', 'to_delete',
@@ -174,10 +174,10 @@ class BackupSnapshotTest extends TestCase
     {
         $snapshot = $this->createSnapshotFor($this->user);
 
-        $this->postJson("/api/v1/backups/snapshots/{$snapshot->id}/dry-run", ['mode' => 'obliterate'])
+        $this->postJson('/api/v1/backups/snapshots/' . $snapshot->id . '/dry-run', ['mode' => 'obliterate'])
             ->assertStatus(422);
 
-        $this->postJson("/api/v1/backups/snapshots/{$snapshot->id}/dry-run", [])
+        $this->postJson('/api/v1/backups/snapshots/' . $snapshot->id . '/dry-run', [])
             ->assertStatus(422);
     }
 

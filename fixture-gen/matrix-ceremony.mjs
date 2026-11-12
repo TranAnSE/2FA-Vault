@@ -69,7 +69,8 @@ try {
     },
   });
   step('S-prep virtual-authenticator', !!authenticatorId);
-await page.goto(BASE + '/');  await page.waitForLoadState('domcontentloaded');
+  await page.goto(BASE + '/');
+  await page.waitForLoadState('domcontentloaded');
 
   // Same-origin fetch helpers with Laravel CSRF header (XSRF-TOKEN cookie).
   await page.evaluate(() => {

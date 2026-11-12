@@ -138,7 +138,8 @@ function medianP95(array $times) : array
     return [$times[(int) (count($times) * 0.5)], $times[(int) (count($times) * 0.95)]];
 }
 
-/** ES256 SubjectPublicKeyInfo PEM from raw x/y coordinates. */
+ * ES256 SubjectPublicKeyInfo PEM from raw x/y coordinates (self_pemOf below).
+ *
 function self_pemOf(string $x, string $y) : string
 {
     $point = "\x04" . $x . $y;

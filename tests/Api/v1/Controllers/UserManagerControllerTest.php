@@ -425,7 +425,6 @@ class UserManagerControllerTest extends FeatureTestCase
     {
         PasskeyAssertionFactory::convertedCredentialId($this->user);
 
-
         Passport::actingAs($this->admin, ['legacy_full_access'], 'api-guard');
         $this
             ->json('DELETE', '/api/v1/users/' . $this->user->id . '/credentials')
@@ -435,7 +434,6 @@ class UserManagerControllerTest extends FeatureTestCase
     #[Test]
     public function test_revoke_webauthn_credentials_always_returns_no_content()
     {
-
         Passport::actingAs($this->admin, ['legacy_full_access'], 'api-guard');
         $this
             ->json('DELETE', '/api/v1/users/' . $this->user->id . '/credentials')

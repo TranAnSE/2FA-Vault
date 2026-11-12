@@ -110,7 +110,8 @@ if [ -f /2fauth/installed ]; then
     php artisan migrate --force
   fi
   # v1.6.0 note (plan 261009): the WebAuthn credentials ETL ran here on
-  # v1.6.0 boots; the ETL command and the legacy table ship no more in v1.6.1.
+  # v1.6.0 boots. The ETL command and the legacy table were removed in
+  # v1.6.1, so this block intentionally does nothing now.
 else
   php artisan migrate:fresh --force
   php artisan passport:install --no-interaction
