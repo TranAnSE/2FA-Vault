@@ -2,19 +2,29 @@
 
 namespace App\Http\Requests;
 
+use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Support\Facades\Gate;
-use Laragear\WebAuthn\Contracts\WebAuthnAuthenticatable;
-use Laragear\WebAuthn\Http\Requests\AttestationRequest;
 use Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException;
 
-class WebauthnAttestationRequest extends AttestationRequest
+/**
+ * Registration-options request (fork-owned; replaces the laragear
+ * AttestationRequest base, plan 261009-passkeys-migration phase 3 R6).
+ *
+ * Carries the same SSO-only gate as the other manage endpoints (A7): the
+ * registration path cannot be used to bypass it.
+ */
+class WebauthnAttestationRequest extends FormRequest
 {
     /**
-     * Handle a failed authorization attempt.
-     *
-     * @return void
-     *
-     * @throws \Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException
+     * Authorize the request against the manage-webauthn-credentials gate.
+     */
+    public function authorize() : bool
+    {
+        return (bool) $this->user() && Gate::allows('manage-webauthn-credentials');
+    }
+
+    /**
+     * Handle a failed authorization attempt (kept for the framework flow).
      */
     protected function failedAuthorization()
     {
@@ -22,10 +32,10 @@ class WebauthnAttestationRequest extends AttestationRequest
     }
 
     /**
-     * Determine if the user is authorized to make this request.
+     * Validation is not applicable to the options request.
      */
-    public function authorize(?WebAuthnAuthenticatable $user) : bool
+    public function rules() : array
     {
-        return (bool) $user && Gate::allows('manage-webauthn-credentials');
+        return [];
     }
 }

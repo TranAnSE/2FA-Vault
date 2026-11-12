@@ -39,6 +39,7 @@
     "error.account_managed_by_external_provider": "Account managed by an external provider",
     "error.account_no_longer_exists": "This account no longer exists",
     "error.auth_proxy_failed": "Proxy authentication failed",
+    "error.passkey_not_verified": "The passkey could not be verified.",
     "error.auth_proxy_failed.legend": "2FA-Vault is configured to run behind an authentication proxy but your proxy does not return the expected header. Check your configuration and try again.",
     "error.authenticator_missing_discoverable_credential_support": "Authenticator missing discoverable credential support",
     "error.authenticator_missing_user_verification_support": "Authenticator missing user verification support",

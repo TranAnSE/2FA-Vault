@@ -152,7 +152,7 @@ Route::withoutMiddleware([
  */
 if (filter_var(env('SENTRY_TEST_ENABLED', false), FILTER_VALIDATE_BOOLEAN)) {
     Route::get('/sentry-test', function () {
-        throw new \RuntimeException('Sentry integration test from 2FA-Vault');
+        throw new RuntimeException('Sentry integration test from 2FA-Vault');
     });
 }
 

@@ -1,0 +1,30 @@
+{
+  "challenge": "M-c4HLrCttPIEsxeYC-8KDBOIWJPQeka_5QXpy6Py2o",
+  "timeout": 60000,
+  "rp": {
+    "id": "localhost",
+    "name": "localhost"
+  },
+  "user": {
+    "id": "xWyuS3GvB9AiSAG9NJ20A2kMTJEmAk08oZyZ9Q6AMXo",
+    "name": "spike-user@example.test",
+    "displayName": "Spike User"
+  },
+  "pubKeyCredParams": [
+    {
+      "type": "public-key",
+      "alg": -7
+    },
+    {
+      "type": "public-key",
+      "alg": -257
+    }
+  ],
+  "authenticatorSelection": {
+    "requireResidentKey": true,
+    "userVerification": "required",
+    "residentKey": "required"
+  },
+  "attestation": "none",
+  "excludeCredentials": []
+}

@@ -5,41 +5,84 @@ namespace App\Http\Controllers\Auth;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\WebauthnAttestationRequest;
 use App\Http\Requests\WebauthnAttestedRequest;
-use Illuminate\Contracts\Support\Responsable;
+use App\Support\Passkeys\OptionsSession;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Response;
 use Illuminate\Support\Facades\Log;
-use Laragear\WebAuthn\Enums\UserVerification;
+use Illuminate\Validation\ValidationException;
+use Laravel\Passkeys\Actions\GenerateRegistrationOptions;
+use Laravel\Passkeys\Actions\StorePasskey;
+use Laravel\Passkeys\Exceptions\InvalidPasskeyException;
+use Laravel\Passkeys\Support\WebAuthn;
+use Webauthn\Exception\WebauthnException;
+use Webauthn\PublicKeyCredentialCreationOptions;
 
 class WebAuthnRegisterController extends Controller
 {
+    /*
+    |--------------------------------------------------------------------------
+    | WebAuthn (passkey) Register Controller
+    |--------------------------------------------------------------------------
+    |
+    | Serves the /webauthn/register contract (plan 261009-passkeys-migration
+    | D3) on top of the laravel/passkeys actions.
+    |
+    | Ceremony policy (D7): the package emits userVerification REQUIRED and
+    | residentKey REQUIRED -- adopted as-is, no fork Action subclasses. The
+    | former config('webauthn.user_verification') switch was dead code (the
+    | config key was never defined; effective behavior was browser-default
+    | preferred) and is intentionally not reproduced. Security keys without a
+    | configured PIN stop working until the user sets one: documented in the
+    | v1.6.0 release note.
+    |
+    */
+
     /**
      * Returns a challenge to be verified by the user device.
      */
-    public function options(WebauthnAttestationRequest $request) : Responsable
+    public function options(WebauthnAttestationRequest $request, GenerateRegistrationOptions $generate) : JsonResponse
     {
-        switch (config('webauthn.user_verification')) {
-            case UserVerification::Discouraged:
-                $request = $request->fastRegistration();    // Makes the authenticator to only check for user presence on registration
-                break;
-            case UserVerification::Required:
-                $request = $request->secureRegistration();  // Makes the authenticator to always verify the user thoroughly on registration
-                break;
-        }
+        $options = $generate($request->user());
 
-        return $request
-            // ->allowDuplicates() // Allows the device to create multiple credentials for the same user for this app
-            // ->userless()        // Tells the authenticator use this credential to login instantly, instead of asking for one
-            ->toCreate();
+        OptionsSession::put($request, OptionsSession::REGISTER_KEY, WebAuthn::toJson($options));
+
+        return response()->json(WebAuthn::toBrowserArray($options));
     }
 
     /**
      * Registers a device for further WebAuthn authentication.
+     *
+     * @throws ValidationException on ceremony failure
+     *                             (malformed or mismatched attestation, expired options) -- the
+     *                             SPA surfaces the 422 payload generically.
      */
-    public function register(WebauthnAttestedRequest $request) : Response
+    public function register(WebauthnAttestedRequest $request, StorePasskey $store) : Response
     {
-        $request->save();
+        $options = WebAuthn::fromJson(
+            OptionsSession::pull($request, OptionsSession::REGISTER_KEY),
+            PublicKeyCredentialCreationOptions::class
+        );
 
-        Log::info(sprintf('User ID #%s registered a new security device', $request->user()->id)); /** @phpstan-ignore property.notFound */
+        try {
+            $store(
+                $request->user(),
+                $request->deviceName() ?? 'Device ' . ($request->user()->passkeys()->count() + 1),
+                $request->credential(),
+                $options
+            );
+        } catch (InvalidPasskeyException|WebauthnException|\RangeException) {
+            // InvalidPasskeyException: duplicate credential id (re-adding the
+            // same security key) or unrecognized credential -- the vendor
+            // message stays untranslated, so rethrow with the lang key.
+            // WebauthnException: ceremony rejection (signature, origin,
+            // challenge, COSE parse). \RangeException: bare base64url decode
+            // failures that escape a few vendor denormalizers. All 422s.
+            throw ValidationException::withMessages([
+                'credential' => __('error.passkey_not_verified'),
+            ]);
+        }
+
+        Log::info(sprintf('User ID #%s registered a new security device', $request->user()->id));
 
         return response()->noContent();
     }

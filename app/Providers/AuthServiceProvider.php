@@ -4,6 +4,7 @@ namespace App\Providers;
 
 use App\Extensions\RemoteUserProvider;
 use App\Extensions\WebauthnCredentialBroker;
+use App\Facades\Settings;
 use App\Models\Group;
 use App\Models\SecureNote;
 use App\Models\TwoFAccount;
@@ -17,6 +18,7 @@ use Illuminate\Auth\Passwords\DatabaseTokenRepository;
 use Illuminate\Foundation\Support\Providers\AuthServiceProvider as ServiceProvider;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Str;
+use Laravel\Passkeys\Passkeys;
 use RuntimeException;
 
 class AuthServiceProvider extends ServiceProvider
@@ -83,6 +85,16 @@ class AuthServiceProvider extends ServiceProvider
             return new RemoteUserProvider;
         });
 
+        // Passkey login authorization (plan 261009, phase 3 R2): defense in
+        // depth behind the RejectIfSsoOnlyAndNotForAdmin route middleware --
+        // while authentication is restricted to SSO only, a valid passkey
+        // assertion still may not log in a non-administrator account.
+        Passkeys::authorizeLoginUsing(
+            static function ($request, $user, $passkey) {
+                return ! Settings::get('useSsoOnly') || $user->isAdministrator();
+            }
+        );
+
         // Register a custom driver for reverse-proxy authentication
         Auth::extend('reverse-proxy', function ($app, string $name, array $config) {
             // Return an instance of Illuminate\Contracts\Auth\Guard...
@@ -90,17 +102,16 @@ class AuthServiceProvider extends ServiceProvider
             return new ReverseProxyGuard(Auth::createUserProvider($config['provider']));
         });
 
-        // We use a custom user provider derivated from the Laragear\WebAuthn one to honor the "useWebauthnOnly" user option.
-        // As this option is now available in the $user->preferences array it is no more possible to overload the $fallback
-        // value here because $user is not available at registration.
+        // We use a custom user provider derivated from the Laravel Eloquent one to honor the "useWebauthnOnly" user option
+        // (global password-rejection policy, web login + Passport api-guard; see TwoFAuthUserProvider).
+        // Passkey (WebAuthn) assertions no longer run through a user provider: the login
+        // controller validates them via the laravel/passkeys VerifyPasskey action (plan 261009).
         Auth::provider(
             'eloquent',
-            static function (\Illuminate\Contracts\Foundation\Application $app, array $config) : \Laragear\WebAuthn\Auth\WebAuthnUserProvider {
-                return new \App\Extensions\WebauthnTwoFAuthUserProvider(
+            static function (\Illuminate\Contracts\Foundation\Application $app, array $config) : \App\Extensions\TwoFAuthUserProvider {
+                return new \App\Extensions\TwoFAuthUserProvider(
                     $app->make('hash'),
-                    $config['model'],
-                    $app->make(\Laragear\WebAuthn\Assertion\Validator\AssertionValidator::class),
-                    true
+                    $config['model']
                 );
             }
         );

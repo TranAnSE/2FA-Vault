@@ -10,6 +10,7 @@ use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\URL;
 use Illuminate\Support\ServiceProvider;
+use Laravel\Passkeys\Passkeys;
 use Laravel\Passport\Console\ClientCommand;
 use Laravel\Passport\Console\InstallCommand;
 use Laravel\Passport\Console\KeysCommand;
@@ -24,7 +25,15 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register()
     {
-        //
+        // laravel/passkeys is installed dormant (plan 261009-passkeys-migration
+        // D3/D4): the fork keeps its /webauthn/* routes, so the package's
+        // auto-registered /passkeys/* routes are suppressed, and the passkeys
+        // migration FK targets the app User model. Both flags are read at
+        // package boot time, which runs BEFORE app providers boot (Laravel
+        // splices package providers first), so they must be set here in
+        // register(), not boot().
+        Passkeys::ignoreRoutes();
+        Passkeys::useUserModel(\App\Models\User::class);
     }
 
     /**

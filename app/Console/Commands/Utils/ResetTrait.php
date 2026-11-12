@@ -71,7 +71,7 @@ trait ResetTrait
             'oauth_clients',
             'oauth_personal_access_clients',
             'oauth_refresh_tokens',
-            'webauthn_credentials',
+            'passkeys',
             config('auth.passwords.webauthn.table'), // webauthn_recoveries
             'twofaccounts',
             'groups',

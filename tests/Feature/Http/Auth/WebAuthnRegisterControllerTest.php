@@ -2,26 +2,25 @@
 
 namespace Tests\Feature\Http\Auth;
 
-use App\Http\Controllers\Auth\WebAuthnRegisterController;
-use App\Http\Requests\WebauthnAttestationRequest;
-use App\Http\Requests\WebauthnAttestedRequest;
 use App\Models\User;
 use Illuminate\Support\Facades\Config;
-use Laragear\WebAuthn\Enums\UserVerification;
-use Laragear\WebAuthn\JsonTransport;
+use Illuminate\Support\Facades\DB;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
 use Tests\FeatureTestCase;
+use Tests\Support\PasskeyAssertionFactory;
+use Tests\Support\PasskeyAttestationFactory;
 
 /**
- * WebAuthnRegisterControllerTest test class
+ * WebAuthn (passkey) registration contract tests (plan 261009): the options
+ * endpoint runs GenerateRegistrationOptions for real and the register
+ * endpoint stores through StorePasskey with a synthetic attestation whose
+ * COSE key, origin, challenge and UV flag are genuinely verified by
+ * webauthn-lib.
  */
 #[CoversClass(WebAuthnRegisterController::class)]
 class WebAuthnRegisterControllerTest extends FeatureTestCase
 {
-    /**
-     * @var \App\Models\User|\Illuminate\Contracts\Auth\Authenticatable
-     */
     protected $user;
 
     protected function setUp() : void
@@ -31,46 +30,69 @@ class WebAuthnRegisterControllerTest extends FeatureTestCase
         $this->user = User::factory()->create();
     }
 
+    /**
+     * D7 (plan 261009): the former config('webauthn.user_verification')
+     * switch was dead and is not reproduced -- registration options ALWAYS
+     * request user verification.
+     */
     #[Test]
-    public function test_uses_attestation_with_fast_registration_request() : void
+    public function test_register_options_always_emit_required_user_verification() : void
     {
-        Config::set('webauthn.user_verification', UserVerification::Discouraged);
-
-        $request = $this->mock(WebauthnAttestationRequest::class);
-
-        $request->expects('fastRegistration')->andReturnSelf();
-        $request->expects('toCreate')->andReturn(new JsonTransport);
+        Config::set('webauthn.user_verification', 'discouraged');
 
         $this->actingAs($this->user, 'web-guard')
             ->json('POST', '/webauthn/register/options')
-            ->assertOk();
+            ->assertOk()
+            ->assertJsonFragment([
+                'userVerification' => 'required',
+            ]);
     }
 
     #[Test]
-    public function test_uses_attestation_with_secure_registration_request() : void
+    public function test_register_options_returns_challenge_for_authenticated_user() : void
     {
-        Config::set('webauthn.user_verification', UserVerification::Required);
-
-        $request = $this->mock(WebauthnAttestationRequest::class);
-
-        $request->expects('secureRegistration')->andReturnSelf();
-        $request->expects('toCreate')->andReturn(new JsonTransport);
-
         $this->actingAs($this->user, 'web-guard')
             ->json('POST', '/webauthn/register/options')
-            ->assertOk();
+            ->assertOk()
+            ->assertJsonStructure([
+                'challenge',
+                'rp',
+                'pubKeyCredParams',
+                'authenticatorSelection' => [
+                    'userVerification',
+                    'residentKey',
+                ],
+            ]);
     }
 
+    /**
+     * Full registration ceremony: options -> synthetic attestation -> 204 +
+     * stored passkey row.
+     */
     #[Test]
-    public function test_register_uses_attested_request() : void
+    public function test_device_registers_a_passkey_end_to_end() : void
     {
-        $request = $this->mock(WebauthnAttestedRequest::class);
+        $this->actingAs($this->user, 'web-guard');
 
-        $request->expects('save')->andReturn();
-        $request->expects('user')->andReturn($this->user);
+        $challenge = $this->json('POST', '/webauthn/register/options')->json('challenge');
 
-        $this->actingAs($this->user, 'web-guard')
-            ->json('POST', '/webauthn/register')
+        $attestation = PasskeyAttestationFactory::create($challenge);
+
+        $this->json('POST', '/webauthn/register', $attestation + ['name' => 'My device'])
             ->assertNoContent();
+
+        $this->assertDatabaseHas('passkeys', [
+            'user_id' => $this->user->id,
+            'name' => 'My device',
+        ]);
+    }
+
+    #[Test]
+    public function test_register_without_options_in_session_fails() : void
+    {
+        // No /register/options ran before: the ceremony is rejected, not a 500.
+        $this->actingAs($this->user, 'web-guard')
+            ->json('POST', '/webauthn/register', ['name' => 'x'])
+            ->assertStatus(422);
     }
 }

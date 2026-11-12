@@ -1,0 +1,34 @@
+{
+  "rp": {
+    "name": "2FA-Vault Dev",
+    "id": "localhost"
+  },
+  "authenticatorSelection": {
+    "residentKey": "preferred",
+    "requireResidentKey": false,
+    "userVerification": "preferred"
+  },
+  "user": {
+    "id": "c1fdfe7dbc924d16b7af20b2d032d938",
+    "name": "spike-user@example.test",
+    "displayName": "Spike User"
+  },
+  "pubKeyCredParams": [
+    {
+      "type": "public-key",
+      "alg": -7
+    },
+    {
+      "type": "public-key",
+      "alg": -257
+    },
+    {
+      "type": "public-key",
+      "alg": -8
+    }
+  ],
+  "attestation": "none",
+  "excludeCredentials": [],
+  "timeout": 60000,
+  "challenge": "-Po-G9KWNcuGI3c3F9YuVw"
+}

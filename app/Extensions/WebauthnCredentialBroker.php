@@ -2,7 +2,7 @@
 
 namespace App\Extensions;
 
-use App\Models\WebAuthnAuthenticatable;
+use Laravel\Passkeys\Contracts\PasskeyUser;
 use Closure;
 use Illuminate\Auth\Passwords\PasswordBroker;
 use Illuminate\Contracts\Auth\CanResetPassword as CanResetPasswordContract;
@@ -18,7 +18,7 @@ class WebauthnCredentialBroker extends PasswordBroker
         return $this->timebox->call(function () use ($credentials, $callback) {
             $user = $this->getUser($credentials);
 
-            if (is_null($user) || ! $user instanceof WebAuthnAuthenticatable) {
+            if (is_null($user) || ! $user instanceof PasskeyUser) {
                 return static::INVALID_USER;
             }
 
@@ -49,7 +49,7 @@ class WebauthnCredentialBroker extends PasswordBroker
     {
         $user = $this->validateReset($credentials);
 
-        if (! $user instanceof CanResetPasswordContract || ! $user instanceof WebAuthnAuthenticatable) {
+        if (! $user instanceof CanResetPasswordContract || ! $user instanceof PasskeyUser) {
             return $user;
         }
 

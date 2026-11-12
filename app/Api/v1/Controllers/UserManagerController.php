@@ -163,7 +163,7 @@ class UserManagerController extends Controller
         // WebauthnOnly user options need to be reset to prevent impossible login when
         // no more registered device exists.
         // See #110
-        if (blank($user->webAuthnCredentials()->WhereEnabled()->get())) {
+        if ($user->passkeys()->doesntExist()) {
             $user['preferences->useWebauthnOnly'] = false;
             $user->save();
             Log::notice(sprintf('No more Webauthn credential for user ID #%s, useWebauthnOnly user preference reset to false', $user->id));

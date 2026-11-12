@@ -1,0 +1,9 @@
+{
+  "id": "W-qqnG1O41eN11z1B8vKZgh_hEGkCxOohy0NOb6tKg0",
+  "type": "public-key",
+  "rawId": "W-qqnG1O41eN11z1B8vKZgh_hEGkCxOohy0NOb6tKg0",
+  "response": {
+    "clientDataJSON": "eyJ0eXBlIjoid2ViYXV0aG4uY3JlYXRlIiwiY2hhbGxlbmdlIjoiLVBvLUc5S1dOY3VHSTNjM0Y5WXVWdyIsIm9yaWdpbiI6Imh0dHA6Ly9sb2NhbGhvc3Q6ODA4OSIsImNyb3NzT3JpZ2luIjpmYWxzZSwib3RoZXJfa2V5c19jYW5fYmVfYWRkZWRfaGVyZSI6ImRvIG5vdCBjb21wYXJlIGNsaWVudERhdGFKU09OIGFnYWluc3QgYSB0ZW1wbGF0ZS4gU2VlIGh0dHBzOi8vZ29vLmdsL3lhYlBleCJ9",
+    "attestationObject": "o2NmbXRkbm9uZWdhdHRTdG10oGhhdXRoRGF0YVikSZYN5YgOjGh0NBcPZHZgW4_krrmihjLHmVzzuoMdl2NFAAAAAQECAwQFBgcIAQIDBAUGBwgAIFvqqpxtTuNXjddc9QfLymYIf4RBpAsTqIctDTm-rSoNpQECAyYgASFYIMPLPrWCozmvgezv5pFKYcfw7R4qhJiLXhzxs9dhk-ulIlggAwQhNT2lXdZPhuK-m7l6hNvcpeCWPV88hw-JPdyLlKE"
+  }
+}

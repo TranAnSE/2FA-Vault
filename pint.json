@@ -5,6 +5,7 @@
         "bootstrap",
         "config",
         "database",
+        "fixture-gen",
         "public",
         "resources",
         "tests"

@@ -44,7 +44,8 @@ class SystemController extends Controller
             $infos['common']['Auth proxy header for user']  = config('auth.auth_proxy_headers.user');
             $infos['common']['Auth proxy header for email'] = config('auth.auth_proxy_headers.email');
         }
-        $infos['common']['webauthn user verification'] = config('webauthn.user_verification');
+        // Passkey ceremonies always require user verification (D7, plan 261009);
+        // the former webauthn.user_verification switch was dead code and is not reported.
         $infos['common']['Trusted proxies']            = config('2fauth.config.trustedProxies') ?: 'none';
         $infos['common']['lastRadarScan']              = Carbon::parse(Settings::get('lastRadarScan'))->format('Y-m-d H:i:s');
 

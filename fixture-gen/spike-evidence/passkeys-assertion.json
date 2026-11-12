@@ -1,0 +1,25 @@
+{
+  "id": "W-qqnG1O41eN11z1B8vKZgh_hEGkCxOohy0NOb6tKg0",
+  "type": "public-key",
+  "rawId": "W-qqnG1O41eN11z1B8vKZgh_hEGkCxOohy0NOb6tKg0",
+  "response": {
+    "clientDataJSON": "eyJ0eXBlIjoid2ViYXV0aG4uZ2V0IiwiY2hhbGxlbmdlIjoiTnY0Ri1tQlpuM0pQdm5QNUxqeGlYMklXT1dtLUpCeEk1S3o0RnFJSHd5USIsIm9yaWdpbiI6Imh0dHA6Ly9sb2NhbGhvc3Q6ODA4OSIsImNyb3NzT3JpZ2luIjpmYWxzZX0",
+    "authenticatorData": "SZYN5YgOjGh0NBcPZHZgW4_krrmihjLHmVzzuoMdl2MFAAAAAw",
+    "signature": "MEYCIQC3iyzFRaaMwSW6-L5RDesO0w78u3M2SEY-q9esOvs-XQIhAP4a-5tzmbt5edI4a_RYfnyyZledsC2vy7230movhYwu",
+    "userHandle": "c1fdfe7dbc924d16b7af20b2d032d938"
+  },
+  "__debug": {
+    "uhType": "ArrayBuffer",
+    "uhByteLen": 24,
+    "uhBytesHead": [
+      115,
+      87,
+      221,
+      125,
+      238,
+      221,
+      109,
+      207
+    ]
+  }
+}

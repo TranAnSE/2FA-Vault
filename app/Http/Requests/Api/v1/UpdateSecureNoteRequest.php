@@ -25,10 +25,10 @@ class UpdateSecureNoteRequest extends FormRequest
     public function rules()
     {
         return [
-            'title'       => 'sometimes|nullable|string|max:255',
-            'content'     => 'sometimes|nullable|string',
+            'title'        => 'sometimes|nullable|string|max:255',
+            'content'      => 'sometimes|nullable|string',
             'content_type' => 'sometimes|nullable|string|in:plain,markdown',
-            'is_pinned'   => 'sometimes|nullable|boolean',
+            'is_pinned'    => 'sometimes|nullable|boolean',
         ];
     }
 }

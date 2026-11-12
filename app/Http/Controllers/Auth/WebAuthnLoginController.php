@@ -6,20 +6,42 @@ use App\Api\v1\Resources\UserResource;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\WebauthnAssertedRequest;
 use App\Models\User;
+use App\Support\Passkeys\OptionsSession;
 use Carbon\Carbon;
-use Illuminate\Contracts\Support\Responsable;
 use Illuminate\Foundation\Auth\AuthenticatesUsers;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
 use Illuminate\Http\Response;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Lang;
 use Illuminate\Support\Facades\Log;
-use Laragear\WebAuthn\Enums\UserVerification;
-use Laragear\WebAuthn\Http\Requests\AssertionRequest;
+use Illuminate\Validation\ValidationException;
+use Laravel\Passkeys\Actions\GenerateVerificationOptions;
+use Laravel\Passkeys\Actions\VerifyPasskey;
+use Laravel\Passkeys\Exceptions\InvalidPasskeyException;
+use Laravel\Passkeys\Passkey;
+use Laravel\Passkeys\Passkeys;
+use Laravel\Passkeys\Support\WebAuthn;
+use Webauthn\Exception\WebauthnException;
+use Webauthn\PublicKeyCredentialRequestOptions;
 
 class WebAuthnLoginController extends Controller
 {
     use AuthenticatesUsers;
+
+    /*
+    |--------------------------------------------------------------------------
+    | WebAuthn (passkey) Login Controller
+    |--------------------------------------------------------------------------
+    |
+    | Serves the /webauthn/* login contract (paths, names, middleware and
+    | response shapes preserved, plan 261009-passkeys-migration D3) on top of
+    | the laravel/passkeys actions. The assertion is validated by the
+    | VerifyPasskey action; the session user is ALWAYS the owner of the
+    | verified credential (never the email-resolved user).
+    |
+    */
 
     /**
      * The login throttle.
@@ -28,31 +50,16 @@ class WebAuthnLoginController extends Controller
      */
     protected $maxAttempts;
 
-    /*
-    |--------------------------------------------------------------------------
-    | WebAuthn Login Controller
-    |--------------------------------------------------------------------------
-    |
-    | This controller allows the WebAuthn user device to request a login and
-    | return the correctly signed challenge. Most of the hard work is done
-    | by your Authentication Guard once the user is attempting to login.
-    |
-    */
+    /**
+     * The passkey verified during attemptLogin.
+     */
+    protected ?Passkey $passkey = null;
 
     /**
      * Returns the challenge to assertion.
      */
-    public function options(AssertionRequest $request) : Responsable|JsonResponse
+    public function options(Request $request, GenerateVerificationOptions $generate) : JsonResponse
     {
-        switch (config('webauthn.user_verification')) {
-            case UserVerification::Discouraged:
-                $request = $request->fastLogin();    // Makes the authenticator to only check for user presence on registration
-                break;
-            case UserVerification::Required:
-                $request = $request->secureLogin();  // Makes the authenticator to always verify the user thoroughly on registration
-                break;
-        }
-
         $validated = $request->validate([
             'email' => [
                 'required',
@@ -60,26 +67,59 @@ class WebAuthnLoginController extends Controller
             ],
         ]);
 
+        $user = $this->findUserForCeremony($validated['email']);
+
         // Return a 200-shaped generic response for an unknown email instead
         // of a 422 validation failure: the 200-vs-422 difference was a
         // registered-email enumeration oracle (A8). The response body is
         // deliberately identical to what the SPA already handles for failed
-        // challenges. Note: the password login and forgot-password flows
-        // intentionally keep their exists-rules (upstream UX parity); they
-        // are throttled, which bounds the oracle.
-        if (! User::whereRaw('email = ?' . (DB::connection()->getDriverName() === 'sqlite' ? ' COLLATE NOCASE' : ''), [strtolower($validated['email'])])->exists()) {
+        // challenges. Both branches run the users query and the options
+        // generation, and BOTH carry the same randomized sleep floor (M7):
+        // padding only the unknown branch made it reliably SLOWER and merely
+        // flipped the oracle direction. Statistical adequacy measured in the
+        // Phase 6 validation notes.
+        //
+        // Accepted residual oracle: the two bodies still differ (options
+        // JSON vs the generic message) so a determined caller can still
+        // distinguish registered emails by content. That body-level
+        // distinction predates this migration (master leaked it via the
+        // 422-vs-200 status, a stronger signal) and is kept for SPA
+        // contract parity: closing it would require emitting real
+        // discoverable options for unknown emails and changing the SPA
+        // failure UX. Only the status-code and timing oracles are closed.
+        if ($user === null) {
+            $generate(null);
+
+            usleep(random_int(15000, 35000));
+
             return response()->json(['message' => __('auth.failed')], 200);
         }
 
-        return $request->toVerify($validated);
+        $options = $generate($user);
+
+        OptionsSession::put($request, OptionsSession::VERIFY_KEY, WebAuthn::toJson($options));
+
+        usleep(random_int(15000, 35000));
+
+        return response()->json(WebAuthn::toBrowserArray($options), 200);
+    }
+
+    /**
+     * Resolve the user by email for a ceremony. sqlite (the test driver)
+     * collates case-sensitively by default, so NOCASE is added there to
+     * match the case-insensitive lookups of the production drivers.
+     */
+    protected function findUserForCeremony(string $email) : ?User
+    {
+        return User::whereRaw('email = ?' . (DB::connection()->getDriverName() === 'sqlite' ? ' COLLATE NOCASE' : ''), [strtolower($email)])->first();
     }
 
     /**
      * Log the user in.
      *
-     * @return \Illuminate\Http\Response|\Illuminate\Http\JsonResponse
+     * @return Response|JsonResponse
      */
-    public function login(WebauthnAssertedRequest $request)
+    public function login(WebauthnAssertedRequest $request, VerifyPasskey $verify)
     {
         Log::info(sprintf('User login via webauthn requested by %s from %s', var_export($request['email'], true), $request->ip()));
 
@@ -100,7 +140,7 @@ class WebAuthnLoginController extends Controller
             return $this->sendLockoutResponse($request);
         }
 
-        if ($this->attemptLogin($request)) {
+        if ($this->attemptLogin($request, $verify)) {
             return $this->sendLoginResponse($request);
         }
 
@@ -123,30 +163,82 @@ class WebAuthnLoginController extends Controller
     /**
      * Attempt to log the user into the application.
      *
+     * The request user is resolved from the email for the ownership check and
+     * for user-scoped allowCredentials, but the session user is ALWAYS the
+     * owner of the verified credential (red-team C1): a signed assertion with
+     * another account's credential is rejected by the VerifyPasskey
+     * ownership check before any login happens.
+     *
      * @return bool
      */
-    protected function attemptLogin(WebauthnAssertedRequest $request)
+    protected function attemptLogin(WebauthnAssertedRequest $request, VerifyPasskey $verify)
     {
-        return ! is_null($request->login());
+        try {
+            $user = $this->findUserForCeremony($request->input('email'));
+
+            if ($user === null) {
+                return false;
+            }
+
+            $options = WebAuthn::fromJson(
+                OptionsSession::pull($request, OptionsSession::VERIFY_KEY),
+                PublicKeyCredentialRequestOptions::class
+            );
+
+            $passkey = $verify($request->credential(), $options, $user);
+
+            // Defense in depth: the SSO-only policy is already enforced by the
+            // RejectIfSsoOnlyAndNotForAdmin middleware on the route; the passkey
+            // layer re-checks it so a middleware bypass cannot log an SSO-only
+            // account in with a valid passkey.
+            if (! Passkeys::allowsLogin($request, $passkey)) {
+                return false;
+            }
+
+            $this->passkey = $passkey;
+
+            return true;
+        } catch (InvalidPasskeyException|WebauthnException|\RangeException) {
+            // InvalidPasskeyException: unrecognized credential or ownership
+            // mismatch. WebauthnException is the base of every webauthn-lib
+            // ceremony rejection (signature, challenge, origin, rpId,
+            // counter) and of its serializer failures on malformed
+            // assertions. \RangeException escapes a few vendor base64url
+            // decoders (clientDataJSON/id) that do not wrap into
+            // InvalidDataException -- all contract-401 outcomes.
+            return false;
+        } catch (ValidationException) {
+            // Expired or missing session options (server-side TTL gate, M2):
+            // treated as a failed ceremony, matching the former laragear
+            // challenge-expiry behavior (401 unauthorized shape).
+            return false;
+        }
     }
 
     /**
      * Send the response after the user was authenticated.
      *
-     * @return \Illuminate\Http\JsonResponse
+     * @return JsonResponse
      */
     protected function sendLoginResponse(WebauthnAssertedRequest $request)
     {
         $this->clearLoginAttempts($request);
 
+        /**
+         * Credential-to-owner binding (red-team C1): login the owner of the
+         * verified credential, never the email-resolved user.
+         */
+        $user = $this->passkey->user;
+
+        // Standard guard login: the laragear flow performed it inside the
+        // request's login() helper, which no longer exists in the
+        // laravel/passkeys flow. The default guard is used, matching the
+        // rest of the auth flow.
+        Auth::guard()->login($user);
+
         // Session fixation hardening: the pre-authentication session id must
         // not survive authentication.
         $request->session()->regenerate();
-
-        /**
-         * @var \App\Models\User|null
-         */
-        $user = $this->guard()->user();
 
         $this->authenticated($user);
 
@@ -159,19 +251,9 @@ class WebAuthnLoginController extends Controller
     }
 
     /**
-     * Get the failed login response instance.
-     *
-     * @return \Illuminate\Http\JsonResponse
-     */
-    protected function sendFailedLoginResponse(WebauthnAssertedRequest $request)
-    {
-        return response()->json(['message' => 'unauthorized'], Response::HTTP_UNAUTHORIZED);
-    }
-
-    /**
      * Redirect the user after determining they are locked out.
      *
-     * @return \Illuminate\Http\JsonResponse
+     * @return JsonResponse
      */
     protected function sendLockoutResponse(WebauthnAssertedRequest $request)
     {
@@ -193,24 +275,10 @@ class WebAuthnLoginController extends Controller
     }
 
     /**
-     * Get the needed authorization credentials from the request.
-     *
-     * @return array
-     */
-    protected function credentials(WebauthnAssertedRequest $request)
-    {
-        $credentials = [
-            $this->username() => strtolower($request->input($this->username())),
-        ];
-
-        return $credentials;
-    }
-
-    /**
      * The user has been authenticated.
      *
      * @param  mixed  $user
-     * @return void|\Illuminate\Http\JsonResponse
+     * @return void
      */
     protected function authenticated($user)
     {

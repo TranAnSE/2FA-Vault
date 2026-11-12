@@ -76,7 +76,9 @@ class SystemControllerTest extends FeatureTestCase
                     'Operating system',
                     'interface',
                     'Auth guard',
-                    'webauthn user verification',
+                    // 'webauthn user verification' was removed with the dead
+                    // config switch (D7, plan 261009): passkey ceremonies
+                    // always require user verification.
                     'Trusted proxies',
                     'lastRadarScan',
                 ],

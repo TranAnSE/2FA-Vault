@@ -3,39 +3,44 @@
 namespace App\Models\Traits;
 
 use App\Notifications\WebauthnRecoveryNotification;
+use Laravel\Passkeys\Passkey;
 
 /**
- * @see \App\Models\WebAuthnAuthenticatable
- * @see \Laragear\WebAuthn\Models\WebAuthnCredential
+ * Manage helpers for the user's passkey credentials
+ * (laravel/passkeys `passkeys` table, plan 261009-passkeys-migration).
+ *
+ * Retargeted from the former laragear webAuthnCredentials() relation:
+ * rename/delete are keyed on credential_id (delete-only policy, D5 -- no
+ * disabled flag exists in the passkeys schema).
  */
 trait WebAuthnManageCredentials
 {
     /**
-     * Saves a new alias for a given WebAuthn credential.
+     * Saves a new name for a given passkey credential.
+     *
+     * @param  string  $id  the credential_id (base64url, as exposed by the API)
      */
     public function renameCredential(string $id, string $alias) : bool
     {
-        return boolval($this->webAuthnCredentials()->whereKey($id)->update(['alias' => $alias]));
+        return boolval($this->passkeys()->where('credential_id', $id)->update(['name' => $alias]));
     }
 
     /**
      * Removes one or more credentials previously registered.
      *
-     * @param  string|array  $id
+     * @param  string|array  $id  credential_id(s)
      */
     public function flushCredential($id) : void
     {
-        if (! $this->relationLoaded('webAuthnCredentials')) {
-            $this->webAuthnCredentials()->whereKey($id)->delete();
+        $this->passkeys()->whereIn('credential_id', (array) $id)->delete();
+    }
 
-            return;
-        }
-
-        if ($this->webAuthnCredentials->isNotEmpty()) {
-            $this->webAuthnCredentials->whereIn('id', $id)->each->delete();
-
-            $this->setRelation('webAuthnCredentials', $this->webAuthnCredentials->whereNotIn('id', $id));
-        }
+    /**
+     * Removes every passkey of the user.
+     */
+    public function flushCredentials() : void
+    {
+        $this->passkeys()->delete();
     }
 
     /**
@@ -43,24 +48,6 @@ trait WebAuthnManageCredentials
      */
     public function sendWebauthnRecoveryNotification(string $token) : void
     {
-        // $accountRecoveryNotification = new WebauthnRecoveryNotification($token);
-        // $accountRecoveryNotification->toMailUsing(null);
-
-        // $accountRecoveryNotification->createUrlUsing(function(mixed $notifiable, string $token) {
-        //     $url = url(
-        //         route(
-        //             'webauthn.recover',
-        //             [
-        //                 'token' => $token,
-        //                 'email' => $notifiable->getEmailForPasswordReset(),
-        //             ],
-        //             false
-        //         )
-        //     );
-
-        //     return $url;
-        // });
-
         try {
             $this->notify(new WebauthnRecoveryNotification($token));
         }

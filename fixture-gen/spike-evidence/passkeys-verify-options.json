@@ -1,0 +1,12 @@
+{
+  "challenge": "Nv4F-mBZn3JPvnP5LjxiX2IWOWm-JBxI5Kz4FqIHwyQ",
+  "timeout": 60000,
+  "rpId": "localhost",
+  "allowCredentials": [
+    {
+      "type": "public-key",
+      "id": "W-qqnG1O41eN11z1B8vKZgh_hEGkCxOohy0NOb6tKg0"
+    }
+  ],
+  "userVerification": "required"
+}
