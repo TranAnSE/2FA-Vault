@@ -1,0 +1,107 @@
+[
+  {
+    "step": "S-prep virtual-authenticator",
+    "ok": true,
+    "detail": ""
+  },
+  {
+    "step": "S0 password-login",
+    "ok": true,
+    "detail": "status=200 {\"message\":\"authenticated\",\"id\":1,\"name\":\"Matrix User\",\"email\":\"matrix-user@rehearsal.test\",\"oauth_provider\":null,\"authe"
+  },
+  {
+    "step": "S1a credential-injected",
+    "ok": true,
+    "detail": "id=Y_ZR9DW76b9z..."
+  },
+  {
+    "step": "S1b login-options",
+    "ok": true,
+    "detail": "status=200 allowCred=1"
+  },
+  {
+    "step": "S1c assertion-created",
+    "ok": true,
+    "detail": "id=Y_ZR9DW76b9z..."
+  },
+  {
+    "step": "S1d ETLd-credential-login",
+    "ok": true,
+    "detail": "status=200 {\"message\":\"authenticated\",\"id\":1,\"name\":\"Matrix User\",\"email\":\"matrix-user@rehearsal.test\",\"oauth_p"
+  },
+  {
+    "step": "S2a register-options",
+    "ok": true,
+    "detail": "status=200 residentKey=required UV=required"
+  },
+  {
+    "step": "S2b attestation-created",
+    "ok": true,
+    "detail": "id=CP2jQOCZrcO-..."
+  },
+  {
+    "step": "S2c passkey-stored",
+    "ok": true,
+    "detail": "status=204 "
+  },
+  {
+    "step": "S2d fresh-credential-login",
+    "ok": true,
+    "detail": "status=200 {\"message\":\"authenticated\",\"id\":1,\"name\":\"Matrix User\",\"email\":\"matrix-user@rehearsal.test\",\"oauth_p"
+  },
+  {
+    "step": "S3a credentials-listed",
+    "ok": true,
+    "detail": "status=200 count=2"
+  },
+  {
+    "step": "S3b renamed",
+    "ok": true,
+    "detail": "status=200 {\"name\":\"renamed-matrix-key\"}"
+  },
+  {
+    "step": "S3c rename-visible",
+    "ok": true,
+    "detail": "alias=renamed-matrix-key"
+  },
+  {
+    "step": "S4a deleted",
+    "ok": true,
+    "detail": "status=204 "
+  },
+  {
+    "step": "S4b login-options-after-delete",
+    "ok": true,
+    "detail": "status=200 allowCred=1"
+  },
+  {
+    "step": "S4c stale-device-cannot-serve",
+    "ok": true,
+    "detail": "browser aborted the ceremony as expected"
+  },
+  {
+    "step": "S4d remaining-credential-still-logs-in",
+    "ok": true,
+    "detail": "status=200 {\"message\":\"authenticated\",\"id\":1,\"name\":\"Matrix User\",\"email\":\"matrix-user@rehe"
+  },
+  {
+    "step": "S5a recovery-email-requested",
+    "ok": true,
+    "detail": "status=200 {\"message\":\"Account recovery email sent!\"}"
+  },
+  {
+    "step": "S5b token-extracted-from-mail-log",
+    "ok": true,
+    "detail": "token=33cab816..."
+  },
+  {
+    "step": "S5c recover-success",
+    "ok": true,
+    "detail": "status=200 {\"message\":\"Webauthn login disabled\"}"
+  },
+  {
+    "step": "S5d recovery-session-alive",
+    "ok": true,
+    "detail": "status=200"
+  }
+]

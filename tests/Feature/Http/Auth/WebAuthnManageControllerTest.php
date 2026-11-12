@@ -60,7 +60,7 @@ class WebAuthnManageControllerTest extends FeatureTestCase
         // C7 (plan 261009): the SPA list fields are preserved on the
         // passkeys-backed index.
         $this->assertSame($credentialId, $response->json('0.id'));
-        $this->assertSame('legacy-device', $response->json('0.alias'));
+        $this->assertSame('test-device', $response->json('0.alias'));
     }
 
     #[Test]

@@ -108,6 +108,17 @@ driver (MySQL/MariaDB)** — the SQLite test suite cannot reproduce
 driver-specific decryption/JSON behaviors. Keep the captured report as
 release evidence.
 
+## v1.6.1 cleanup (laragear removal)
+
+Once the soak period completes and the ETL has converted every legacy row:
+
+1. `laragear/webauthn` is removed from composer and the codebase; `config/webauthn.php` is deleted.
+2. The guarded drop migration removes `webauthn_credentials`. It ABORTS while legacy rows exist and
+   the passkeys table is empty (a blind 1.5 -> 1.6.1 jump would destroy every registered
+   authenticator): deploy v1.6.0 first and let the ETL run, then re-apply the 1.6.1 migration.
+3. The ETL command and its docker-entrypoint hook are gone; rolling the drop back restores an EMPTY
+   legacy schema (dropped rows are unrecoverable -- back up before upgrading).
+
 ## Known behavior changes (v1.6.0)
 
 - **User verification is always required.** The former

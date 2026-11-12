@@ -72,7 +72,6 @@ trait ResetTrait
             'oauth_personal_access_clients',
             'oauth_refresh_tokens',
             'passkeys',
-            'webauthn_credentials', // legacy table, dropped in v1.6.1 (plan 261009)
             config('auth.passwords.webauthn.table'), // webauthn_recoveries
             'twofaccounts',
             'groups',

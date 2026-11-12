@@ -423,20 +423,8 @@ class UserManagerControllerTest extends FeatureTestCase
     #[Test]
     public function test_revoke_webauthn_credentials_returns_no_content()
     {
-        DB::table('webauthn_credentials')->insert([
-            'id'                   => '-VOLFKPY-_FuMI_sJ7gMllK76L3VoRUINj6lL_Z3qDg',
-            'authenticatable_type' => \App\Models\User::class,
-            'authenticatable_id'   => $this->user->id,
-            'user_id'              => 'e8af6f703f8042aa91c30cf72289aa07',
-            'counter'              => 0,
-            'rp_id'                => 'http://localhost',
-            'origin'               => 'http://localhost',
-            'aaguid'               => '00000000-0000-0000-0000-000000000000',
-            'attestation_format'   => 'none',
-            'public_key'           => 'eyJpdiI6Imp0U0NVeFNNbW45KzEvMXpad2p2SUE9PSIsInZhbHVlIjoic0VxZ2I1WnlHM2lJakhkWHVkK2kzMWtibk1IN2ZlaExGT01qOElXMDdRTjhnVlR0TDgwOHk1S0xQUy9BQ1JCWHRLNzRtenNsMml1dVQydWtERjFEU0h0bkJGT2RwUXE1M1JCcVpablE2Y2VGV2YvVEE2RGFIRUE5L0x1K0JIQXhLVE1aNVNmN3AxeHdjRUo2V0hwREZSRTJYaThNNnB1VnozMlVXZEVPajhBL3d3ODlkTVN3bW54RTEwSG0ybzRQZFFNNEFrVytUYThub2IvMFRtUlBZamoyZElWKzR1bStZQ1IwU3FXbkYvSm1FU2FlMTFXYUo0SG9kc1BDME9CNUNKeE9IelE5d2dmNFNJRXBKNUdlVzJ3VHUrQWJZRFluK0hib0xvVTdWQ0ZISjZmOWF3by83aVJES1dxbU9Zd1lhRTlLVmhZSUdlWmlBOUFtcTM2ZVBaRWNKNEFSQUhENk5EaC9hN3REdnVFbm16WkRxekRWOXd4cVcvZFdKa2tlWWJqZWlmZnZLS0F1VEVCZEZQcXJkTExiNWRyQmxsZWtaSDRlT3VVS0ZBSXFBRG1JMjRUMnBKRXZxOUFUa2xxMjg2TEplUzdscVo2UytoVU5SdXk1OE1lcFN6aU05ZkVXTkdIM2tKM3Q5bmx1TGtYb1F5bGxxQVR3K3BVUVlia1VybDFKRm9lZDViNzYraGJRdmtUb2FNTEVGZmZYZ3lYRDRiOUVjRnJpcTVvWVExOHJHSTJpMnVBZ3E0TmljbUlKUUtXY2lSWDh1dE5MVDNRUzVRSkQrTjVJUU8rSGhpeFhRRjJvSEdQYjBoVT0iLCJtYWMiOiI5MTdmNWRkZGE5OTEwNzQ3MjhkYWVhYjRlNjk0MWZlMmI5OTQ4YzlmZWI1M2I4OGVkMjE1MjMxNjUwOWRmZTU2IiwidGFnIjoiIn0=',
-            'updated_at'           => now(),
-            'created_at'           => now(),
-        ]);
+        PasskeyAssertionFactory::convertedCredentialId($this->user);
+
 
         Passport::actingAs($this->admin, ['legacy_full_access'], 'api-guard');
         $this
@@ -447,7 +435,6 @@ class UserManagerControllerTest extends FeatureTestCase
     #[Test]
     public function test_revoke_webauthn_credentials_always_returns_no_content()
     {
-        DB::table('webauthn_credentials')->delete();
 
         Passport::actingAs($this->admin, ['legacy_full_access'], 'api-guard');
         $this

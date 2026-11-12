@@ -27,7 +27,6 @@
         "jenssegers/agent": "^2.6.4",
         "khanamiryan/qrcode-detector-decoder": "^2.0.2",
         "koel/dotenv-editor": "^3.0",
-        "laragear/webauthn": "^5.0",
         "laravel/framework": "^13.0",
         "laravel/passkeys": "0.2.1",
         "laravel/passport": "^13.0",

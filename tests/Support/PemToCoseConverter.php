@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Support\Passkeys;
+namespace Tests\Support;
 
 use CBOR\ByteStringObject;
 use CBOR\MapObject;
