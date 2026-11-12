@@ -48,6 +48,9 @@ return new class extends Migration
         }
 
         Schema::create('webauthn_credentials', function ($table) {
+            // Verbatim mirror of the 2022_10_20 laragear blueprint
+            // (defaultBlueprint) so a 1.6.1 -> 1.6.0 rollback keeps the
+            // rollback path fully functional.
             $table->string('id', 510)->primary();
 
             $table->morphs('authenticatable', 'webauthn_user_index');
@@ -58,20 +61,22 @@ return new class extends Migration
 
             $table->unsignedBigInteger('counter')->nullable();
 
-            $table->string('rp_id', 510);
+            $table->string('rp_id');
 
-            $table->string('origin', 510);
+            $table->string('origin');
 
             $table->json('transports')->nullable();
 
-            $table->string('aaguid')->nullable();
+            $table->uuid('aaguid')->nullable();
 
             $table->text('public_key');
 
-            $table->string('attestation_format');
+            $table->string('attestation_format')->default('none');
+
+            $table->json('certificates')->nullable();
 
             $table->timestamp('disabled_at')->nullable();
 
             $table->timestamps();
-        });    }
+        });   }
 };

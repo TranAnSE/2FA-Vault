@@ -10,7 +10,10 @@
  *
  * Run with the matrix env sourced:
  *   matrix php fixture-gen/matrix-seed.php
- */
+ * 
+ * REQUIRES the v1.6.0 tag (laragear/webauthn still installed): it seeds the
+ * legacy webauthn_credentials row through the laragear model. On v1.6.1+ this
+ * file fatals by design — the legacy table and model no longer exist.
 
 use App\Models\User;
 use Illuminate\Support\Facades\Hash;

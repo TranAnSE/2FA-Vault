@@ -19,7 +19,11 @@
  * and is also out of scope by design.
  *
  * Run: php fixture-gen/latency-bench.php [iterations]
- */
+ * 
+ * REQUIRES the v1.6.0 tag (laragear/webauthn + the ETL factory still present):
+ * the OLD-path validator and CredentialRecordFactory were removed in v1.6.1.
+ * Also reads config/webauthn.php (deleted in v1.6.1). Evidence reproduced from
+ * the feat/passkeys-migration checkout.
 
 use App\Models\User;
 use App\Support\Passkeys\CredentialRecordFactory;

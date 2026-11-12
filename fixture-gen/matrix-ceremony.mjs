@@ -26,7 +26,6 @@ const OUT_DIR = 'fixture-gen/matrix-evidence';
 
 const MATRIX_DB = 'D:/2FA-Vault/2FA-Vault/database/matrix.sqlite';
 const MATRIX_KEY = 'base64:7oRpmY/04HFU1LsbrlntjdR5Kp+78URiKtj7NGpyeT4=';
-  'base64:c3Rha2luZ1JlaGVhcnNhbEFwcEtleUZpeHR1cmVWYWx1ZUZvck1hdHJpeDEyMw==';
 const PHP = 'D:/php-8.4.23-nts-Win32-vs17-x64/php.exe';
 
 mkdirSync(OUT_DIR, { recursive: true });

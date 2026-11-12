@@ -4,7 +4,10 @@
  * Staging rehearsal seeder (plan 261009 phase 6 R2): seeds REAL laragear-format
  * legacy rows (encrypted PEM behind the `encrypted` cast) against the staging
  * MySQL DB, mimicking a production copy. Run with the staging env vars set.
- */
+ * 
+ * REQUIRES the v1.6.0 tag (laragear/webauthn still installed): it seeds the
+ * legacy webauthn_credentials rows through the laragear model. On v1.6.1+ this
+ * file fatals by design — the legacy table and model no longer exist.
 
 require __DIR__.'/../vendor/autoload.php';
 

@@ -61,14 +61,18 @@ class PasskeyAssertionFactory
 
         // OpenSSL intermittently returns truncated/empty EC coordinates
         // under load (observed once per ~1900 tests): the resulting SPKI DER
-        // fails to parse downstream. Regenerate until the coordinates are
-        // complete 32-byte P-256 components.
+        // fails to parse downstream. Regenerate (bounded) until the
+        // coordinates are complete 32-byte P-256 components.
         $details = openssl_pkey_get_details($privateKey);
 
-        while ($details === false
+        for ($attempts = 0; $details === false
             || ! isset($details["ec"]["x"], $details["ec"]["y"])
             || strlen($details["ec"]["x"]) !== 32
-            || strlen($details["ec"]["y"]) !== 32) {
+            || strlen($details["ec"]["y"]) !== 32; $attempts++) {
+            if ($attempts >= 5) {
+                self::fail('OpenSSL kept returning truncated EC coordinates after 5 key generations');
+            }
+
             $privateKey = self::freshEs256Key();
 
             $details = openssl_pkey_get_details($privateKey);
