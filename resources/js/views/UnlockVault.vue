@@ -6,7 +6,10 @@
     import { useI18n } from 'vue-i18n'
     import { useErrorHandler } from '@2fauth/stores'
     import httpClientFactory from '@/services/httpClientFactory'
-    import biometricService from '@/services/biometric.js'
+    import prfApiService from '@/services/prfApiService.js'
+    import { unlockVaultWithPrf } from '@/services/prfService.js'
+    import { webauthnService } from '@/services/webauthn/webauthnService.js'
+    import { base64ToBytes, purgeBiometricSettings } from '@/services/prfUnlockSupport.js'
 
     const errorHandler = useErrorHandler()
     const { t } = useI18n()
@@ -16,9 +19,12 @@
     const router = useRouter()
     const apiClient = httpClientFactory('api')
 
-    const biometricAvailable  = ref(false)
-    const biometricEnrolled   = ref(false)
-    const isBiometricUnlocking = ref(false)
+    const isPrfUnlocking = ref(false)
+
+    // PRF unlock context (phase 4, red-team F13): fetched non-blocking on
+    // mount; 403/429/5xx/network errors are swallowed and the button stays
+    // hidden (SSO-only instances get no scary alert).
+    const prfContext = ref(null)
 
     const unlockForm = reactive(new Form({
         masterPassword: '',
@@ -44,15 +50,14 @@
             return
         }
 
-        // Check biometric availability (non-blocking)
-        biometricService.isSupported().then(supported => {
-            biometricAvailable.value = supported
-            if (supported) {
-                biometricService.isRegistered().then(enrolled => {
-                    biometricEnrolled.value = enrolled
-                })
-            }
-        }).catch(() => {})
+        // PRF availability probe (non-blocking, mirrors the old biometric probe
+        // pattern). Also purges the removed biometric_* IndexedDB settings —
+        // if the fetch fails the keys are inert anyway since the module is gone.
+        prfApiService.getPrfContext().then(response => {
+            prfContext.value = response.data
+        }).catch(() => {}).finally(() => {
+            purgeBiometricSettings().catch(() => {})
+        })
     })
 
     async function handleUnlock() {
@@ -110,17 +115,68 @@
         await userStore.logout()
     }
 
-    async function unlockWithBiometric() {
-        isBiometricUnlocking.value = true
+    /**
+     * PRF unlock (plan 261114-2101 phase 4): local-challenge passkey
+     * assertion → unwrap the vault key → shared store path → server verify.
+     *
+     * Error mapping is distinct per class (red-team F17):
+     * - no PRF result / ceremony failure → "this passkey can't unlock" (warn)
+     * - unwrap OK but test-value verification fails → stale-blob guidance
+     */
+    async function unlockWithPasskey() {
+        isPrfUnlocking.value = true
+
         try {
-            const masterPassword = await biometricService.retrieveMasterPassword()
-            unlockForm.masterPassword = masterPassword
-            await handleUnlock()
+            const context = prfContext.value
+            const saltBytes = base64ToBytes(context.prf_salt)
+            const enrollmentIds = context.enrollments.map(e => e.credential_id)
+
+            const { credentialId, prfBits } = await webauthnService.assertWithPrf(enrollmentIds, saltBytes)
+
+            // State recheck after the human-paced ceremony (red-team F16): a
+            // kick or lock during the ceremony must NOT repopulate the store.
+            // isAuthenticated is the app's canonical session flag (name-based;
+            // authGuard/tossOut) — id stays undefined on registration-fresh
+            // sessions (the /user register response carries no id, see the
+            // TODO in Register.vue), so keying on it would silently no-op
+            // passkey unlock there. A parallel unlock flips vault_locked.
+            if (!userStore.isAuthenticated || userStore.vault_locked === false) {
+                return
+            }
+
+            const enrollment = context.enrollments.find(e => e.credential_id === credentialId)
+
+            if (!enrollment) {
+                notify.warn({ text: t('error.prf_no_result') })
+                return
+            }
+
+            const rawKey = await unlockVaultWithPrf(prfBits, enrollment)
+
+            // Shared store path — throws on test-value verification failure.
+            await cryptoStore.applyUnlockedKey(rawKey, context.encryption_salt, context.encryption_test_value)
+
+            await apiClient.post('/encryption/verify', {
+                verification_result: true,
+            })
+
+            userStore.vault_locked = false
+
+            notify.success({ text: t('notification.vault_unlocked') })
+            await userStore.initDataStores()
+            router.push({ name: 'accounts' })
         } catch (error) {
-            notify.alert({ text: t('error.biometric_unlock_failed') + ': ' + error.message })
+            if (error?.prf_no_result || error?.webauthn) {
+                notify.warn({ text: t('error.prf_no_result') })
+            } else if (error?.message === 'Invalid password' || error?.name === 'OperationError') {
+                // Unwrapped fine but the test value would not verify under the
+                // recovered key — the stale-blob window (rotation crash).
+                notify.alert({ text: t('notification.prf_unlock_stale') })
+            } else {
+                errorHandler.show(error)
+            }
         } finally {
-            isBiometricUnlocking.value = false
-            unlockForm.masterPassword = ''
+            isPrfUnlocking.value = false
         }
     }
 
@@ -162,16 +218,16 @@
                     />
                 </form>
 
-                <!-- Biometric unlock option -->
-                <div v-if="biometricAvailable && biometricEnrolled" class="mt-4">
+                <!-- Passkey (PRF) unlock option — hidden unless enrollments exist -->
+                <div v-if="prfContext?.enrollments?.length > 0" class="mt-4">
                     <hr />
                     <VueButton
-                        id="btnBiometricUnlock"
-                        :isLoading="isBiometricUnlocking"
+                        id="btnPrfUnlock"
+                        :isLoading="isPrfUnlocking"
                         class="button is-fullwidth"
-                        @click="unlockWithBiometric"
+                        @click="unlockWithPasskey"
                     >
-                        {{ $t('label.unlock_with_biometric') }}
+                        {{ $t('label.unlock_with_passkey') }}
                     </VueButton>
                 </div>
 

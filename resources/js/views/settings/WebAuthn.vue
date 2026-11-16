@@ -2,6 +2,10 @@
     import tabs from './tabs'
     import userService from '@/services/userService'
     import { webauthnService } from '@/services/webauthn/webauthnService'
+    import prfApiService from '@/services/prfApiService.js'
+    import { buildEnrollment } from '@/services/prfService.js'
+    import { useCryptoStore } from '@/stores/crypto'
+    import { base64ToBytes } from '@/services/prfUnlockSupport.js'
     import { useAppSettingsStore } from '@/stores/appSettings'
     import { useUserStore } from '@/stores/user'
     import { useNotify, TabBar } from '@2fauth/ui'
@@ -15,6 +19,7 @@
     const $2fauth = inject('2fauth')
     const user = useUserStore()
     const appSettings = useAppSettingsStore()
+    const cryptoStore = useCryptoStore()
     const notify = useNotify()
     const router = useRouter()
     const returnTo = useStorage($2fauth.prefix + 'returnTo', 'accounts')
@@ -23,12 +28,19 @@
     const credentials = ref([])
     const isFetching = ref(false)
 
+    // PRF unlock (plan 261114-2101, D8): per-row enroll action, fed by the
+    // context endpoint. Empty when E2EE is off or SSO-only denies (403) —
+    // the PRF UI stays hidden (settings page is still usable).
+    const prfEnrolledIds = ref([])
+    const isPrfBusyId = ref(null)
+
     const isDisabled = computed(() => {
         return (appSettings.enableSso && appSettings.useSsoOnly) || user.authenticated_by_proxy
     })
-    
+
     onMounted(() => {
         fetchCredentials()
+        fetchPrfContext()
     })
 
     watch(() => user.preferences.useWebauthnOnly, () => {
@@ -90,6 +102,65 @@
      */
     function displayName(credential) {
         return credential.alias ? credential.alias : t('label.my_device') + ' (#' + credential.id.substring(0, 10) + ')'
+    }
+
+    /**
+     * Fetch the PRF unlock context (enrolled ids + salt). Non-blocking: when
+     * E2EE is off (400) or SSO-only denies (403) the PRF UI stays hidden.
+     */
+    function fetchPrfContext() {
+        prfApiService.getPrfContext().then(response => {
+            prfEnrolledIds.value = response.data.enrollments.map(e => e.credential_id)
+        }).catch(() => {
+            prfEnrolledIds.value = []
+        })
+    }
+
+    /**
+     * Enroll this passkey for PRF vault unlock (D2 hybrid ceremony):
+     * server-challenged assertion (possession proof) with the client-side
+     * prf eval riding the same ceremony, then the wrapped keyset upload.
+     * Requires the vault unlocked (encryptionKeyRaw present — D4).
+     */
+    function enrollPrf(credential) {
+        if (cryptoStore.encryptionKeyRaw === null) {
+            notify.warn({ text: t('error.vault_locked') })
+            return
+        }
+
+        isPrfBusyId.value = credential.id
+
+        prfApiService.getPrfContext()
+            .then(context => {
+                const saltBytes = base64ToBytes(context.data.prf_salt)
+
+                return prfApiService.prfEnrollOptions(credential.id)
+                    .then(options => webauthnService.assertWithPrfChallenge(options.data, saltBytes))
+                    .then(({ assertion, prfBits }) =>
+                        buildEnrollment(prfBits, cryptoStore.encryptionKeyRaw)
+                            .then(blobs => prfApiService.prfEnroll({
+                                credential_id: credential.id,
+                                assertion,
+                                ...blobs
+                            }))
+                    )
+            })
+            .then(() => {
+                notify.success({ text: t('notification.prf_enrolled') })
+                fetchPrfContext()
+            })
+            .catch(error => {
+                if (error?.prf_no_result || error?.webauthn) {
+                    notify.warn({ text: t('error.prf_no_result') })
+                } else if (error.response?.status === 422) {
+                    notify.alert({ text: error.response.data.message })
+                } else {
+                    errorHandler.show(error)
+                }
+            })
+            .finally(() => {
+                isPrfBusyId.value = null
+            })
     }
 
     /**
@@ -158,6 +229,26 @@
                     <UseColorMode v-slot="{ mode }">
                         <div v-for="credential in credentials" :key="credential.id" class="group-item is-size-5 is-size-6-mobile">
                             {{ displayName(credential) }}
+                            <!-- PRF enroll action / enrolled badge (D8) -->
+                            <button
+                                v-if="prfEnrolledIds.includes(credential.id)"
+                                type="button"
+                                class="button tag is-success is-light is-pulled-right mr-1"
+                                :title="$t('label.passkey_unlock_enabled')"
+                            >
+                                {{ $t('label.passkey_unlock_enabled') }}
+                            </button>
+                            <button
+                                v-else-if="!isDisabled"
+                                type="button"
+                                class="button tag is-pulled-right mr-1"
+                                :class="[mode === 'dark' ? 'is-dark':'is-white', isPrfBusyId === credential.id ? 'is-loading' : '']"
+                                :disabled="isPrfBusyId === credential.id"
+                                @click="enrollPrf(credential)"
+                                :title="$t('label.enable_passkey_unlock')"
+                            >
+                                {{ $t('label.enable_passkey_unlock') }}
+                            </button>
                             <!-- revoke link -->
                             <button type="button" class="button tag is-pulled-right" :class="mode === 'dark' ? 'is-dark':'is-white'" @click="revokeCredential(credential.id)" :title="$t('tooltip.revoke')">
                                 {{ $t('label.revoke') }}

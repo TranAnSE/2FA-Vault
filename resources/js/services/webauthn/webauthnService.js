@@ -30,6 +30,14 @@ import { identifyAuthenticationError }  from '@/services/webauthn/identifyAuthen
 
 const webClient = httpClientFactory('web')
 
+// WebCrypto bound explicitly: a bare `crypto` identifier is rewritten by
+// unplugin-auto-import (services/** is an auto-import dir, so the DEFAULT
+// export of services/crypto.js is registered under the name `crypto`) into
+// an import of that object — which has no getRandomValues/subtle. Same
+// failure class as prfService.js (plan 261114-2101 phase 5 e2e finding).
+// globalThis cannot be rewritten.
+const webCrypto = globalThis.crypto
+
 class WebauthnService {
 
     async register() {
@@ -53,7 +61,15 @@ class WebauthnService {
 
         const registerOptions = await webClient.post('/webauthn/register/options').then(response => response.data)
         const publicKey = WebauthnService.parseIncomingServerOptions(registerOptions)
-        
+
+        // Request the prf (hmac-secret) extension at creation: CTAP2.1
+        // authenticators provision the secret PER CREDENTIAL, so a passkey
+        // created without this probe can never evaluate the PRF later and is
+        // permanently ineligible for vault unlock (plan 261114-2101, D2).
+        // Authenticators without prf support silently ignore the extension
+        // (WebAuthn L3 §9), so plain login passkeys are unaffected.
+        publicKey.extensions = { prf: {} }
+
         let options = { publicKey }
         options.signal = webauthnAbortService.createNewAbortSignal()
 
@@ -115,6 +131,119 @@ class WebauthnService {
         publicKeyCredential.email = email
 
         return webClient.post('/webauthn/login', publicKeyCredential, {returnError: true})
+    }
+
+    /**
+     * PRF unlock ceremony (plan 261114-2101, phase 3): LOCAL challenge over
+     * the enrolled credentials with the prf eval extension.
+     *
+     * eval.first MUST be a BufferSource — a base64url string throws TypeError
+     * before the authenticator is consulted (red-team F3). Missing/empty PRF
+     * results reject with `prf_no_result: true` + message 'error.prf_no_result'
+     * so the UI maps "this passkey can't unlock — use your password"
+     * distinctly (R4).
+     *
+     * @param {string[]} credentialIds - enrolled credential ids (base64url)
+     * @param {Uint8Array} saltBytes - the per-user prf_salt bytes
+     * @returns {Promise<{credentialId: string, prfBits: Uint8Array}>}
+     */
+    async assertWithPrf(credentialIds, saltBytes) {
+        const publicKey = {
+            challenge: webCrypto.getRandomValues(new Uint8Array(32)),
+            allowCredentials: credentialIds.map((id) => ({
+                id: WebauthnService.uint8Array(id),
+                type: 'public-key',
+            })),
+            userVerification: 'required',
+            extensions: {
+                prf: { eval: { first: saltBytes } }
+            }
+        };
+
+        const options = { publicKey };
+        options.signal = webauthnAbortService.createNewAbortSignal();
+
+        let credential;
+        try {
+            credential = await navigator.credentials.get(options);
+        }
+        catch (error) {
+            const webauthnError = identifyAuthenticationError(error, options);
+            return Promise.reject({
+                webauthn: true,
+                type: webauthnError.type,
+                message: webauthnError.phrase
+            });
+        }
+
+        const first = credential.getClientExtensionResults()?.prf?.results?.first;
+
+        if (!first || new Uint8Array(first).every((b) => b === 0)) {
+            return Promise.reject({
+                webauthn: true,
+                prf_no_result: true,
+                type: 'is-danger',
+                message: 'error.prf_no_result'
+            });
+        }
+
+        return {
+            credentialId: credential.id,
+            prfBits: new Uint8Array(first)
+        };
+    }
+
+    /**
+     * PRF enroll ceremony (D2): rides the SERVER-challenged assertion — the
+     * signature doubles as the possession proof the backend verifies — while
+     * the client evaluates prf locally on the same ceremony. Same prf_no_result
+     * rejection contract as assertWithPrf.
+     *
+     * @param {{challenge: string, allowCredentials?: Array<{id: string, type?: string}>}} serverOptions
+     *        the enroll/options response shape
+     * @param {Uint8Array} saltBytes - the per-user prf_salt bytes
+     * @returns {Promise<{assertion: Object, prfBits: Uint8Array}>}
+     */
+    async assertWithPrfChallenge(serverOptions, saltBytes) {
+        const publicKey = {
+            ...WebauthnService.parseIncomingServerOptions(serverOptions),
+            userVerification: 'userVerification' in serverOptions ? serverOptions.userVerification : 'required',
+            extensions: {
+                prf: { eval: { first: saltBytes } }
+            }
+        };
+
+        const options = { publicKey };
+        options.signal = webauthnAbortService.createNewAbortSignal();
+
+        let credential;
+        try {
+            credential = await navigator.credentials.get(options);
+        }
+        catch (error) {
+            const webauthnError = identifyAuthenticationError(error, options);
+            return Promise.reject({
+                webauthn: true,
+                type: webauthnError.type,
+                message: webauthnError.phrase
+            });
+        }
+
+        const first = credential.getClientExtensionResults()?.prf?.results?.first;
+
+        if (!first || new Uint8Array(first).every((b) => b === 0)) {
+            return Promise.reject({
+                webauthn: true,
+                prf_no_result: true,
+                type: 'is-danger',
+                message: 'error.prf_no_result'
+            });
+        }
+
+        return {
+            assertion: WebauthnService.parseOutgoingCredentials(credential),
+            prfBits: new Uint8Array(first)
+        };
     }
 
     /**

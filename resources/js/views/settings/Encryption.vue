@@ -7,9 +7,11 @@
     import { useI18n } from 'vue-i18n'
     import { useErrorHandler } from '@2fauth/stores'
     import httpClientFactory from '@/services/httpClientFactory'
-    import { generateSalt, deriveKey, encryptSecret, createTestValue } from '@/services/crypto'
+    import { generateSalt, bytesToBase64, deriveKeyMaterial, importAesKey, encryptSecret, createTestValue } from '@/services/crypto'
     import emergencyService from '@/services/emergencyService'
-    import biometricService from '@/services/biometric.js'
+    import prfApiService from '@/services/prfApiService.js'
+    import { rewrapVaultKey } from '@/services/prfService.js'
+    import { sha256Hex } from '@/services/prfUnlockSupport.js'
 
     const errorHandler = useErrorHandler()
     const { t } = useI18n()
@@ -26,8 +28,9 @@
     const isLoading = ref(true)
     const isActionLoading = ref(false)
 
-    const biometricSupported  = ref(false)
-    const biometricEnrolled   = ref(false)
+    // PRF unlock status row (plan 261114-2101, D8): null = hidden (E2EE off,
+    // SSO-only 403, or fetch failure — all swallowed, non-blocking).
+    const prfStatus = ref(null)
 
     const formUnlock = reactive(new Form({
         masterPassword : '',
@@ -42,6 +45,10 @@
         confirmPassword : '',
     }))
     const isRotating = ref(false)
+
+    // D9 stale-blob flag: set when the post-rotation PRF re-wrap fails
+    // (e.g. a racing tab rotated first → 409). Cleared by a successful retry.
+    const prfStale = ref(false)
 
     // Computed states
     const isEnabled = computed(() => encryptionStatus.value?.encryption_enabled === true)
@@ -74,9 +81,8 @@
 
     onMounted(() => {
         fetchStatus()
-        biometricService.isSupported().then(s => {
-            biometricSupported.value = s
-            if (s) biometricService.isRegistered().then(r => { biometricEnrolled.value = r })
+        prfApiService.getPrfContext().then(response => {
+            prfStatus.value = { count: response.data.enrollments.length }
         }).catch(() => {})
     })
 
@@ -89,6 +95,12 @@
             await apiClient.post('/encryption/lock')
             cryptoStore.lockVault()
             encryptionStatus.value.vault_locked = true
+            // Keep the shared user store in lockstep: the PRF unlock handler
+            // (UnlockVault.vue) gates on userStore.vault_locked after its
+            // ceremony, and other views read the same flag (plan 261114-2101
+            // phase 5 e2e finding — lock left it false, silently no-oping
+            // passkey unlock).
+            user.vault_locked = true
             formUnlock.masterPassword = ''
             notify.success({ text: t('notification.vault_locked') })
         } catch (error) {
@@ -189,6 +201,10 @@
             formRotate.errors.set('confirmPassword', t('error.passwords_do_not_match'))
             return
         }
+        // Single-flight guard (D9): a second submit while a rotation is in
+        // flight is dropped (cross-tab races are caught by the rewrap salt
+        // guard instead).
+        if (isRotating.value) return
         isRotating.value = true
         try {
             // 1. Verify the current password against the stored test value.
@@ -211,9 +227,15 @@
             }
 
             // 3. Derive the NEW key (new salt) + fresh test value, and
-            //    re-encrypt every secret under it in one pass.
-            const newSalt = generateSalt()
-            const newKey = await deriveKey(formRotate.newPassword, newSalt)
+            //    re-encrypt every secret under it in one pass. D9: keep the
+            //    raw key bytes — the PRF re-wrap re-encapsulates them without
+            //    a second Argon2 run and the store keeps them for later retries.
+            // Base64 string, not raw bytes: the credentials POST validates
+            // encryption_salt as a string (setupEncryption encodes the same
+            // way) and deriveKeyMaterial accepts either form.
+            const newSalt = bytesToBase64(generateSalt())
+            const newKeyRaw = await deriveKeyMaterial(formRotate.newPassword, newSalt)
+            const newKey = await importAesKey(newKeyRaw)
             const newTestValue = await createTestValue(newKey)
             const reEncrypted = []
             for (const item of decryptedAccounts) {
@@ -226,7 +248,11 @@
                 encryption_salt: newSalt,
                 encryption_test_value: newTestValue,
             })
-            await apiClient.post('/encryption/bulk-secrets', { accounts: reEncrypted })
+            // bulk-secrets validates accounts as required|min:1 (batch
+            // contract) — an empty vault has nothing to re-encrypt, skip it.
+            if (reEncrypted.length > 0) {
+                await apiClient.post('/encryption/bulk-secrets', { accounts: reEncrypted })
+            }
 
             // 5. Re-wrap emergency keys for the new password (updateOrCreate
             // per contact — same flow as designation).
@@ -245,8 +271,22 @@
                         grantee_public_key_fingerprint: keyInfo.fingerprint,
                     })
                 }
-            } catch (e) {
+            } catch {
                 notify.warn({ text: t('warning.emergency_keys_rewrap_failed') })
+            }
+
+            // 5b. PRF re-wrap (D9, rotation without ceremony): re-encapsulate
+            //     K_new under every enrollment's public key — public-key-only,
+            //     no passkey prompt. A failure (network, or a racing tab that
+            //     rotated first → 409 salt guard) is non-aborting: the rotation
+            //     already succeeded, the stale blob only degrades passkey
+            //     unlock (password path is intact) and is flagged for retry.
+            try {
+                await rotatePrfRewrap(newKeyRaw)
+                prfStale.value = false
+            } catch {
+                prfStale.value = true
+                notify.warn({ text: t('notification.prf_unlock_stale') })
             }
 
             // 6. Refresh the in-memory key to the new credentials.
@@ -260,14 +300,49 @@
         }
     }
 
-    async function unenrollBiometric() {
-        if (!confirm(t('confirmation.remove_biometric'))) return
+    /**
+     * PRF re-wrap for a rotation (D9): fetches the enrollment list and
+     * re-encapsulates the given raw vault key under each enrollment's
+     * public key, then submits the wrappings with the stale-writer guard
+     * (sha256 of the CURRENT encryption salt — a 409 means another writer
+     * rotated first and this batch must not be applied).
+     * @param {Uint8Array} rawKey the raw new vault key bytes
+     */
+    async function rotatePrfRewrap(rawKey) {
+        const { data: context } = await prfApiService.getPrfContext()
+
+        if (!context.enrollments?.length) return
+
+        const wrappings = []
+        for (const enrollment of context.enrollments) {
+            wrappings.push({
+                credential_id: enrollment.credential_id,
+                wrapped_vault_key: await rewrapVaultKey(enrollment, rawKey),
+            })
+        }
+
+        await prfApiService.prfRewrap({
+            expected_encryption_salt_hash: await sha256Hex(context.encryption_salt),
+            wrappings,
+        })
+    }
+
+    /**
+     * Retry a failed post-rotation PRF re-wrap from the stale banner,
+     * using the in-memory K_new kept by the crypto store.
+     */
+    async function retryPrfRewrap() {
+        if (cryptoStore.encryptionKeyRaw === null) {
+            notify.warn({ text: t('error.vault_locked') })
+            return
+        }
+
         try {
-            await biometricService.remove()
-            biometricEnrolled.value = false
-            notify.success({ text: t('notification.biometric_removed') })
-        } catch (e) {
-            notify.alert({ text: t('error.biometric_removal_failed') })
+            await rotatePrfRewrap(cryptoStore.encryptionKeyRaw)
+            prfStale.value = false
+            notify.success({ text: t('notification.prf_unlock_rewrapped') })
+        } catch {
+            notify.warn({ text: t('notification.prf_unlock_stale') })
         }
     }
 
@@ -369,26 +444,25 @@
                             <FormButtons :isBusy="isRotating" submitLabel="label.change_master_password" submitId="btnRotateMasterPassword" />
                         </form>
 
-                        <!-- Biometric Unlock -->
-                        <template v-if="biometricSupported">
-                            <h4 class="title is-4 pt-5">{{ $t('heading.biometric_unlock') }}</h4>
-                            <div v-if="biometricEnrolled" class="notification is-success is-size-7 mb-3">
-                                {{ $t('message.biometric_enrolled') }}
+                        <!-- D9 stale-blob banner: the post-rotation PRF re-wrap failed
+                             (the passkey unlock blobs no longer match K) — retry entry point -->
+                        <div v-if="prfStale" class="notification is-warning is-size-7 my-3">
+                            {{ $t('notification.prf_unlock_stale') }}
+                            <button type="button" class="button is-warning is-light ml-2" :disabled="isRotating" @click="retryPrfRewrap">
+                                {{ $t('label.refresh') }}
+                            </button>
+                        </div>
+
+                        <!-- Passkey (PRF) unlock — status row linking to Settings → Security devices (D8) -->
+                        <template v-if="prfStatus !== null">
+                            <h4 class="title is-4 pt-5">{{ $t('heading.passkey_unlock') }}</h4>
+                            <div v-if="prfStatus.count > 0" class="notification is-success is-size-7 mb-3">
+                                {{ $t('label.passkey_unlock_enabled') }}
                             </div>
-                            <!-- B6/E12: biometric enrollment is disabled in this
-                                 release — the previous storage scheme kept the
-                                 master password recoverable from disk without a
-                                 biometric ceremony (wrapping key stored next to
-                                 the ciphertext). Only removal of previously
-                                 stored data is offered until a WebAuthn-PRF
-                                 bound implementation lands. -->
-                            <div v-if="!biometricEnrolled" class="notification is-warning is-size-7">
-                                {{ $t('message.biometric_disabled_security') }}
-                            </div>
-                            <div v-else>
-                                <VueButton @click="unenrollBiometric" class="button is-warning is-light">
-                                    {{ $t('label.remove_biometric') }}
-                                </VueButton>
+                            <div class="is-size-7">
+                                <router-link :to="{ name: 'settings.webauthn.devices' }" class="is-link">
+                                    {{ $t('link.manage_passkey_unlock') }}
+                                </router-link>
                             </div>
                         </template>
 

@@ -10,6 +10,13 @@ import * as crypto from '@/services/crypto'
 export const useCryptoStore = defineStore('crypto', () => {
     // State
     const encryptionKey = ref(null)
+    // Raw vault-key bytes (plan 261114-2101, D11): session-long retention so
+    // PRF enrollment and password-rotation re-wrapping can use the key
+    // without a second Argon2 run. The honest security delta vs today is
+    // key EXFILTRATION (not merely in-page use) under script injection —
+    // documented in the public docs; rotation after suspected compromise is
+    // mandatory guidance. Cleared everywhere encryptionKey is cleared.
+    const encryptionKeyRaw = ref(null)
     const isVaultUnlocked = ref(false)
     const encryptionEnabled = ref(false)
     const salt = ref(null)
@@ -30,25 +37,54 @@ export const useCryptoStore = defineStore('crypto', () => {
         // Generate salt
         const saltBytes = crypto.generateSalt()
         const saltBase64 = bytesToBase64(saltBytes)
-        
-        // Derive key
-        const key = await crypto.deriveKey(masterPassword, saltBytes)
-        
+
+        // Derive raw key material, then the CryptoKey from it (one Argon2 run)
+        const rawKey = await crypto.deriveKeyMaterial(masterPassword, saltBytes)
+        const key = await crypto.importAesKey(rawKey)
+
         // Create test value for verification
         const testValue = await crypto.createTestValue(key)
-        
+
         // Store in memory
         encryptionKey.value = key
+        encryptionKeyRaw.value = rawKey
         salt.value = saltBase64
         encryptionEnabled.value = true
         isVaultUnlocked.value = true
-        
+
         return {
             salt: saltBase64,
             testValue
         }
     }
     
+    /**
+     * Store a verified unlocked key (password path and PRF path share this).
+     *
+     * Imports the AES CryptoKey from the raw bytes, verifies the test value,
+     * and populates the store. Throws on verification failure — callers own
+     * the user-facing error mapping (plan 261114-2101 phase 3, red-team F5).
+     * @param {Uint8Array} rawKey - Raw 32-byte vault key
+     * @param {string} storedSalt - User's encryption salt (kept in store)
+     * @param {string} testValue - Encrypted test value from server
+     */
+    async function applyUnlockedKey(rawKey, storedSalt, testValue) {
+        const key = await crypto.importAesKey(rawKey)
+
+        // Verify by decrypting the test value
+        const isValid = await crypto.verifyPassword(testValue, key)
+
+        if (!isValid) {
+            throw new Error('Invalid password')
+        }
+
+        encryptionKey.value = key
+        encryptionKeyRaw.value = rawKey
+        salt.value = storedSalt
+        encryptionEnabled.value = true
+        isVaultUnlocked.value = true
+    }
+
     /**
      * Unlock vault with master password
      * @param {string} masterPassword - User's master password
@@ -58,34 +94,24 @@ export const useCryptoStore = defineStore('crypto', () => {
      */
     async function unlockVault(masterPassword, storedSalt, testValue) {
         try {
-            // Derive key from password and salt
-            const key = await crypto.deriveKey(masterPassword, storedSalt)
-            
-            // Verify password by decrypting test value
-            const isValid = await crypto.verifyPassword(testValue, key)
-            
-            if (!isValid) {
-                throw new Error('Invalid password')
-            }
-            
-            // Store key in memory
-            encryptionKey.value = key
-            salt.value = storedSalt
-            encryptionEnabled.value = true
-            isVaultUnlocked.value = true
-            
+            // Derive raw key material, then verify + store via the shared path
+            const rawKey = await crypto.deriveKeyMaterial(masterPassword, storedSalt)
+
+            await applyUnlockedKey(rawKey, storedSalt, testValue)
+
             return true
         } catch (error) {
             console.error('Failed to unlock vault:', error)
             return false
         }
     }
-    
+
     /**
      * Lock the vault (clear encryption key from memory)
      */
     function lockVault() {
         encryptionKey.value = null
+        encryptionKeyRaw.value = null
         isVaultUnlocked.value = false
     }
     
@@ -105,6 +131,7 @@ export const useCryptoStore = defineStore('crypto', () => {
     function disableEncryption() {
         encryptionEnabled.value = false
         encryptionKey.value = null
+        encryptionKeyRaw.value = null
         salt.value = null
         isVaultUnlocked.value = false
     }
@@ -185,26 +212,29 @@ export const useCryptoStore = defineStore('crypto', () => {
      */
     function reset() {
         encryptionKey.value = null
+        encryptionKeyRaw.value = null
         isVaultUnlocked.value = false
         encryptionEnabled.value = false
         salt.value = null
     }
-    
+
     return {
         // State
         encryptionKey,
+        encryptionKeyRaw,
         isVaultUnlocked,
         encryptionEnabled,
         salt,
-        
+
         // Getters
         isEncryptionEnabled,
         isUnlocked,
         hasEncryptionKey,
-        
+
         // Actions
         setupEncryption,
         unlockVault,
+        applyUnlockedKey,
         lockVault,
         enableEncryption,
         disableEncryption,
