@@ -152,6 +152,9 @@
             .catch(error => {
                 if (error?.prf_no_result || error?.webauthn) {
                     notify.warn({ text: t('error.prf_no_result') })
+                } else if (error?.name === 'PrfError') {
+                    // All-zero/broken PRF output (rejectAllZero in buildEnrollment).
+                    notify.alert({ text: t('error.prf_output_invalid') })
                 } else if (error.response?.status === 422) {
                     notify.alert({ text: error.response.data.message })
                 } else {
@@ -229,15 +232,17 @@
                     <UseColorMode v-slot="{ mode }">
                         <div v-for="credential in credentials" :key="credential.id" class="group-item is-size-5 is-size-6-mobile">
                             {{ displayName(credential) }}
-                            <!-- PRF enroll action / enrolled badge (D8) -->
-                            <button
+                            <!-- PRF enroll action / enrolled badge (D8). The badge is a
+                                 non-interactive span (review fix) and Refresh re-runs the
+                                 enroll ceremony to replace stale blobs — the backend
+                                 upserts atomically on re-enroll. -->
+                            <span
                                 v-if="prfEnrolledIds.includes(credential.id)"
-                                type="button"
-                                class="button tag is-success is-light is-pulled-right mr-1"
+                                class="tag is-success is-light is-pulled-right mr-1"
                                 :title="$t('label.passkey_unlock_enabled')"
                             >
                                 {{ $t('label.passkey_unlock_enabled') }}
-                            </button>
+                            </span>
                             <button
                                 v-else-if="!isDisabled"
                                 type="button"
@@ -248,6 +253,17 @@
                                 :title="$t('label.enable_passkey_unlock')"
                             >
                                 {{ $t('label.enable_passkey_unlock') }}
+                            </button>
+                            <button
+                                v-if="prfEnrolledIds.includes(credential.id) && !isDisabled"
+                                type="button"
+                                class="button tag is-pulled-right mr-1"
+                                :class="[mode === 'dark' ? 'is-dark':'is-white', isPrfBusyId === credential.id ? 'is-loading' : '']"
+                                :disabled="isPrfBusyId === credential.id"
+                                @click="enrollPrf(credential)"
+                                :title="$t('tooltip.refresh_prf_enrollment')"
+                            >
+                                {{ $t('label.refresh') }}
                             </button>
                             <!-- revoke link -->
                             <button type="button" class="button tag is-pulled-right" :class="mode === 'dark' ? 'is-dark':'is-white'" @click="revokeCredential(credential.id)" :title="$t('tooltip.revoke')">

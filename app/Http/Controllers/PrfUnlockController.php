@@ -106,7 +106,7 @@ class PrfUnlockController extends Controller
         $this->guard($request);
         $this->rateLimit($request, 'prf-enroll-options', 10, 60);
 
-        $validated = $request->validate(['credential_id' => ['required', 'string', 'max:510']]);
+        $validated = $request->validate(['credential_id' => ['required', 'string', 'max:255']]);
 
         $user = $request->user();
 
@@ -125,7 +125,10 @@ class PrfUnlockController extends Controller
             timeout: Passkeys::timeout(),
         );
 
-        PrfEnrollChallenge::put($user->getKey(), WebAuthn::toJson($options));
+        // Per-credential key (review fix): two parallel enroll ceremonies for
+        // different credentials of one user no longer clobber each other's
+        // stored options (last-write-wins → spurious 401 on one ceremony).
+        PrfEnrollChallenge::put($user->getKey(), $validated['credential_id'], WebAuthn::toJson($options));
 
         return response()->json(WebAuthn::toBrowserArray($options), 200);
     }
@@ -155,7 +158,7 @@ class PrfUnlockController extends Controller
 
         try {
             $options = WebAuthn::fromJson(
-                PrfEnrollChallenge::pull($user->getKey()),
+                PrfEnrollChallenge::pull($user->getKey(), $request->validated('credential_id')),
                 PublicKeyCredentialRequestOptions::class
             );
 
@@ -173,7 +176,21 @@ class PrfUnlockController extends Controller
 
         $validated = $request->validated();
 
-        DB::transaction(function () use ($user, $passkey, $validated) {
+        $disabled = false;
+
+        DB::transaction(function () use ($user, $passkey, $validated, &$disabled) {
+            // Fresh E2EE-enabled check inside the transaction (review fix):
+            // guard() read it before the ceremony window; a concurrent
+            // disable+flush would otherwise leave an orphan keyset behind.
+            // The user-row lock serializes against disable/setup writers.
+            $enabled = (bool) User::query()->whereKey($user->getKey())->lockForUpdate()->value('encryption_enabled');
+
+            if (! $enabled) {
+                $disabled = true;
+
+                return;
+            }
+
             // Atomic upsert: re-enroll replaces the blobs in place. The
             // model is only ever written with server-resolved keys — no
             // request-controlled mass assignment exists.
@@ -186,6 +203,10 @@ class PrfUnlockController extends Controller
                 ]
             );
         });
+
+        if ($disabled) {
+            abort(400, 'Encryption is not enabled');
+        }
 
         Log::info('PRF enrollment stored', ['user_id' => $user->id]);
 
@@ -204,6 +225,8 @@ class PrfUnlockController extends Controller
     public function rewrap(PrfRewrapRequest $request) : JsonResponse
     {
         $this->guard($request);
+        // 2/hour: one rotation + one 409-retry (stale salt view). A client
+        // retry after 409 consumes the second attempt by design.
         $this->rateLimit($request, 'prf-rewrap', 2, 3600);
 
         $user = $request->user();
@@ -234,13 +257,45 @@ class PrfUnlockController extends Controller
             ], 422);
         }
 
-        DB::transaction(function () use ($resolved, $wrappings) {
+        $staleGuard         = false;
+        $encryptionDisabled = false;
+
+        DB::transaction(function () use ($user, $resolved, $wrappings, $request, &$staleGuard, &$encryptionDisabled) {
+            // In-transaction stale-writer re-check under a user-row lock
+            // (review fix, TOCTOU): the pre-transaction check above reads
+            // without a lock; a rotation or disable committing between it
+            // and the write would still land wrapped_vault_key rows under
+            // a superseded vault key. The lock serializes against those
+            // writers — and against a concurrent rewrap from another tab.
+            /** @var User $lockedUser */
+            $lockedUser = User::query()->whereKey($user->getKey())->lockForUpdate()->first();
+
+            if (! $lockedUser->encryption_enabled) {
+                $encryptionDisabled = true;
+
+                return;
+            }
+
+            if (! hash_equals(hash('sha256', (string) $lockedUser->encryption_salt), $request->validated('expected_encryption_salt_hash'))) {
+                $staleGuard = true;
+
+                return;
+            }
+
             foreach ($wrappings as $w) {
                 $enrollment                    = $resolved->get($w['credential_id']);
                 $enrollment->wrapped_vault_key = $w['wrapped_vault_key'];
                 $enrollment->save();
             }
         });
+
+        if ($encryptionDisabled) {
+            abort(400, 'Encryption is not enabled');
+        }
+
+        if ($staleGuard) {
+            return response()->json(['message' => 'Encryption salt changed since your last view; reload and retry.'], 409);
+        }
 
         Log::info('PRF rewrap applied', ['user_id' => $user->id]);
 

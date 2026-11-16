@@ -57,6 +57,12 @@ export function purgeBiometricSettings() {
 
                     const tx = db.transaction(['settings'], 'readwrite')
                     const store = tx.objectStore('settings')
+                    // A tx-level error aborts without firing oncomplete —
+                    // resolve here too so the promise can't hang (review fix).
+                    tx.onerror = () => {
+                        db.close()
+                        resolve()
+                    }
                     const getAllKeys = store.getAllKeys()
 
                     getAllKeys.onsuccess = () => {

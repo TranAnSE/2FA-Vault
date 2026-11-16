@@ -6,6 +6,11 @@
 import offlineDb from './offline-db.js';
 import { decryptSecret } from './crypto.js';
 
+// WebCrypto bound explicitly (see prfService.js): a bare `crypto` identifier
+// is rewritten by unplugin-auto-import into the services/crypto.js default
+// export, which has no `subtle` member.
+const webCrypto = globalThis.crypto;
+
 class OfflineTotpService {
   constructor() {
     this.isOfflineMode = !navigator.onLine;
@@ -178,7 +183,7 @@ class OfflineTotpService {
     const counterBytes = this.intToBytes(counter);
 
     // Import key for HMAC
-    const cryptoKey = await crypto.subtle.importKey(
+    const cryptoKey = await webCrypto.subtle.importKey(
       'raw',
       key,
       { name: 'HMAC', hash: algorithm },
@@ -187,7 +192,7 @@ class OfflineTotpService {
     );
 
     // Compute HMAC using Web Crypto API
-    const signature = await crypto.subtle.sign(
+    const signature = await webCrypto.subtle.sign(
       { name: 'HMAC', hash: algorithm },
       cryptoKey,
       counterBytes

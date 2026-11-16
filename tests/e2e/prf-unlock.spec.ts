@@ -13,7 +13,7 @@
  * change and no longer verifies — pre-existing, see plan validation log).
  */
 import { test, expect } from '@playwright/test';
-import { attachPrfAuthenticator, spaNavigate } from './helpers/webauthn-ceremony';
+import { attachPrfAuthenticator, detachPrfAuthenticator, spaNavigate } from './helpers/webauthn-ceremony';
 
 // WebAuthn rp.id must be a valid domain AND Chromium binds it to the page
 // origin's host — so this spec MUST run against http://localhost:8001 (the
@@ -36,12 +36,11 @@ async function registerUserWithVault(page) {
     await page.locator('#pwdPassword').fill(ACCOUNT_PASSWORD);
     await page.locator('#btnRegister').click();
 
-    // Dismiss the post-registration WebAuthn onboarding prompt if it appears.
+    // Dismiss the post-registration WebAuthn onboarding page — it BLOCKS
+    // routing (the URL stays on /register until "Maybe later" is clicked),
+    // so wait for the button first, then dismiss, then assert the landing.
     const maybeLater = page.locator('#btnMaybeLater');
-    await Promise.race([
-        maybeLater.waitFor({ state: 'visible', timeout: 15000 }),
-        expect(page).toHaveURL(/\/(start|accounts|setup-encryption)/, { timeout: 20000 }),
-    ]).catch(() => {});
+    await maybeLater.waitFor({ state: 'visible', timeout: 15000 }).catch(() => {});
     if (await maybeLater.isVisible().catch(() => false)) {
         await maybeLater.click();
     }
@@ -97,10 +96,17 @@ test.describe('PRF vault unlock lifecycle', () => {
 
         // Log WebAuthn + PRF API traffic and any 4xx/5xx — ceremonies are
         // opaque in UI snapshots (failures surface as auto-dismissing toasts).
-        page.on('response', async (response) => {
+        // PRF-endpoint 5xx additionally FAIL the test (review fix): a server
+        // 500 during a ceremony should surface as a test failure, not as a
+        // downstream UI symptom elsewhere in the lifecycle.
+        const prfServerErrors: string[] = [];
+        page.on('response', (response) => {
             const url = response.url();
             if (url.includes('/webauthn/') || url.includes('/encryption/prf/') || response.status() >= 400) {
                 console.log('[api]', response.status(), response.request().method(), url);
+            }
+            if (url.includes('/encryption/prf/') && response.status() >= 500) {
+                prfServerErrors.push(`${response.status()} ${response.request().method()} ${url}`);
             }
         });
 
@@ -112,7 +118,7 @@ test.describe('PRF vault unlock lifecycle', () => {
         // Attach the PRF-capable virtual authenticator HERE — after the last
         // full-page navigation (CDP authenticators do not reliably survive
         // cross-document navigations; every step after this is SPA-only).
-        await attachPrfAuthenticator(page);
+        const prfAuth = await attachPrfAuthenticator(page);
 
         await page.getByText('Register a new device').click();
         await expect(page).toHaveURL(/\/settings\/webauthn\/.+\/edit/, { timeout: 30000 });
@@ -121,7 +127,9 @@ test.describe('PRF vault unlock lifecycle', () => {
         await spaNavigate(page, '/settings/webauthn');
         await expect(page.getByText('Enable vault unlock')).toBeVisible({ timeout: 30000 });
         await page.getByText('Enable vault unlock').click();
-        await expect(page.getByText('Vault unlock enabled for this passkey.')).toBeVisible({ timeout: 30000 });
+        // The persistent badge (exact text, review fix) — the 3s-expiry enroll
+        // toast ("…for this passkey.") has flaked on slow toast dismissal.
+        await expect(page.getByText('Vault unlock enabled', { exact: true })).toBeVisible({ timeout: 30000 });
 
         // ---- 4. Lock vault and unlock via passkey
         await lockVaultFromSettings(page);
@@ -129,12 +137,15 @@ test.describe('PRF vault unlock lifecycle', () => {
 
         // ---- 5. Rotate the master password (D9 re-wrap runs inside)
         await spaNavigate(page, '/settings/encryption');
-        // FormField ids lowercase everything after the first char
-        // (useIdGenerator): 'currentPasswordForRotation' → pwdCurrentpasswordforrotation.
-        await page.locator('#pwdCurrentpasswordforrotation').fill(MASTER_PASSWORD);
-        await page.locator('#pwdNewpasswordforrotation').fill(ROTATED_PASSWORD);
-        await page.locator('#pwdConfirmpasswordforrotation').fill(ROTATED_PASSWORD);
-        await page.locator('#btnRotateMasterPassword').click();
+        // Accessible-name selectors scoped to the rotation form (review fix)
+        // — FormField ids lowercase everything after the first char, and the
+        // disable-encryption form on the same page shares the exact label
+        // "Current password".
+        const rotateForm = page.locator('form').filter({ has: page.locator('#btnRotateMasterPassword') });
+        await rotateForm.getByLabel('Current password', { exact: true }).fill(MASTER_PASSWORD);
+        await rotateForm.getByLabel('New master password', { exact: true }).fill(ROTATED_PASSWORD);
+        await rotateForm.getByLabel('Confirm new master password', { exact: true }).fill(ROTATED_PASSWORD);
+        await rotateForm.locator('#btnRotateMasterPassword').click();
         await expect(page.getByText('Master password changed and all secrets re-encrypted')).toBeVisible({ timeout: 120000 });
 
         // ---- 6. Lock + passkey unlock again — proves the D9 re-wrap
@@ -145,12 +156,28 @@ test.describe('PRF vault unlock lifecycle', () => {
         await spaNavigate(page, '/settings/webauthn');
         page.once('dialog', (dialog) => dialog.accept());
         await page.getByText('Revoke', { exact: true }).click();
+        // Positive anchor first (review fix): the device row (and its Revoke
+        // button) is gone, proving the revoke round-trip completed before
+        // asserting the absence of the PRF controls.
+        await expect(page.getByText('Revoke', { exact: true })).toHaveCount(0, { timeout: 15000 });
         await expect(page.getByText('Enable vault unlock').or(page.getByText('Vault unlock enabled'))).toHaveCount(0, { timeout: 15000 });
 
-        // ---- 8. Lock → unlock-vault shows no passkey button (0 enrollments)
+        // ---- 8. Lock → unlock-vault: server-side revoke proof + no button
         await lockVaultFromSettings(page);
+        // Review fix: prove the CASCADE server-side, not just the UI hiding
+        // — the unlock-vault mount's context fetch must return 200 with
+        // zero enrollments.
+        const prfContextAfterRevoke = page.waitForResponse((response) => response.url().includes('/encryption/prf/context'));
         await spaNavigate(page, '/unlock-vault');
+        const contextResponse = await prfContextAfterRevoke;
+        expect(contextResponse.status()).toBe(200);
+        expect((await contextResponse.json()).enrollments).toEqual([]);
         await page.getByLabel('Master Password', { exact: true }).waitFor({ state: 'visible', timeout: 15000 });
         await expect(page.locator('#btnPrfUnlock')).not.toBeVisible({ timeout: 10000 });
+
+        // Lifecycle complete: explicit authenticator cleanup (review fix) and
+        // the 5xx gate over every /encryption/prf/* response of the run.
+        await detachPrfAuthenticator(prfAuth);
+        expect(prfServerErrors).toEqual([]);
     });
 });

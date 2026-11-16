@@ -148,6 +148,26 @@ class WebauthnService {
      * @returns {Promise<{credentialId: string, prfBits: Uint8Array}>}
      */
     async assertWithPrf(credentialIds, saltBytes) {
+        let err = {
+            webauthn: true,
+            type: 'is-danger',
+            message: ''
+        }
+
+        // Same guards as register/authenticate (review fix): the PRF unlock
+        // button renders on http:// origins too (LAN deployments), and a
+        // bare navigator.credentials.get() on an insecure context throws
+        // raw TypeErrors that the catch maps misleadingly.
+        if (!window.isSecureContext) {
+            err.message = 'error.https_required'
+            return Promise.reject(err)
+        }
+
+        if (! WebauthnService.supportsWebAuthn) {
+            err.message = 'error.browser_does_not_support_webauthn'
+            return Promise.reject(err)
+        }
+
         const publicKey = {
             challenge: webCrypto.getRandomValues(new Uint8Array(32)),
             allowCredentials: credentialIds.map((id) => ({
@@ -205,6 +225,23 @@ class WebauthnService {
      * @returns {Promise<{assertion: Object, prfBits: Uint8Array}>}
      */
     async assertWithPrfChallenge(serverOptions, saltBytes) {
+        let err = {
+            webauthn: true,
+            type: 'is-danger',
+            message: ''
+        }
+
+        // Same guards as register/authenticate (review fix).
+        if (!window.isSecureContext) {
+            err.message = 'error.https_required'
+            return Promise.reject(err)
+        }
+
+        if (! WebauthnService.supportsWebAuthn) {
+            err.message = 'error.browser_does_not_support_webauthn'
+            return Promise.reject(err)
+        }
+
         const publicKey = {
             ...WebauthnService.parseIncomingServerOptions(serverOptions),
             userVerification: 'userVerification' in serverOptions ? serverOptions.userVerification : 'required',

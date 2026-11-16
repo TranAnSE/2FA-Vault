@@ -264,7 +264,7 @@ class PrfUnlockTest extends FeatureTestCase
         $this->postJson('/api/v1/encryption/prf/enroll/options', ['credential_id' => $handle->credentialId]);
 
         // Expire the stored challenge (single-use cache entry, M2 semantics).
-        Cache::put('prf_enroll_challenge_' . $this->user->id, 'expired', now()->subSecond());
+        Cache::put('prf_enroll_challenge_' . $this->user->id . '_' . $handle->credentialId, 'expired', now()->subSecond());
 
         $this->postJson('/api/v1/encryption/prf/enroll', [
             'credential_id'       => $handle->credentialId,
@@ -315,6 +315,34 @@ class PrfUnlockTest extends FeatureTestCase
         ])->assertStatus(422);
 
         // Nothing stored — the exfiltration-oracle path (red-team F1) is dead.
+        $this->assertSame(0, PasskeyPrfCredential::count());
+    }
+
+    #[Test]
+    public function test_enroll_rejects_a_valid_assertion_from_the_users_other_passkey()
+    {
+        // Cross-credential swap pin (review fix): a VALID assertion from the
+        // user's own second passkey must not satisfy a ceremony challenged
+        // for the first one. With per-credential challenge keying there is
+        // no stored challenge under B's id at all — the 401 expiry shape,
+        // and zero rows stored.
+        $this->enableE2ee();
+        $handleA = PasskeyAssertionFactory::convertedCredential($this->user);
+        $handleB = PasskeyAssertionFactory::convertedCredential($this->user);
+        Passport::actingAs($this->user, ['legacy_full_access'], 'api-guard');
+
+        $this->postJson('/api/v1/encryption/prf/enroll/options', [
+            'credential_id' => $handleA->credentialId,
+        ])->assertOk();
+
+        $this->postJson('/api/v1/encryption/prf/enroll', [
+            'credential_id'       => $handleB->credentialId,
+            'assertion'           => $handleB->assertion('any-challenge')['credential'],
+            'public_key'          => str_repeat('P', 100),
+            'wrapped_private_key' => str_repeat('W', 100),
+            'wrapped_vault_key'   => str_repeat('V', 100),
+        ])->assertStatus(401);
+
         $this->assertSame(0, PasskeyPrfCredential::count());
     }
 

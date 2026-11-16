@@ -18,18 +18,22 @@ use Illuminate\Validation\ValidationException;
  */
 class PrfEnrollChallenge
 {
-    protected static function key(int|string $userId) : string
+    protected static function key(int|string $userId, string $credentialId) : string
     {
-        // Dot-free key: some cache backends treat dots as nesting.
-        return 'prf_enroll_challenge_' . $userId;
+        // Dot-free key: some cache backends treat dots as nesting. Per-
+        // credential scoping (review fix): parallel ceremonies for different
+        // credentials of one user cannot clobber each other, and a submit
+        // naming a different credential than the one challenged gets no
+        // challenge at all.
+        return 'prf_enroll_challenge_' . $userId . '_' . $credentialId;
     }
 
     /**
      * Store the serialized enrollment options with the TTL gate.
      */
-    public static function put(int|string $userId, string $serializedOptions) : void
+    public static function put(int|string $userId, string $credentialId, string $serializedOptions) : void
     {
-        Cache::put(self::key($userId), $serializedOptions, now()->addSeconds(PasskeysTimeout::seconds()));
+        Cache::put(self::key($userId, $credentialId), $serializedOptions, now()->addSeconds(PasskeysTimeout::seconds()));
     }
 
     /**
@@ -38,9 +42,9 @@ class PrfEnrollChallenge
      *
      * @throws ValidationException when absent or expired
      */
-    public static function pull(int|string $userId) : string
+    public static function pull(int|string $userId, string $credentialId) : string
     {
-        $serialized = Cache::pull(self::key($userId));
+        $serialized = Cache::pull(self::key($userId, $credentialId));
 
         if (! $serialized) {
             throw ValidationException::withMessages([

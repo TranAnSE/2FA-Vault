@@ -42,6 +42,20 @@ export async function attachPrfAuthenticator(page: Page): Promise<PrfAuthenticat
 }
 
 /**
+ * Remove a virtual authenticator created by attachPrfAuthenticator (review
+ * fix: explicit cleanup instead of relying on context teardown alone —
+ * a leftover authenticator on a shared page object would silently answer
+ * later ceremonies in the same test).
+ */
+export async function detachPrfAuthenticator(authenticator: PrfAuthenticator): Promise<void> {
+    try {
+        await authenticator.cdp.send('WebAuthn.removeVirtualAuthenticator', { authenticatorId: authenticator.authenticatorId });
+        await authenticator.cdp.send('WebAuthn.disable');
+        await authenticator.cdp.detach();
+    } catch { /* page/context may already be gone */ }
+}
+
+/**
  * Client-side (router.push) navigation that never reloads the document.
  * A full page load clears the in-memory E2EE key and bounces to
  * /unlock-vault, so settings-page hops inside a flow use this instead.

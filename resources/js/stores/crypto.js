@@ -20,7 +20,14 @@ export const useCryptoStore = defineStore('crypto', () => {
     const isVaultUnlocked = ref(false)
     const encryptionEnabled = ref(false)
     const salt = ref(null)
-    
+
+    // D9 stale-blob flag: set when a post-rotation PRF re-wrap fails (409
+    // stale writer or network). Stored HERE — not in the Encryption view —
+    // because the stale blobs persist server-side across navigations while
+    // the retry depends on encryptionKeyRaw, so the flag must share that
+    // session lifetime. Cleared by a successful re-wrap and on reset/lock.
+    const prfStale = ref(false)
+
     // Getters
     const isEncryptionEnabled = computed(() => encryptionEnabled.value)
     const isUnlocked = computed(() => isVaultUnlocked.value)
@@ -134,6 +141,7 @@ export const useCryptoStore = defineStore('crypto', () => {
         encryptionKeyRaw.value = null
         salt.value = null
         isVaultUnlocked.value = false
+        prfStale.value = false
     }
     
     /**
@@ -216,6 +224,7 @@ export const useCryptoStore = defineStore('crypto', () => {
         isVaultUnlocked.value = false
         encryptionEnabled.value = false
         salt.value = null
+        prfStale.value = false
     }
 
     return {
@@ -225,6 +234,7 @@ export const useCryptoStore = defineStore('crypto', () => {
         isVaultUnlocked,
         encryptionEnabled,
         salt,
+        prfStale,
 
         // Getters
         isEncryptionEnabled,

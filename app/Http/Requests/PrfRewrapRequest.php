@@ -29,7 +29,7 @@ class PrfRewrapRequest extends FormRequest
         return [
             'expected_encryption_salt_hash' => ['required', 'string', 'size:64'],
             'wrappings'                     => ['required', 'array', 'min:1', 'max:100'],
-            'wrappings.*.credential_id'     => ['required', 'string', 'max:510'],
+            'wrappings.*.credential_id'     => ['required', 'string', 'max:255'],
             'wrappings.*.wrapped_vault_key' => ['required', 'string', 'max:16384'],
         ];
     }

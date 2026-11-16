@@ -115,11 +115,18 @@ export async function unlockVaultWithPrf(prfOutputBits, enrollment) {
         throw new PrfError('unwrap_failed', 'The wrapped private key could not be unwrapped with this passkey')
     }
 
-    // Re-import the private key from its PKCS#8 binary form
-    const pkcs8 = binaryStringToBytes(pkcs8Binary)
-    const privateKey = await webCrypto.subtle.importKey('pkcs8', pkcs8, { name: 'RSA-OAEP', hash: 'SHA-256' }, false, ['decrypt'])
+    // Re-import the private key and decapsulate K — inside the same failure
+    // contract: corrupted/replaced wrapped_vault_key blobs throw raw
+    // OperationError/DataError here otherwise (review fix).
+    let raw
+    try {
+        const pkcs8 = binaryStringToBytes(pkcs8Binary)
+        const privateKey = await webCrypto.subtle.importKey('pkcs8', pkcs8, { name: 'RSA-OAEP', hash: 'SHA-256' }, false, ['decrypt'])
 
-    const raw = await webCrypto.subtle.decrypt({ name: 'RSA-OAEP' }, privateKey, base64ToBytes(enrollment.wrapped_vault_key))
+        raw = await webCrypto.subtle.decrypt({ name: 'RSA-OAEP' }, privateKey, cryptoApi.base64ToBytes(enrollment.wrapped_vault_key))
+    } catch {
+        throw new PrfError('unwrap_failed', 'The encapsulated vault key could not be recovered with this passkey')
+    }
 
     return new Uint8Array(raw)
 }
@@ -134,7 +141,7 @@ export async function unlockVaultWithPrf(prfOutputBits, enrollment) {
  * @returns {Promise<string>} the new wrapped_vault_key blob (base64)
  */
 export async function rewrapVaultKey(enrollment, newVaultKeyRaw) {
-    const publicKey = await webCrypto.subtle.importKey('spki', base64ToBytes(enrollment.public_key), { name: 'RSA-OAEP', hash: 'SHA-256' }, false, ['encrypt'])
+    const publicKey = await webCrypto.subtle.importKey('spki', cryptoApi.base64ToBytes(enrollment.public_key), { name: 'RSA-OAEP', hash: 'SHA-256' }, false, ['encrypt'])
 
     const wrapped = await webCrypto.subtle.encrypt({ name: 'RSA-OAEP' }, publicKey, newVaultKeyRaw)
 
@@ -157,7 +164,3 @@ function binaryStringToBytes(binaryString) {
     return Uint8Array.from(binaryString, (char) => char.charCodeAt(0))
 }
 
-function base64ToBytes(base64) {
-    const binString = atob(base64)
-    return Uint8Array.from(binString, (char) => char.charCodeAt(0))
-}

@@ -163,20 +163,25 @@ console.log(`[E2E Server] Verified built app entry: ${appEntry.file}`);
 // webServer teardown (the wrapper dies, the PHP children don't), leaving a
 // stale server bound to the port that serves the PREVIOUS run's origin env.
 // A fresh run then fails with cross-origin asset loads (CORS) and an
-// apparently-booted-but-dead SPA. Kill any stale listener before binding.
+// apparently-booted-but-dead SPA. Kill any stale PHP listener before
+// binding — scoped to php.exe (review fix): an unrelated process that
+// legitimately owns the port is left alone and the bind failure surfaces
+// normally instead.
 try {
   if (process.platform === 'win32') {
     const pids = execSync(
-      'powershell -NoProfile -Command "(Get-NetTCPConnection -LocalPort 8001 -State Listen).OwningProcess | Sort-Object -Unique"',
+      'powershell -NoProfile -Command "(Get-NetTCPConnection -LocalPort 8001 -State Listen).OwningProcess | Sort-Object -Unique | Where-Object { (Get-Process -Id $_ -ErrorAction SilentlyContinue).ProcessName -eq \'php\' }"',
       { stdio: ['ignore', 'pipe', 'ignore'] },
     ).toString().split(/\r?\n/).map((s) => s.trim()).filter((s) => /^\d+$/.test(s));
     for (const pid of pids) {
       try {
         execSync(`taskkill /PID ${pid} /F`, { stdio: 'ignore' });
-        console.log(`[E2E Server] Killed stale listener on port 8001 (pid ${pid}).`);
+        console.log(`[E2E Server] Killed stale PHP listener on port 8001 (pid ${pid}).`);
       } catch { /* pid may have exited already */ }
     }
   } else {
+    // POSIX: fuser has no process-name filter; documented macOS caveat
+    // (fuser is absent on stock macOS) — CI runs Linux.
     execSync('fuser -k 8001/tcp', { stdio: 'ignore' });
   }
 } catch { /* port free — nothing to do */ }

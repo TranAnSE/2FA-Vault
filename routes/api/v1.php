@@ -154,7 +154,7 @@ Route::group(['middleware' => ['auth:api-guard', 'enforceMandatoryEncryption', '
     Route::post('encryption/prf/enroll/options', [PrfUnlockController::class, 'enrollOptions'])->name('encryption.prf.enrollOptions');
     Route::post('encryption/prf/enroll', [PrfUnlockController::class, 'enroll'])->name('encryption.prf.enroll')->middleware('pat.scopes:write');
     Route::post('encryption/prf/rewrap', [PrfUnlockController::class, 'rewrap'])->name('encryption.prf.rewrap')->middleware('pat.scopes:write');
-    Route::delete('encryption/prf/{credentialId}', [PrfUnlockController::class, 'destroy'])->name('encryption.prf.destroy')->middleware('pat.scopes:write');
+    Route::delete('encryption/prf/{credentialId}', [PrfUnlockController::class, 'destroy'])->name('encryption.prf.destroy')->where('credentialId', '[A-Za-z0-9_-]+')->middleware('pat.scopes:write');
 
     // Backup routes
     Route::post('backups/export', [BackupController::class, 'export'])->name('backups.export')->middleware('pat.scopes:read');

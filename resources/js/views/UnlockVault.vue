@@ -141,10 +141,29 @@
             // TODO in Register.vue), so keying on it would silently no-op
             // passkey unlock there. A parallel unlock flips vault_locked.
             if (!userStore.isAuthenticated || userStore.vault_locked === false) {
+                // Review fix: a silent return looks like a dead button when
+                // the vault was unlocked (or the session changed) elsewhere
+                // mid-ceremony — say so instead.
+                notify.info({ text: t('notification.prf_unlock_superseded') })
                 return
             }
 
-            const enrollment = context.enrollments.find(e => e.credential_id === credentialId)
+            // Refetch the context AFTER the ceremony (review fix): the
+            // mount-time snapshot can be stale — a master-password rotation
+            // elsewhere during the page's lifetime would unwrap+verify
+            // against mutually-consistent old blobs/test value and "unlock"
+            // into a vault whose secrets fail to decrypt. Fresh data makes
+            // a superseded rotation fail cleanly into the stale mapping.
+            // A failed refetch refuses to populate the store at all.
+            let fresh
+            try {
+                fresh = (await prfApiService.getPrfContext()).data
+            } catch {
+                notify.alert({ text: t('notification.prf_unlock_stale') })
+                return
+            }
+
+            const enrollment = fresh.enrollments.find(e => e.credential_id === credentialId)
 
             if (!enrollment) {
                 notify.warn({ text: t('error.prf_no_result') })
@@ -154,7 +173,7 @@
             const rawKey = await unlockVaultWithPrf(prfBits, enrollment)
 
             // Shared store path — throws on test-value verification failure.
-            await cryptoStore.applyUnlockedKey(rawKey, context.encryption_salt, context.encryption_test_value)
+            await cryptoStore.applyUnlockedKey(rawKey, fresh.encryption_salt, fresh.encryption_test_value)
 
             await apiClient.post('/encryption/verify', {
                 verification_result: true,
@@ -168,6 +187,11 @@
         } catch (error) {
             if (error?.prf_no_result || error?.webauthn) {
                 notify.warn({ text: t('error.prf_no_result') })
+            } else if (error?.name === 'PrfError' && error?.kind === 'unwrap_failed') {
+                // The wrapped private key would not unwrap — the enrollment
+                // blobs no longer match this passkey's PRF output (rotated/
+                // replaced blobs), the exact case PrfError exists to flag.
+                notify.alert({ text: t('notification.prf_unlock_stale') })
             } else if (error?.message === 'Invalid password' || error?.name === 'OperationError') {
                 // Unwrapped fine but the test value would not verify under the
                 // recovered key — the stale-blob window (rotation crash).

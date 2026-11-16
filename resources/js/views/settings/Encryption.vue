@@ -7,7 +7,7 @@
     import { useI18n } from 'vue-i18n'
     import { useErrorHandler } from '@2fauth/stores'
     import httpClientFactory from '@/services/httpClientFactory'
-    import { generateSalt, bytesToBase64, deriveKeyMaterial, importAesKey, encryptSecret, createTestValue } from '@/services/crypto'
+    import { generateSalt, bytesToBase64, deriveKeyMaterial, importAesKey, encryptSecret, createTestValue, verifyPassword } from '@/services/crypto'
     import emergencyService from '@/services/emergencyService'
     import prfApiService from '@/services/prfApiService.js'
     import { rewrapVaultKey } from '@/services/prfService.js'
@@ -45,10 +45,12 @@
         confirmPassword : '',
     }))
     const isRotating = ref(false)
+    const isRetryingPrf = ref(false)
 
-    // D9 stale-blob flag: set when the post-rotation PRF re-wrap fails
-    // (e.g. a racing tab rotated first → 409). Cleared by a successful retry.
-    const prfStale = ref(false)
+    // D9 stale-blob state lives in the crypto store (cryptoStore.prfStale):
+    // the stale blobs persist server-side across navigations while the retry
+    // depends on the session-scoped encryptionKeyRaw, so both must share a
+    // lifetime longer than this component's.
 
     // Computed states
     const isEnabled = computed(() => encryptionStatus.value?.encryption_enabled === true)
@@ -139,6 +141,9 @@
             })
 
             encryptionStatus.value.vault_locked = false
+            // Keep the shared user store in lockstep (mirror of lockVault;
+            // the encryptionGate self-heals either way — consistency fix).
+            user.vault_locked = false
             formUnlock.masterPassword = ''
             notify.success({ text: t('notification.vault_unlocked') })
         } catch (error) {
@@ -282,15 +287,17 @@
             //     already succeeded, the stale blob only degrades passkey
             //     unlock (password path is intact) and is flagged for retry.
             try {
-                await rotatePrfRewrap(newKeyRaw)
-                prfStale.value = false
+                await rotatePrfRewrap(newKeyRaw, newSalt)
+                cryptoStore.prfStale = false
             } catch {
-                prfStale.value = true
+                cryptoStore.prfStale = true
                 notify.warn({ text: t('notification.prf_unlock_stale') })
             }
 
-            // 6. Refresh the in-memory key to the new credentials.
-            await cryptoStore.unlockVault(formRotate.newPassword, newSalt, newTestValue)
+            // 6. Refresh the in-memory key to the new credentials — from the
+            // raw bytes already in hand (a second Argon2 run is pure waste;
+            // review fix) — via the shared verified-store path.
+            await cryptoStore.applyUnlockedKey(newKeyRaw, newSalt, newTestValue)
             formRotate.reset()
             notify.success({ text: t('notification.master_password_rotated') })
         } catch (error) {
@@ -303,15 +310,30 @@
     /**
      * PRF re-wrap for a rotation (D9): fetches the enrollment list and
      * re-encapsulates the given raw vault key under each enrollment's
-     * public key, then submits the wrappings with the stale-writer guard
-     * (sha256 of the CURRENT encryption salt — a 409 means another writer
-     * rotated first and this batch must not be applied).
-     * @param {Uint8Array} rawKey the raw new vault key bytes
+     * public key, then submits the wrappings with the stale-writer guard.
+     *
+     * The guard carries the hash of the salt THE KEY WAS DERIVED UNDER (not
+     * the freshly-fetched current salt — that only covers a microsecond
+     * race window), so the server 409s exactly when this in-memory key is
+     * no longer the vault key. Belt and braces: the fetched test value must
+     * also verify under the raw key before anything is wrapped or sent.
+     * @param {Uint8Array} rawKey the raw vault key bytes to re-wrap
+     * @param {string} rawKeySalt the base64 salt rawKey was derived under
+     * @throws {Error} 'stale key' when the key fails the test-value proof
      */
-    async function rotatePrfRewrap(rawKey) {
+    async function rotatePrfRewrap(rawKey, rawKeySalt) {
         const { data: context } = await prfApiService.getPrfContext()
 
         if (!context.enrollments?.length) return
+
+        // Key-ownership proof (review fix): the server's current test value
+        // must verify under THIS key — a mismatch means the vault was
+        // rotated elsewhere and wrapping this key would corrupt every
+        // enrollment.
+        const keyOk = await verifyPassword(context.encryption_test_value, await importAesKey(rawKey))
+        if (!keyOk) {
+            throw new Error('stale key')
+        }
 
         const wrappings = []
         for (const enrollment of context.enrollments) {
@@ -322,27 +344,35 @@
         }
 
         await prfApiService.prfRewrap({
-            expected_encryption_salt_hash: await sha256Hex(context.encryption_salt),
+            expected_encryption_salt_hash: await sha256Hex(rawKeySalt),
             wrappings,
         })
     }
 
     /**
      * Retry a failed post-rotation PRF re-wrap from the stale banner,
-     * using the in-memory K_new kept by the crypto store.
+     * using the in-memory K_new kept by the crypto store. The key's salt
+     * is the store's current salt (the two are set together at unlock).
      */
     async function retryPrfRewrap() {
-        if (cryptoStore.encryptionKeyRaw === null) {
+        if (isRetryingPrf.value) return
+        if (cryptoStore.encryptionKeyRaw === null || cryptoStore.salt === null) {
             notify.warn({ text: t('error.vault_locked') })
             return
         }
+        if (!cryptoStore.prfStale) {
+            return
+        }
 
+        isRetryingPrf.value = true
         try {
-            await rotatePrfRewrap(cryptoStore.encryptionKeyRaw)
-            prfStale.value = false
+            await rotatePrfRewrap(cryptoStore.encryptionKeyRaw, cryptoStore.salt)
+            cryptoStore.prfStale = false
             notify.success({ text: t('notification.prf_unlock_rewrapped') })
         } catch {
             notify.warn({ text: t('notification.prf_unlock_stale') })
+        } finally {
+            isRetryingPrf.value = false
         }
     }
 
@@ -446,9 +476,9 @@
 
                         <!-- D9 stale-blob banner: the post-rotation PRF re-wrap failed
                              (the passkey unlock blobs no longer match K) — retry entry point -->
-                        <div v-if="prfStale" class="notification is-warning is-size-7 my-3">
+                        <div v-if="cryptoStore.prfStale" class="notification is-warning is-size-7 my-3">
                             {{ $t('notification.prf_unlock_stale') }}
-                            <button type="button" class="button is-warning is-light ml-2" :disabled="isRotating" @click="retryPrfRewrap">
+                            <button type="button" class="button is-warning is-light ml-2" :disabled="isRotating || isRetryingPrf" @click="retryPrfRewrap">
                                 {{ $t('label.refresh') }}
                             </button>
                         </div>

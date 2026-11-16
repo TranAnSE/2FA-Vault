@@ -35,7 +35,7 @@ class PrfEnrollRequest extends FormRequest
         $b64url = ['required', 'string', 'regex:/^[A-Za-z0-9_-]+$/'];
 
         return [
-            'credential_id'                        => ['required', 'string', 'max:510'],
+            'credential_id'                        => ['required', 'string', 'max:255'],
             'assertion'                            => ['required', 'array'],
             'assertion.id'                         => $b64url,
             'assertion.rawId'                      => $b64url,

@@ -51,15 +51,19 @@ class EncryptionService
         // PRF lifecycle (plan 261114-2101, D6): a fresh E2EE setup invalidates
         // any pre-existing passkey unlock state — enrollments are wrapped to a
         // vault key that no longer exists and the old salt is meaningless.
-        $this->flushPrfUnlockState($user);
+        // Transactional (review fix): the PRF flush and the user write commit
+        // together or not at all.
+        return DB::transaction(function () use ($user, $salt, $testValue, $version) {
+            $this->flushPrfUnlockState($user);
 
-        $user->encryption_enabled    = true;
-        $user->encryption_salt       = $salt;
-        $user->encryption_test_value = $testValue;
-        $user->encryption_version    = $version;
-        $user->vault_locked          = true;
+            $user->encryption_enabled    = true;
+            $user->encryption_salt       = $salt;
+            $user->encryption_test_value = $testValue;
+            $user->encryption_version    = $version;
+            $user->vault_locked          = true;
 
-        return $user->save();
+            return $user->save();
+        });
     }
 
     /**
@@ -142,9 +146,14 @@ class EncryptionService
 
         // PRF lifecycle (plan 261114-2101, D6): passkey unlock dies with E2EE
         // — wipe enrollments + salt so no stale wrapped blobs survive.
-        $this->flushPrfUnlockState($user);
+        // Transactional (review fix): the flush and the user write commit
+        // together or not at all, closing the enroll-vs-disable window the
+        // controller's in-transaction enabled re-check completes.
+        return DB::transaction(function () use ($user) {
+            $this->flushPrfUnlockState($user);
 
-        return $user->save();
+            return $user->save();
+        });
     }
 
     /**
@@ -239,7 +248,9 @@ class EncryptionService
             $user->encryption_version = $newVersion;
         }
 
-        return $user->save();
+        // Transactional save (review fix): the rotation writer that rewrap's
+        // in-transaction lockForUpdate re-check serializes against.
+        return DB::transaction(fn () => $user->save());
     }
 
     /**
