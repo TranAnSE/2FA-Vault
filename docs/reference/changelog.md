@@ -27,6 +27,54 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `POST /api/v1/breach/check-email` (hard-gated behind the `breachMonitoring` user preference, off by default — the email leaves the system only with explicit opt-in) and `GET /api/v1/breach/check-service`
 - `breachMonitoring` user preference, HIBP key via `config/services.php` + `HIBP_API_KEY` env, `BreachBadge` component
 
+## [1.7.0] - 2026-11-17
+
+### Added
+
+**🔑 WebAuthn PRF Vault Unlock**
+- Passkeys with PRF support (hmac-secret) can unlock the E2EE vault in addition to logging you in — a registered passkey is enrolled per-credential in Settings → Security devices (enrolled rows show a badge plus a Refresh action that re-runs the ceremony)
+- Bitwarden-style per-credential RSA-2048 keyset: the PRF output (HKDF-derived wrapping key) wraps a per-credential RSA private key; the public key encapsulates the vault key. The server stores only opaque wrapped blobs (zero knowledge); logs never carry key material or salts
+- Enrollment requires a server-verified assertion (possession proof) before anything is stored — a hijacked session cannot plant key material; the `prf` extension is probed at passkey creation so eligibility is known up front
+- Master-password rotation re-wraps enrollments without any ceremony (public-key-only); a stale banner with one-click retry covers racing-tab rotation, and enroll/rewrap both carry a salt-hash stale-writer guard (409, re-checked in-transaction under a row lock)
+- Unlock screen shows an "Unlock with passkey" button whenever at least one enrollment exists; distinct user feedback for wrong-passkey, stale-blob, and superseded-session cases, translated into all 22 locales
+- Lifecycle: E2EE disable/setup and account recovery wipe enrollments; passkey revocation and user deletion cascade via FKs
+- 5 API endpoints (`GET/POST encryption/prf/*`, `DELETE encryption/prf/{credentialId}`) behind the WebAuthn gate, E2EE-enabled guard, and per-endpoint rate limits; OpenAPI updated in the 2FA-Vault-API repo
+- Real-ceremony e2e lifecycle spec (register → enroll → lock → passkey unlock → rotate → unlock → revoke) wired into `ci:e2e`
+
+### Changed
+
+- Removed the legacy biometric unlock service and its IndexedDB settings (purged automatically); the crypto store now retains the raw vault key for the session to power PRF enroll/re-wrap (documented exfiltration-vs-use risk delta; rotation after suspected compromise is mandatory guidance)
+
+### Fixed
+
+- Bare-`crypto` auto-import hazard (unplugin-auto-import shadowing the WebCrypto global) fixed in the key-sharing, offline-TOTP, and offline sync-queue services, with an ESLint guard preventing regressions
+
+## [1.6.1] - 2026-11-12
+
+### Removed
+
+- `laragear/webauthn` dropped from composer dependencies and the codebase; legacy `webauthn_credentials` table removed via a guarded drop migration (aborts blind 1.5.x → 1.6.1 jumps; `down()` recreates the legacy schema verbatim)
+
+### Security
+
+- Post-soak follow-up to v1.6.0: upgrade THROUGH v1.6.0 first — 1.5.x installs must run the v1.6.0 ETL before updating to v1.6.1
+
+## [1.6.0] - 2026-11-12
+
+### Changed
+
+- **Passkeys engine swap**: abandoned `laragear/webauthn` replaced with first-party `laravel/passkeys` 0.2.1 (plan 261009-passkeys-migration) — the `/webauthn/*` contract is preserved (controllers kept their names/routes; the SPA serializer emits strict base64url)
+- One-time ETL shipped in v1.6.0 (entrypoint auto-run) migrating existing WebAuthn credentials to the new engine
+- User verification is now REQUIRED on every passkey ceremony; anti-enumeration floor applied symmetrically
+
+### Added
+
+- First-party WebAuthn account recovery flow; SSO-only gate on every ceremony surface
+
+### Fixed
+
+- `MetricsController` queried a nonexistent `webhook_deliveries.status` column (production MySQL 500 on `/metrics`; sqlite DQS masked it)
+
 ## [1.2.0] - 2026-06-14
 
 ### Added
