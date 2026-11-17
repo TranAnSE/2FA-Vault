@@ -2,6 +2,11 @@
     import tabs from './tabs'
     import userService from '@/services/userService'
     import { webauthnService } from '@/services/webauthn/webauthnService'
+    import prfApiService from '@/services/prfApiService.js'
+    import { buildEnrollment, PrfError } from '@/services/prfService.js'
+    import { useCryptoStore } from '@/stores/crypto'
+    import { base64ToBytes, sha256Hex } from '@/services/prfUnlockSupport.js'
+    import { importAesKey, verifyPassword } from '@/services/crypto'
     import { useAppSettingsStore } from '@/stores/appSettings'
     import { useUserStore } from '@/stores/user'
     import { useNotify, TabBar } from '@2fauth/ui'
@@ -15,6 +20,7 @@
     const $2fauth = inject('2fauth')
     const user = useUserStore()
     const appSettings = useAppSettingsStore()
+    const cryptoStore = useCryptoStore()
     const notify = useNotify()
     const router = useRouter()
     const returnTo = useStorage($2fauth.prefix + 'returnTo', 'accounts')
@@ -23,12 +29,19 @@
     const credentials = ref([])
     const isFetching = ref(false)
 
+    // PRF unlock (plan 261114-2101, D8): per-row enroll action, fed by the
+    // context endpoint. Empty when E2EE is off or SSO-only denies (403) —
+    // the PRF UI stays hidden (settings page is still usable).
+    const prfEnrolledIds = ref([])
+    const isPrfBusyId = ref(null)
+
     const isDisabled = computed(() => {
         return (appSettings.enableSso && appSettings.useSsoOnly) || user.authenticated_by_proxy
     })
-    
+
     onMounted(() => {
         fetchCredentials()
+        fetchPrfContext()
     })
 
     watch(() => user.preferences.useWebauthnOnly, () => {
@@ -90,6 +103,87 @@
      */
     function displayName(credential) {
         return credential.alias ? credential.alias : t('label.my_device') + ' (#' + credential.id.substring(0, 10) + ')'
+    }
+
+    /**
+     * Fetch the PRF unlock context (enrolled ids + salt). Non-blocking: when
+     * E2EE is off (400) or SSO-only denies (403) the PRF UI stays hidden.
+     */
+    function fetchPrfContext() {
+        prfApiService.getPrfContext().then(response => {
+            prfEnrolledIds.value = response.data.enrollments.map(e => e.credential_id)
+        }).catch(() => {
+            prfEnrolledIds.value = []
+        })
+    }
+
+    /**
+     * Enroll this passkey for PRF vault unlock (D2 hybrid ceremony):
+     * server-challenged assertion (possession proof) with the client-side
+     * prf eval riding the same ceremony, then the wrapped keyset upload.
+     * Requires the vault unlocked (encryptionKeyRaw present — D4).
+     */
+    function enrollPrf(credential) {
+        if (cryptoStore.encryptionKeyRaw === null) {
+            notify.warn({ text: t('error.vault_locked') })
+            return
+        }
+
+        isPrfBusyId.value = credential.id
+
+        prfApiService.getPrfContext()
+            .then(async (context) => {
+                // Stale-writer guard (review follow-up, mirror of rotation):
+                // prove the in-memory key still verifies the server's test
+                // value BEFORE wrapping it — a rotation elsewhere would
+                // otherwise store an unlock blob around a dead key. The salt
+                // hash sent with the upload lets the server 409 the same
+                // race during the ceremony window.
+                const keyOk = await verifyPassword(context.data.encryption_test_value, await importAesKey(cryptoStore.encryptionKeyRaw))
+
+                if (!keyOk) {
+                    throw new PrfError('stale_key', 'The in-memory vault key no longer matches the stored test value')
+                }
+
+                const saltBytes = base64ToBytes(context.data.prf_salt)
+
+                return prfApiService.prfEnrollOptions(credential.id)
+                    .then(options => webauthnService.assertWithPrfChallenge(options.data, saltBytes))
+                    .then(({ assertion, prfBits }) =>
+                        buildEnrollment(prfBits, cryptoStore.encryptionKeyRaw)
+                            .then(async (blobs) => prfApiService.prfEnroll({
+                                credential_id: credential.id,
+                                expected_encryption_salt_hash: await sha256Hex(cryptoStore.salt),
+                                assertion,
+                                ...blobs
+                            }))
+                    )
+            })
+            .then(() => {
+                notify.success({ text: t('notification.prf_enrolled') })
+                fetchPrfContext()
+            })
+            .catch(error => {
+                if (error?.prf_no_result || error?.webauthn) {
+                    notify.warn({ text: t('error.prf_no_result') })
+                } else if (error?.name === 'PrfError' && error?.kind === 'stale_key') {
+                    notify.alert({ text: t('error.prf_enroll_stale') })
+                } else if (error?.name === 'PrfError') {
+                    // All-zero/broken PRF output (rejectAllZero in buildEnrollment).
+                    notify.alert({ text: t('error.prf_output_invalid') })
+                } else if (error.response?.status === 409) {
+                    // Server-side salt guard: a rotation landed elsewhere
+                    // during the ceremony window.
+                    notify.alert({ text: t('error.prf_enroll_stale') })
+                } else if (error.response?.status === 422) {
+                    notify.alert({ text: error.response.data.message })
+                } else {
+                    errorHandler.show(error)
+                }
+            })
+            .finally(() => {
+                isPrfBusyId.value = null
+            })
     }
 
     /**
@@ -158,6 +252,39 @@
                     <UseColorMode v-slot="{ mode }">
                         <div v-for="credential in credentials" :key="credential.id" class="group-item is-size-5 is-size-6-mobile">
                             {{ displayName(credential) }}
+                            <!-- PRF enroll action / enrolled badge (D8). The badge is a
+                                 non-interactive span (review fix) and Refresh re-runs the
+                                 enroll ceremony to replace stale blobs — the backend
+                                 upserts atomically on re-enroll. -->
+                            <span
+                                v-if="prfEnrolledIds.includes(credential.id)"
+                                class="tag is-success is-light is-pulled-right mr-1"
+                                :title="$t('label.passkey_unlock_enabled')"
+                            >
+                                {{ $t('label.passkey_unlock_enabled') }}
+                            </span>
+                            <button
+                                v-else-if="!isDisabled"
+                                type="button"
+                                class="button tag is-pulled-right mr-1"
+                                :class="[mode === 'dark' ? 'is-dark':'is-white', isPrfBusyId === credential.id ? 'is-loading' : '']"
+                                :disabled="isPrfBusyId === credential.id"
+                                @click="enrollPrf(credential)"
+                                :title="$t('label.enable_passkey_unlock')"
+                            >
+                                {{ $t('label.enable_passkey_unlock') }}
+                            </button>
+                            <button
+                                v-if="prfEnrolledIds.includes(credential.id) && !isDisabled"
+                                type="button"
+                                class="button tag is-pulled-right mr-1"
+                                :class="[mode === 'dark' ? 'is-dark':'is-white', isPrfBusyId === credential.id ? 'is-loading' : '']"
+                                :disabled="isPrfBusyId === credential.id"
+                                @click="enrollPrf(credential)"
+                                :title="$t('tooltip.refresh_prf_enrollment')"
+                            >
+                                {{ $t('label.refresh') }}
+                            </button>
                             <!-- revoke link -->
                             <button type="button" class="button tag is-pulled-right" :class="mode === 'dark' ? 'is-dark':'is-white'" @click="revokeCredential(credential.id)" :title="$t('tooltip.revoke')">
                                 {{ $t('label.revoke') }}

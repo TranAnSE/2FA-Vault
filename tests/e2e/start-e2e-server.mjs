@@ -13,12 +13,23 @@ const EXT_ROOT = path.resolve(ROOT, '../2FA-Vault-WebExtension');
 const EXT_DIST_MANIFEST = path.resolve(EXT_ROOT, 'dist/chrome-mv3/manifest.json');
 const DB_PATH = path.resolve(ROOT, 'database/database_e2e.sqlite');
 const IS_CI = process.env.CI === 'true' || process.env.CI === '1';
-const E2E_ORIGIN = 'http://127.0.0.1:8001';
+// Overridable so WebAuthn/PRF e2e can run on `localhost` (the RP id falls
+// back to the app host, and Chromium rejects an IP-address rp.id with
+// "This is an invalid domain" — `localhost` is the only valid loopback name).
+const E2E_ORIGIN = process.env.E2E_ORIGIN || 'http://127.0.0.1:8001';
 const E2E_ENV = {
   ...process.env,
   APP_ENV: 'e2e',
   APP_URL: E2E_ORIGIN,
   ASSET_URL: E2E_ORIGIN,
+  // Keep the WebAuthn RP id + allowed origins in lockstep with the served
+  // origin (real env vars override .env.e2e via phpdotenv immutability).
+  // NOTE: Chromium also binds rp.id to the PAGE origin's host, so a spec
+  // that needs an rp.id of `localhost` MUST browse from localhost AND the
+  // server must serve from localhost — hence E2E_ORIGIN=http://localhost:8001
+  // for prf-unlock.spec.ts (see its header).
+  WEBAUTHN_ID: new URL(E2E_ORIGIN).hostname,
+  WEBAUTHN_ORIGINS: E2E_ORIGIN,
   DB_CONNECTION: 'sqlite',
   DB_DATABASE: DB_PATH,
   // Pin session + CSP defaults explicitly. `php artisan serve` spawns a
@@ -147,6 +158,56 @@ if (!fs.existsSync(appEntryPath)) {
 }
 
 console.log(`[E2E Server] Verified built app entry: ${appEntry.file}`);
+
+// On Windows, `php artisan serve` worker processes can outlive Playwright's
+// webServer teardown (the wrapper dies, the PHP children don't), leaving a
+// stale server bound to the port that serves the PREVIOUS run's origin env.
+// A fresh run then fails with cross-origin asset loads (CORS) and an
+// apparently-booted-but-dead SPA. Kill any stale PHP listener before
+// binding — scoped to php.exe (review fix): an unrelated process that
+// legitimately owns the port is left alone and the bind failure surfaces
+// normally instead.
+try {
+  if (process.platform === 'win32') {
+    const pids = execSync(
+      'powershell -NoProfile -Command "(Get-NetTCPConnection -LocalPort 8001 -State Listen).OwningProcess | Sort-Object -Unique | Where-Object { (Get-Process -Id $_ -ErrorAction SilentlyContinue).ProcessName -eq \'php\' }"',
+      { stdio: ['ignore', 'pipe', 'ignore'] },
+    ).toString().split(/\r?\n/).map((s) => s.trim()).filter((s) => /^\d+$/.test(s));
+    for (const pid of pids) {
+      try {
+        execSync(`taskkill /PID ${pid} /F`, { stdio: 'ignore' });
+        console.log(`[E2E Server] Killed stale PHP listener on port 8001 (pid ${pid}).`);
+      } catch { /* pid may have exited already */ }
+    }
+  } else {
+    // POSIX: prefer fuser (Linux), fall back to lsof where fuser is absent
+    // (stock macOS). Both sweeps are scoped to php processes — an unrelated
+    // legitimate listener is left alone.
+    const killPhpListener = (pidList) => {
+      for (const pid of pidList) {
+        try {
+          const name = execSync(`ps -o comm= -p ${pid}`, { stdio: ['ignore', 'pipe', 'ignore'] }).toString().trim();
+          if (name === 'php' || name.startsWith('php')) {
+            execSync(`kill -9 ${pid}`, { stdio: 'ignore' });
+            console.log(`[E2E Server] Killed stale PHP listener on port 8001 (pid ${pid}).`);
+          }
+        } catch { /* pid may have exited already */ }
+      }
+    };
+
+    try {
+      const pids = execSync('fuser 8001/tcp 2>/dev/null', { shell: '/bin/sh', stdio: ['ignore', 'pipe', 'ignore'] })
+        .toString().split(/\s+/).map((s) => s.trim()).filter((s) => /^\d+$/.test(s));
+      killPhpListener(pids);
+    } catch {
+      try {
+        const pids = execSync('lsof -ti tcp:8001 -sTCP:LISTEN', { stdio: ['ignore', 'pipe', 'ignore'] })
+          .toString().split(/\s+/).filter((s) => /^\d+$/.test(s));
+        killPhpListener(pids);
+      } catch { /* port free — nothing to do */ }
+    }
+  }
+} catch { /* port free — nothing to do */ }
 
 console.log('[E2E Server] Starting Laravel on port 8001...');
 

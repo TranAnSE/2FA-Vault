@@ -20,7 +20,9 @@ export class OfflineDBSyncQueue {
             const transaction = db.transaction([STORE], 'readwrite')
             const store = transaction.objectStore(STORE)
             const request = store.add({
-                id: crypto.randomUUID(),
+                // globalThis.crypto: a bare `crypto` resolves to the
+                // auto-imported services/crypto.js object (no randomUUID).
+                id: globalThis.crypto.randomUUID(),
                 action,
                 data,
                 timestamp: Date.now(),

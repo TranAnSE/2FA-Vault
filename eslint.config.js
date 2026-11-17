@@ -21,7 +21,26 @@ export default defineConfig([
             globals: {
                 ...globals.node,
                 ...globals.browser,
-                ...autoImports.globals
+                ...autoImports.globals,
+                // The auto-import scan registers services/crypto.js's default
+                // export as a global named `crypto`, silently rewriting bare
+                // `crypto` references into that object at build time. Bare
+                // `crypto.subtle` (WebCrypto intended) then breaks at runtime.
+                // Disabling the global makes every bare `crypto` fail no-undef
+                // here — WebCrypto access must go through globalThis.crypto.
+                crypto: 'off',
+            },
+        },
+    },
+    {
+        // services/crypto.js is the auto-import's SOURCE module: the build
+        // transform self-excludes it, so its own bare `crypto.subtle` calls
+        // legitimately resolve to the WebCrypto global at runtime.
+        name: 'app/services-crypto-module-exception',
+        files: ['resources/js/services/crypto.js'],
+        languageOptions: {
+            globals: {
+                crypto: 'writable',
             },
         },
     },

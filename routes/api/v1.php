@@ -23,6 +23,7 @@ use App\Http\Controllers\BackupController;
 use App\Http\Controllers\BackupSnapshotController;
 use App\Http\Controllers\EmergencyAccessController;
 use App\Http\Controllers\EncryptionController;
+use App\Http\Controllers\PrfUnlockController;
 use App\Http\Controllers\PushSubscriptionController;
 use App\Http\Controllers\TeamActivityController;
 use App\Http\Controllers\TeamController;
@@ -145,6 +146,15 @@ Route::group(['middleware' => ['auth:api-guard', 'enforceMandatoryEncryption', '
     Route::post('encryption/credentials', [EncryptionController::class, 'updateCredentials'])->name('encryption.credentials')->middleware('pat.scopes:write');
     Route::post('encryption/bulk-secrets', [EncryptionController::class, 'bulkUpdateSecrets'])->name('encryption.bulkSecrets')->middleware('pat.scopes:write');
     Route::delete('encryption/disable', [EncryptionController::class, 'disable'])->name('encryption.disable')->middleware('pat.scopes:write');
+
+    // PRF vault unlock (plan 261114-2101, D7) — zero-knowledge storage of the
+    // per-credential wrapped keyset. Every endpoint is E2EE-enabled-guarded +
+    // gated by manage-webauthn-credentials inside PrfUnlockController.
+    Route::get('encryption/prf/context', [PrfUnlockController::class, 'context'])->name('encryption.prf.context');
+    Route::post('encryption/prf/enroll/options', [PrfUnlockController::class, 'enrollOptions'])->name('encryption.prf.enrollOptions');
+    Route::post('encryption/prf/enroll', [PrfUnlockController::class, 'enroll'])->name('encryption.prf.enroll')->middleware('pat.scopes:write');
+    Route::post('encryption/prf/rewrap', [PrfUnlockController::class, 'rewrap'])->name('encryption.prf.rewrap')->middleware('pat.scopes:write');
+    Route::delete('encryption/prf/{credentialId}', [PrfUnlockController::class, 'destroy'])->name('encryption.prf.destroy')->where('credentialId', '[A-Za-z0-9_-]+')->middleware('pat.scopes:write');
 
     // Backup routes
     Route::post('backups/export', [BackupController::class, 'export'])->name('backups.export')->middleware('pat.scopes:read');

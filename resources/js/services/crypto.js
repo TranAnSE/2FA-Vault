@@ -37,6 +37,46 @@ export function generateSalt() {
 }
 
 /**
+ * Derive the raw key material (32 Argon2id output bytes) from the master password.
+ *
+ * Additive companion to deriveKey (plan 261114-2101 phase 3, red-team F4/F9):
+ * deriveKey discards the raw hash bytes (non-extractable CryptoKey), but the
+ * PRF enrollment and the password-rotation re-wrap need the RAW vault key
+ * bytes. INVARIANT: deriveKey's signature and semantics are frozen — its 7
+ * call sites are untouched.
+ *
+ * @param {string} masterPassword - User's master password
+ * @param {Uint8Array|string} salt - Salt for key derivation (Uint8Array or base64 string)
+ * @returns {Promise<Uint8Array>} Raw 32-byte Argon2id output (vault key bytes)
+ */
+export async function deriveKeyMaterial(masterPassword, salt) {
+    const saltBytes = typeof salt === 'string' ? base64ToBytes(salt) : salt
+
+    const result = await argon2.hash({
+        pass: masterPassword,
+        salt: saltBytes,
+        ...ARGON2_CONFIG
+    })
+
+    return new Uint8Array(result.hash)
+}
+
+/**
+ * Import raw vault-key bytes as an AES-256-GCM CryptoKey.
+ * @param {Uint8Array} rawBytes - Raw 32-byte key material
+ * @returns {Promise<CryptoKey>} AES-256-GCM key (non-extractable)
+ */
+export async function importAesKey(rawBytes) {
+    return await crypto.subtle.importKey(
+        'raw',
+        rawBytes,
+        { name: AES_CONFIG.name },
+        false, // Not extractable
+        ['encrypt', 'decrypt']
+    )
+}
+
+/**
  * Derive encryption key from master password using Argon2id
  * @param {string} masterPassword - User's master password
  * @param {Uint8Array|string} salt - Salt for key derivation (Uint8Array or base64 string)
@@ -46,19 +86,31 @@ export async function deriveKey(masterPassword, salt) {
     // Convert salt to Uint8Array if it's a base64 string
     const saltBytes = typeof salt === 'string' ? base64ToBytes(salt) : salt
 
-    // Derive key using Argon2id
-    const result = await argon2.hash({
-        pass: masterPassword,
-        salt: saltBytes,
-        ...ARGON2_CONFIG
-    })
+    return await importAesKey(await deriveKeyMaterial(masterPassword, saltBytes))
+}
 
-    // Import the derived hash as a CryptoKey for AES-GCM
+// PRF wrapping-key derivation constants (plan 261114-2101, D5)
+const HKDF_CONFIG = {
+    name: 'HKDF',
+    hash: 'SHA-256',
+    salt: new Uint8Array(32), // zero salt — salt secrecy is not load-bearing (D5)
+    info: new TextEncoder().encode('2fauth:prf:v1')
+}
+
+/**
+ * Stretch a WebAuthn prf output (hmac-secret) into the AES wrapping key.
+ * @param {Uint8Array} prfOutputBits - 32-byte prf results.first
+ * @returns {Promise<CryptoKey>} AES-256-GCM wrapping key
+ */
+export async function deriveWrappingKey(prfOutputBits) {
+    const keyMaterial = await crypto.subtle.importKey('raw', prfOutputBits, 'HKDF', false, ['deriveBits'])
+    const bits = await crypto.subtle.deriveBits(HKDF_CONFIG, keyMaterial, 256)
+
     return await crypto.subtle.importKey(
         'raw',
-        result.hash,
+        bits,
         { name: AES_CONFIG.name },
-        false, // Not extractable
+        false,
         ['encrypt', 'decrypt']
     )
 }
@@ -244,6 +296,9 @@ export {
 export default {
     generateSalt,
     deriveKey,
+    deriveKeyMaterial,
+    importAesKey,
+    deriveWrappingKey,
     encryptSecret,
     decryptSecret,
     encryptAccount,

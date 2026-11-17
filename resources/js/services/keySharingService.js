@@ -9,6 +9,11 @@
 
 import { httpClientFactory } from '@/services/httpClientFactory'
 
+// WebCrypto bound explicitly (see prfService.js): a bare `crypto` identifier
+// is rewritten by unplugin-auto-import into the services/crypto.js default
+// export, which has no `subtle` member.
+const webCrypto = globalThis.crypto
+
 const DB_NAME    = '2fauth-keystore'
 const DB_VERSION = 1
 const STORE_NAME = 'keys'
@@ -72,10 +77,10 @@ const RSA_PARAMS = {
 }
 
 async function generateKeyPair() {
-    const keyPair = await crypto.subtle.generateKey(RSA_PARAMS, true, ['encrypt', 'decrypt'])
+    const keyPair = await webCrypto.subtle.generateKey(RSA_PARAMS, true, ['encrypt', 'decrypt'])
 
-    const publicKeyRaw  = await crypto.subtle.exportKey('spki',  keyPair.publicKey)
-    const privateKeyRaw = await crypto.subtle.exportKey('pkcs8', keyPair.privateKey)
+    const publicKeyRaw  = await webCrypto.subtle.exportKey('spki',  keyPair.publicKey)
+    const privateKeyRaw = await webCrypto.subtle.exportKey('pkcs8', keyPair.privateKey)
 
     return {
         publicKeyBase64:  arrayBufferToBase64(publicKeyRaw),
@@ -107,7 +112,7 @@ export async function getPrivateKey() {
     const stored = await dbGet(KEY_ID)
     if (!stored?.privateKeyBase64) throw new Error('No private key found. Set up E2EE key sharing first.')
 
-    return crypto.subtle.importKey(
+    return webCrypto.subtle.importKey(
         'pkcs8',
         base64ToArrayBuffer(stored.privateKeyBase64),
         RSA_PARAMS,
@@ -122,7 +127,7 @@ export async function getPrivateKey() {
  * Encrypt a secret string using a member's public key (Base64 SPKI).
  */
 export async function wrapSecretForMember(secret, memberPublicKeyBase64) {
-    const publicKey = await crypto.subtle.importKey(
+    const publicKey = await webCrypto.subtle.importKey(
         'spki',
         base64ToArrayBuffer(memberPublicKeyBase64),
         RSA_PARAMS,
@@ -130,7 +135,7 @@ export async function wrapSecretForMember(secret, memberPublicKeyBase64) {
         ['encrypt']
     )
 
-    const encrypted = await crypto.subtle.encrypt(
+    const encrypted = await webCrypto.subtle.encrypt(
         { name: 'RSA-OAEP' },
         publicKey,
         new TextEncoder().encode(secret)
@@ -144,7 +149,7 @@ export async function wrapSecretForMember(secret, memberPublicKeyBase64) {
  */
 export async function unwrapSharedSecret(wrappedKeyBase64) {
     const privateKey  = await getPrivateKey()
-    const decrypted   = await crypto.subtle.decrypt(
+    const decrypted   = await webCrypto.subtle.decrypt(
         { name: 'RSA-OAEP' },
         privateKey,
         base64ToArrayBuffer(wrappedKeyBase64)
