@@ -285,17 +285,23 @@ class WebauthnService {
 
     /**
      * Parses the Public Key Options received from the Server for the browser.
+     * Pure (review follow-up): returns a NEW options object — the input
+     * (a shared apiClient response body) is never mutated, so callers that
+     * re-read the raw base64url fields keep seeing server-shaped data.
      *
      * @param publicKey {Object}
      * @returns {Object}
      */
     static parseIncomingServerOptions(publicKey) {
-        publicKey.challenge = WebauthnService.uint8Array(publicKey.challenge);
+        const parsed = {
+            ...publicKey,
+            challenge: WebauthnService.uint8Array(publicKey.challenge)
+        };
 
-        if ('user' in publicKey) {
-            publicKey.user = {
-                ...publicKey.user,
-                id: WebauthnService.uint8Array(publicKey.user.id)
+        if ('user' in parsed) {
+            parsed.user = {
+                ...parsed.user,
+                id: WebauthnService.uint8Array(parsed.user.id)
             };
         }
 
@@ -303,14 +309,14 @@ class WebauthnService {
             "excludeCredentials",
             "allowCredentials"
         ]
-            .filter(key => key in publicKey)
+            .filter(key => key in parsed)
             .forEach(key => {
-                publicKey[key] = publicKey[key].map(data => {
+                parsed[key] = parsed[key].map(data => {
                     return {...data, id: WebauthnService.uint8Array(data.id)};
                 });
             });
 
-        return publicKey;
+        return parsed;
     }
 
     /**

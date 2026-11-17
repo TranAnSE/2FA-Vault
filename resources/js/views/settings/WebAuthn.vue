@@ -3,9 +3,10 @@
     import userService from '@/services/userService'
     import { webauthnService } from '@/services/webauthn/webauthnService'
     import prfApiService from '@/services/prfApiService.js'
-    import { buildEnrollment } from '@/services/prfService.js'
+    import { buildEnrollment, PrfError } from '@/services/prfService.js'
     import { useCryptoStore } from '@/stores/crypto'
-    import { base64ToBytes } from '@/services/prfUnlockSupport.js'
+    import { base64ToBytes, sha256Hex } from '@/services/prfUnlockSupport.js'
+    import { importAesKey, verifyPassword } from '@/services/crypto'
     import { useAppSettingsStore } from '@/stores/appSettings'
     import { useUserStore } from '@/stores/user'
     import { useNotify, TabBar } from '@2fauth/ui'
@@ -131,15 +132,28 @@
         isPrfBusyId.value = credential.id
 
         prfApiService.getPrfContext()
-            .then(context => {
+            .then(async (context) => {
+                // Stale-writer guard (review follow-up, mirror of rotation):
+                // prove the in-memory key still verifies the server's test
+                // value BEFORE wrapping it — a rotation elsewhere would
+                // otherwise store an unlock blob around a dead key. The salt
+                // hash sent with the upload lets the server 409 the same
+                // race during the ceremony window.
+                const keyOk = await verifyPassword(context.data.encryption_test_value, await importAesKey(cryptoStore.encryptionKeyRaw))
+
+                if (!keyOk) {
+                    throw new PrfError('stale_key', 'The in-memory vault key no longer matches the stored test value')
+                }
+
                 const saltBytes = base64ToBytes(context.data.prf_salt)
 
                 return prfApiService.prfEnrollOptions(credential.id)
                     .then(options => webauthnService.assertWithPrfChallenge(options.data, saltBytes))
                     .then(({ assertion, prfBits }) =>
                         buildEnrollment(prfBits, cryptoStore.encryptionKeyRaw)
-                            .then(blobs => prfApiService.prfEnroll({
+                            .then(async (blobs) => prfApiService.prfEnroll({
                                 credential_id: credential.id,
+                                expected_encryption_salt_hash: await sha256Hex(cryptoStore.salt),
                                 assertion,
                                 ...blobs
                             }))
@@ -152,9 +166,15 @@
             .catch(error => {
                 if (error?.prf_no_result || error?.webauthn) {
                     notify.warn({ text: t('error.prf_no_result') })
+                } else if (error?.name === 'PrfError' && error?.kind === 'stale_key') {
+                    notify.alert({ text: t('error.prf_enroll_stale') })
                 } else if (error?.name === 'PrfError') {
                     // All-zero/broken PRF output (rejectAllZero in buildEnrollment).
                     notify.alert({ text: t('error.prf_output_invalid') })
+                } else if (error.response?.status === 409) {
+                    // Server-side salt guard: a rotation landed elsewhere
+                    // during the ceremony window.
+                    notify.alert({ text: t('error.prf_enroll_stale') })
                 } else if (error.response?.status === 422) {
                     notify.alert({ text: error.response.data.message })
                 } else {

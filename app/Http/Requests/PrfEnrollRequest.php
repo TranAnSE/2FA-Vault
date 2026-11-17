@@ -35,7 +35,11 @@ class PrfEnrollRequest extends FormRequest
         $b64url = ['required', 'string', 'regex:/^[A-Za-z0-9_-]+$/'];
 
         return [
-            'credential_id'                        => ['required', 'string', 'max:255'],
+            'credential_id' => ['required', 'string', 'max:255'],
+            // Stale-writer guard (mirror of rewrap): sha256 of the salt the
+            // client's in-memory vault key was derived under. 409 when the
+            // stored salt no longer matches — the key may be superseded.
+            'expected_encryption_salt_hash'        => ['required', 'string', 'size:64'],
             'assertion'                            => ['required', 'array'],
             'assertion.id'                         => $b64url,
             'assertion.rawId'                      => $b64url,

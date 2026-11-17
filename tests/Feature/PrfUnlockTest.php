@@ -95,11 +95,12 @@ class PrfUnlockTest extends FeatureTestCase
         $assertion = $handle->assertion($challenge);
 
         return $this->postJson('/api/v1/encryption/prf/enroll', array_merge([
-            'credential_id'       => $handle->credentialId,
-            'assertion'           => $assertion['credential'],
-            'public_key'          => str_repeat('P', 100),
-            'wrapped_private_key' => str_repeat('W', 100),
-            'wrapped_vault_key'   => str_repeat('V', 100),
+            'credential_id'                 => $handle->credentialId,
+            'expected_encryption_salt_hash' => hash('sha256', 'e2ee_salt'),
+            'assertion'                     => $assertion['credential'],
+            'public_key'                    => str_repeat('P', 100),
+            'wrapped_private_key'           => str_repeat('W', 100),
+            'wrapped_vault_key'             => str_repeat('V', 100),
         ], $blobs));
     }
 
@@ -206,8 +207,9 @@ class PrfUnlockTest extends FeatureTestCase
     protected function validEnrollPayload(string $credentialId = 'x') : array
     {
         return [
-            'credential_id' => $credentialId,
-            'assertion'     => [
+            'credential_id'                 => $credentialId,
+            'expected_encryption_salt_hash' => hash('sha256', 'e2ee_salt'),
+            'assertion'                     => [
                 'id'       => str_repeat('q', 43),
                 'rawId'    => str_repeat('q', 43),
                 'type'     => 'public-key',
@@ -267,11 +269,12 @@ class PrfUnlockTest extends FeatureTestCase
         Cache::put('prf_enroll_challenge_' . $this->user->id . '_' . $handle->credentialId, 'expired', now()->subSecond());
 
         $this->postJson('/api/v1/encryption/prf/enroll', [
-            'credential_id'       => $handle->credentialId,
-            'assertion'           => $handle->assertion('stale-challenge')['credential'],
-            'public_key'          => str_repeat('P', 100),
-            'wrapped_private_key' => str_repeat('W', 100),
-            'wrapped_vault_key'   => str_repeat('V', 100),
+            'credential_id'                 => $handle->credentialId,
+            'expected_encryption_salt_hash' => hash('sha256', 'e2ee_salt'),
+            'assertion'                     => $handle->assertion('stale-challenge')['credential'],
+            'public_key'                    => str_repeat('P', 100),
+            'wrapped_private_key'           => str_repeat('W', 100),
+            'wrapped_vault_key'             => str_repeat('V', 100),
         ])->assertStatus(401);
     }
 
@@ -307,11 +310,12 @@ class PrfUnlockTest extends FeatureTestCase
         $forged = $handle->wrongKeyAssertion($challenge);
 
         $this->postJson('/api/v1/encryption/prf/enroll', [
-            'credential_id'       => $handle->credentialId,
-            'assertion'           => $forged['credential'],
-            'public_key'          => str_repeat('P', 100),
-            'wrapped_private_key' => str_repeat('W', 100),
-            'wrapped_vault_key'   => str_repeat('V', 100),
+            'credential_id'                 => $handle->credentialId,
+            'expected_encryption_salt_hash' => hash('sha256', 'e2ee_salt'),
+            'assertion'                     => $forged['credential'],
+            'public_key'                    => str_repeat('P', 100),
+            'wrapped_private_key'           => str_repeat('W', 100),
+            'wrapped_vault_key'             => str_repeat('V', 100),
         ])->assertStatus(422);
 
         // Nothing stored — the exfiltration-oracle path (red-team F1) is dead.
@@ -336,11 +340,12 @@ class PrfUnlockTest extends FeatureTestCase
         ])->assertOk();
 
         $this->postJson('/api/v1/encryption/prf/enroll', [
-            'credential_id'       => $handleB->credentialId,
-            'assertion'           => $handleB->assertion('any-challenge')['credential'],
-            'public_key'          => str_repeat('P', 100),
-            'wrapped_private_key' => str_repeat('W', 100),
-            'wrapped_vault_key'   => str_repeat('V', 100),
+            'credential_id'                 => $handleB->credentialId,
+            'expected_encryption_salt_hash' => hash('sha256', 'e2ee_salt'),
+            'assertion'                     => $handleB->assertion('any-challenge')['credential'],
+            'public_key'                    => str_repeat('P', 100),
+            'wrapped_private_key'           => str_repeat('W', 100),
+            'wrapped_vault_key'             => str_repeat('V', 100),
         ])->assertStatus(401);
 
         $this->assertSame(0, PasskeyPrfCredential::count());
@@ -357,12 +362,30 @@ class PrfUnlockTest extends FeatureTestCase
         // Options for the foreign credential are already 404; a direct enroll
         // attempt against it must 404 before any verification work.
         $this->postJson('/api/v1/encryption/prf/enroll', [
-            'credential_id'       => $foreign->credentialId,
-            'assertion'           => $foreign->assertion('any-challenge')['credential'],
-            'public_key'          => str_repeat('P', 100),
-            'wrapped_private_key' => str_repeat('W', 100),
-            'wrapped_vault_key'   => str_repeat('V', 100),
+            'credential_id'                 => $foreign->credentialId,
+            'expected_encryption_salt_hash' => hash('sha256', 'e2ee_salt'),
+            'assertion'                     => $foreign->assertion('any-challenge')['credential'],
+            'public_key'                    => str_repeat('P', 100),
+            'wrapped_private_key'           => str_repeat('W', 100),
+            'wrapped_vault_key'             => str_repeat('V', 100),
         ])->assertNotFound();
+
+        $this->assertSame(0, PasskeyPrfCredential::count());
+    }
+
+    #[Test]
+    public function test_enroll_rejects_a_stale_encryption_salt_hash()
+    {
+        // Stale-writer guard (mirror of rewrap): a rotation elsewhere means
+        // the client's in-memory vault key may be superseded — refuse the
+        // enrollment with 409 and store nothing. Even a CEREMONIALLY VALID
+        // assertion cannot override the guard.
+        $this->enableE2ee();
+        $handle = PasskeyAssertionFactory::convertedCredential($this->user);
+
+        $this->enrollThroughCeremony($this->user, $handle, [
+            'expected_encryption_salt_hash' => str_repeat('0', 64),
+        ])->assertStatus(409);
 
         $this->assertSame(0, PasskeyPrfCredential::count());
     }

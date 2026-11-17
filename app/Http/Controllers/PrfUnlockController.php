@@ -142,6 +142,11 @@ class PrfUnlockController extends Controller
      * assertion requirement makes replacement safe). A hijacked session
      * without the physical authenticator cannot enroll or replace blobs.
      *
+     * `expected_encryption_salt_hash` is the stale-writer guard (mirror of
+     * rewrap): a rotation elsewhere means the client's in-memory vault key
+     * may be stale, and wrapping it would store an unlock blob that fails
+     * verification — 409 instead of poisoning the keyset.
+     *
      * Note: this deliberately does NOT log anyone in and does NOT consume
      * the login options session (dedicated cache-backed challenge).
      */
@@ -151,6 +156,12 @@ class PrfUnlockController extends Controller
         $this->rateLimit($request, 'prf-enroll', 3, 60);
 
         $user = $request->user();
+
+        // Fast-path stale-writer guard: refuse before the client burns the
+        // ceremony. Re-checked under the user-row lock in the transaction.
+        if (! hash_equals(hash('sha256', (string) $user->encryption_salt), $request->validated('expected_encryption_salt_hash'))) {
+            return response()->json(['message' => 'Encryption salt changed since your last view; reload and retry.'], 409);
+        }
 
         $passkey = $user->passkeys()->where('credential_id', $request->validated('credential_id'))->first();
 
@@ -176,17 +187,28 @@ class PrfUnlockController extends Controller
 
         $validated = $request->validated();
 
-        $disabled = false;
+        $disabled   = false;
+        $staleGuard = false;
 
-        DB::transaction(function () use ($user, $passkey, $validated, &$disabled) {
+        DB::transaction(function () use ($user, $passkey, $validated, $request, &$disabled, &$staleGuard) {
             // Fresh E2EE-enabled check inside the transaction (review fix):
             // guard() read it before the ceremony window; a concurrent
             // disable+flush would otherwise leave an orphan keyset behind.
             // The user-row lock serializes against disable/setup writers.
-            $enabled = (bool) User::query()->whereKey($user->getKey())->lockForUpdate()->value('encryption_enabled');
+            /** @var User $lockedUser */
+            $lockedUser = User::query()->whereKey($user->getKey())->lockForUpdate()->first();
 
-            if (! $enabled) {
+            if (! $lockedUser->encryption_enabled) {
                 $disabled = true;
+
+                return;
+            }
+
+            // In-transaction salt re-check (review follow-up): a rotation
+            // committing during the ceremony window must not let a stale
+            // in-memory key get wrapped into a fresh enrollment.
+            if (! hash_equals(hash('sha256', (string) $lockedUser->encryption_salt), $request->validated('expected_encryption_salt_hash'))) {
+                $staleGuard = true;
 
                 return;
             }
@@ -206,6 +228,10 @@ class PrfUnlockController extends Controller
 
         if ($disabled) {
             abort(400, 'Encryption is not enabled');
+        }
+
+        if ($staleGuard) {
+            return response()->json(['message' => 'Encryption salt changed since your last view; reload and retry.'], 409);
         }
 
         Log::info('PRF enrollment stored', ['user_id' => $user->id]);

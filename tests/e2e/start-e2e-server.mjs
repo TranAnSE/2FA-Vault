@@ -180,9 +180,32 @@ try {
       } catch { /* pid may have exited already */ }
     }
   } else {
-    // POSIX: fuser has no process-name filter; documented macOS caveat
-    // (fuser is absent on stock macOS) — CI runs Linux.
-    execSync('fuser -k 8001/tcp', { stdio: 'ignore' });
+    // POSIX: prefer fuser (Linux), fall back to lsof where fuser is absent
+    // (stock macOS). Both sweeps are scoped to php processes — an unrelated
+    // legitimate listener is left alone.
+    const killPhpListener = (pidList) => {
+      for (const pid of pidList) {
+        try {
+          const name = execSync(`ps -o comm= -p ${pid}`, { stdio: ['ignore', 'pipe', 'ignore'] }).toString().trim();
+          if (name === 'php' || name.startsWith('php')) {
+            execSync(`kill -9 ${pid}`, { stdio: 'ignore' });
+            console.log(`[E2E Server] Killed stale PHP listener on port 8001 (pid ${pid}).`);
+          }
+        } catch { /* pid may have exited already */ }
+      }
+    };
+
+    try {
+      const pids = execSync('fuser 8001/tcp 2>/dev/null', { shell: '/bin/sh', stdio: ['ignore', 'pipe', 'ignore'] })
+        .toString().split(/\s+/).map((s) => s.trim()).filter((s) => /^\d+$/.test(s));
+      killPhpListener(pids);
+    } catch {
+      try {
+        const pids = execSync('lsof -ti tcp:8001 -sTCP:LISTEN', { stdio: ['ignore', 'pipe', 'ignore'] })
+          .toString().split(/\s+/).filter((s) => /^\d+$/.test(s));
+        killPhpListener(pids);
+      } catch { /* port free — nothing to do */ }
+    }
   }
 } catch { /* port free — nothing to do */ }
 

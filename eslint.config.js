@@ -32,4 +32,16 @@ export default defineConfig([
             },
         },
     },
+    {
+        // services/crypto.js is the auto-import's SOURCE module: the build
+        // transform self-excludes it, so its own bare `crypto.subtle` calls
+        // legitimately resolve to the WebCrypto global at runtime.
+        name: 'app/services-crypto-module-exception',
+        files: ['resources/js/services/crypto.js'],
+        languageOptions: {
+            globals: {
+                crypto: 'writable',
+            },
+        },
+    },
 ])

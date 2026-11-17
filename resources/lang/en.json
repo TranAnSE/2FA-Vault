@@ -110,6 +110,7 @@
     "error.not_a_supported_otp_type": "This OTP format is not currently supported",
     "error.not_allowed_operation": "Operation not allowed",
     "error.password_required": "Please enter the backup password",
+    "error.prf_enroll_stale": "Your vault key changed elsewhere — unlock the vault again, then retry.",
     "error.prf_no_result": "This passkey can't unlock the vault. Use your master password.",
     "error.prf_output_invalid": "The authenticator returned invalid key material. Vault unlock can't be enabled for this passkey.",
     "error.vault_locked": "Unlock the vault first.",
