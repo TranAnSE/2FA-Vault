@@ -37,7 +37,7 @@ export default class Errors {
    * @return {Boolean}
    */
   has (field) {
-    return this.errors.hasOwnProperty(field)
+    return Object.hasOwn(this.errors, field)
   }
 
   /**

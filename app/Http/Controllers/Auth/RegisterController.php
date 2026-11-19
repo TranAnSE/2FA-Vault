@@ -93,6 +93,7 @@ class RegisterController extends Controller
         $user = $this->guard()->user();
 
         return response()->json([
+            'id'            => $user->id,
             'message'       => 'account created',
             'name'          => $user->name,
             'email'         => $user->email,

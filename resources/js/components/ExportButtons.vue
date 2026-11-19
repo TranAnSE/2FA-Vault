@@ -9,7 +9,7 @@
 
 <template>
     <div class="block">
-        <UseColorMode v-slot="{ mode }">
+        <UseColorMode>
             <p class="has-text-weight-bold has-text-grey">
                 {{ $t('message.twofauth_export_format_sub') }}
             </p>
