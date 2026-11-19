@@ -60,7 +60,6 @@ jobs:
     # check. The matching branch-protection required check is set in repo
     # settings (admin action).
 
-
     services:
       mysql:
         image: mariadb:10.11

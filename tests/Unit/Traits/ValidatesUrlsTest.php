@@ -122,6 +122,7 @@ class ValidatesUrlsTest extends TestCase
             'PRIVATE_IPV4_192_168_16' => ['https://192.168.1.1/image.png', false],
             'LOOPBACK_IPV4'           => ['https://127.0.0.1/image.png', false],
             'LOOPBACK_IPV4_HEX'       => ['https://0x7f.0x0.0x0.0x1/image.png', false],
+            'LOOPBACK_IPV4_HEX_BARE'  => ['https://0x.1/image.png', false],
             'LOOPBACK_IPV4_OCT'       => ['https://0177.0.0.01/image.png', false],
             'LOOPBACK_IPV4_INT'       => ['https://2130706433/image.png', false],
             'LINK_LOCAL_IPV4'         => ['https://169.254.10.10/image.png', false],
