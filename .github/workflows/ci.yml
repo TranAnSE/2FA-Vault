@@ -318,15 +318,22 @@ jobs:
         working-directory: ./2FA-Vault
         run: npm run ci:e2e
 
-      # PWA E2E gate is intentionally NOT in the CI merge path yet. The
-      # persistent-context fixture + offline-flow assertions need local
-      # headed verification first (they timed out at fixture setup on the
-      # first CI run). Re-enable by uncommenting the step below once the
-      # suite is green locally:
-      #
-      # - name: Run PWA E2E gate
-      #   working-directory: ./2FA-Vault
-      #   run: xvfb-run --auto-servernum --server-args="-screen 0 1280x1024x24" npm run ci:e2e:pwa
+      # PWA E2E gate (plan 261119-1650 phase 2: re-enabled, burn-in). The
+      # suite is green locally post fixture-regen; headed Chromium under
+      # xvfb has never run in CI, so this stays non-blocking until it
+      # proves itself — the flip to required is owned by the release phase
+      # (same governance as the MySQL job).
+      - name: Run PWA E2E gate
+        working-directory: ./2FA-Vault
+        continue-on-error: true
+        run: xvfb-run --auto-servernum --server-args="-screen 0 1280x1024x24" npm run ci:e2e:pwa
+
+      # WebExtension popup suite: NOT wired into CI (recorded decision,
+      # phase 2 task 6). The popup specs bootstrap a PAT user + load the
+      # extension build in headed Chromium; the xvfb+headed+extension
+      # pattern is unproven in CI. Defer until the PWA gate above has
+      # burned in; keep the suite green locally via
+      # `npm run test:e2e:webextension`.
 
       - name: Dump Laravel log on failure
         if: failure()

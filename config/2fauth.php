@@ -141,6 +141,11 @@ return [
     'api' => [
         'throttle'       => env('THROTTLE_API', 60),
         'throttleImport' => env('THROTTLE_API_DURING_IMPORT', 1000),
+        // Master-password verification limiter (EncryptionController::verify,
+        // 5/min per IP by default). Env-overridable for e2e harnesses, where
+        // every test drives a fresh unlock ceremony against one IP — the
+        // same rationale as THROTTLE_API (plan 261119-1650 phase 2).
+        'throttleEncryptionVerify' => env('THROTTLE_ENCRYPTION_VERIFY', 5),
     ],
 
     /*

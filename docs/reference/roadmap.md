@@ -98,6 +98,18 @@ Target repo: `2FA-Vault-WebExtension` (with supporting changes in `2FA-Vault` AP
 - [ ] Bulk operations: multi-select delete, move to group, export
 - [x] Search + filter when list has 100+ accounts (Advanced Search with FilterPanel, client-side + server-side)
 
+### Known gap: PWA offline OTP generation (found 2026-11-20, plan 261119-1650 phase 2)
+
+The PWA is advertised with offline OTP generation, but only the shell and the
+accounts list survive offline: all OTP codes are generated SERVER-side
+(on-request `/otp` fetch or inline previews fetched with the list), so an
+offline click degrades into the handled error page. The client-side engine
+(`resources/js/services/offline-totp.js` — IndexedDB cached secrets +
+`computeTotp`) is fully implemented but wired into no UI (only `App.vue`'s
+`lockVault()` touches the module). Wiring it into the Accounts/OTP display is
+the follow-up; `tests/e2e/pwa/offline-access.spec.ts` pins the shipped
+contract meanwhile.
+
 ## Phase 5 — Teams that work
 
 > The differentiator vs. 1Password/Bitwarden for the TOTP-only use case.

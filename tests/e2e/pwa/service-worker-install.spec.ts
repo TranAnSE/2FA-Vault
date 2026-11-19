@@ -28,10 +28,10 @@ test.describe('PWA service worker & manifest', () => {
     expect(reg.scope).toBe(new URL('/', E2E_BASE_URL).href);
   });
 
-  test('precaches the app shell in the app-shell-v1 cache', async ({ page }) => {
+  test('precaches the app shell in the per-build shell cache', async ({ page }) => {
     const cacheReport = await page.evaluate(async () => {
       const keys = await caches.keys();
-      const shellCache = keys.find((k) => k.startsWith('app-shell-'));
+      const shellCache = keys.find((k) => k.startsWith('2fa-vault-shell-'));
       if (!shellCache) return { keys, shellCached: [] as string[] };
 
       const cache = await caches.open(shellCache);
@@ -42,7 +42,7 @@ test.describe('PWA service worker & manifest', () => {
       };
     });
 
-    expect(cacheReport.keys.some((k) => k.startsWith('app-shell-'))).toBeTruthy();
+    expect(cacheReport.keys.some((k) => k.startsWith('2fa-vault-shell-'))).toBeTruthy();
     // The SW precache list in public/sw.js contains at least these core assets.
     for (const expectedPath of ['/', '/manifest.json']) {
       expect(cacheReport.shellCached).toContain(expectedPath);
@@ -55,7 +55,10 @@ test.describe('PWA service worker & manifest', () => {
     await page.waitForLoadState('networkidle').catch(() => {});
 
     const cachedRoot = await page.evaluate(async () => {
-      const cache = await caches.open('app-shell-v1');
+      const keys = await caches.keys();
+      const shellCache = keys.find((k) => k.startsWith('2fa-vault-shell-'));
+      if (!shellCache) return null;
+      const cache = await caches.open(shellCache);
       const resp = await cache.match('/');
       return resp ? resp.status : null;
     });

@@ -137,11 +137,12 @@ class EncryptionController extends Controller
      */
     public function verify(Request $request) : JsonResponse
     {
-        // Rate limiting: max 5 attempts per minute (skip in console-driven automated tests)
+        // Rate limiting: max N attempts per minute (skip in console-driven
+        // automated tests; N is env-tunable for e2e harnesses, default 5).
         if (! app()->runningInConsole()) {
             $key = 'encryption-verify:' . $request->ip();
 
-            if (RateLimiter::tooManyAttempts($key, 5)) {
+            if (RateLimiter::tooManyAttempts($key, (int) config('2fauth.api.throttleEncryptionVerify'))) {
                 $seconds = RateLimiter::availableIn($key);
 
                 return response()->json([
