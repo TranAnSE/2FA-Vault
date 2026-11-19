@@ -28,6 +28,16 @@ trait ValidatesUrls
             return $this->isPublicIp($normalizedHost);
         }
 
+        // IP-LIKE but not a valid public decimal IPv4 (octal/hex/padded
+        // shorthand such as 0177.0.0.01): browsers resolve these as loopback
+        // while the DNS lookup below resolves them per the resolver's own
+        // parsing — an SSRF confusion class, and the reason the unit test
+        // only passed on resolvers that NXDOMAIN such names. Reject outright;
+        // never fall through to DNS for IP-like hosts.
+        if (preg_match('/^\d{1,3}(\.\d{1,3}){3}$/', $normalizedHost)) {
+            return false;
+        }
+
         if (
             ! $this->IsValidDomain($normalizedHost)
             || ! $this->isExternalHost($normalizedHost)
