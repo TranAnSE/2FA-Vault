@@ -5,7 +5,6 @@ type AuthFixture = {
   loginAs: (email: string, password: string) => Promise<void>;
   loginAsAdmin: () => Promise<void>;
   loginAsUser: () => Promise<void>;
-  loginAsEncrypted: () => Promise<void>;
   loginAsLockedEncrypted: () => Promise<void>;
   loginAsConflict: () => Promise<void>;
   loginAsBackup: () => Promise<void>;
@@ -186,10 +185,6 @@ export const test = base.extend<AuthFixture>({
   },
   loginAsUser: async ({ page }, use) => {
     await performLogin(page, testUsers.user.email, testUsers.user.password);
-    await use();
-  },
-  loginAsEncrypted: async ({ page }, use) => {
-    await performLogin(page, testUsers.encrypted.email, testUsers.encrypted.password);
     await use();
   },
   loginAsLockedEncrypted: async ({ page }, use) => {

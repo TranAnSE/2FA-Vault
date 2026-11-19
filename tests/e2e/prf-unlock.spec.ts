@@ -8,9 +8,11 @@
  * Run via `npm run test:e2e:prf` (--workers=1, fresh DB per run).
  *
  * The test registers its OWN user through the UI and completes E2EE setup
- * with a known master password, so the vault is genuinely paired with that
- * password (the seeded e2eEncrypted fixture pair predates a crypto-params
- * change and no longer verifies — pre-existing, see plan validation log).
+ * with a known master password. (History: this spec avoided the seeded
+ * e2eEncrypted fixture pair, which was NEVER valid — plan 261119-1650 phase
+ * 2 proved no password/param combination ever matched; a crypto-params
+ * change never happened. The pair is regenerated from
+ * tests/e2e/helpers/regen-e2ee-vault.mjs as of v1.8.0.)
  */
 import { test, expect } from '@playwright/test';
 import { attachPrfAuthenticator, detachPrfAuthenticator, spaNavigate } from './helpers/webauthn-ceremony';
