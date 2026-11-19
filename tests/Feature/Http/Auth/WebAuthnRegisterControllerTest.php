@@ -5,11 +5,9 @@ namespace Tests\Feature\Http\Auth;
 use App\Http\Controllers\Auth\WebAuthnRegisterController;
 use App\Models\User;
 use Illuminate\Support\Facades\Config;
-use Illuminate\Support\Facades\DB;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
 use Tests\FeatureTestCase;
-use Tests\Support\PasskeyAssertionFactory;
 use Tests\Support\PasskeyAttestationFactory;
 
 /**
