@@ -108,6 +108,13 @@ jobs:
       - name: Generate application key
         run: php artisan key:generate
 
+      # Same as the sqlite job: api-guard tests resolve Passport's signing
+      # keys at boot. Without storage/oauth-*.key a fresh runner errors 44
+      # tests with CryptKey "Invalid key supplied" — local rehearsal runs
+      # never saw it because dev keys already exist in storage/.
+      - name: Generate Passport keys
+        run: php artisan passport:keys --force
+
       # The exported env above WINS over phpunit-mysql.xml's <env> defaults:
       # PHPUnit fills unset variables only, so DB_* / MYSQL_CONCURRENCY_TEST
       # must be exported at job level to reach the suite.

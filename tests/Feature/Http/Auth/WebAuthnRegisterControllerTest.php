@@ -2,6 +2,7 @@
 
 namespace Tests\Feature\Http\Auth;
 
+use App\Http\Controllers\Auth\WebAuthnRegisterController;
 use App\Models\User;
 use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Facades\DB;
