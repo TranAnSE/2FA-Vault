@@ -54,10 +54,12 @@ jobs:
   backend-tests-mysql:
     name: Backend Tests (MySQL)
     runs-on: ubuntu-latest
-    # Burn-in mode (D1): non-blocking until the suite proves itself on the
-    # branch. The flip to a REQUIRED check is owned by the release wrap-up
-    # phase — "green on master" is never satisfied by a non-blocking check.
-    continue-on-error: true
+    # Required since v1.8.0 (plan 261119-1650 release phase; red-team D1/F3
+    # ownership): burn-in proved green on the branch run, so the job now
+    # gates merges — "green on master" is never satisfied by a non-blocking
+    # check. The matching branch-protection required check is set in repo
+    # settings (admin action).
+
 
     services:
       mysql:
