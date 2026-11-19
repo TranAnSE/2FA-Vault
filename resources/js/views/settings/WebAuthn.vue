@@ -48,7 +48,7 @@
         }
     }
 
-    function selectAllDevices() {
+    function selectAll() {
         selectedIds.value = credentials.value.map(credential => credential.id)
     }
 
@@ -321,7 +321,7 @@
                                     type="checkbox"
                                     :checked="allSelected"
                                     :disabled="isDisabled"
-                                    @change="allSelected ? selectNone() : selectAllDevices()"
+                                    @change="allSelected ? selectNone() : selectAll()"
                                 >
                                 <span class="ml-1">{{ $t('label.select_all_devices') }}</span>
                             </label>

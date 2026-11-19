@@ -27,7 +27,7 @@ use Tests\TestCase;
  *   commits a salt rotation on a SECOND autocommit connection at the exact
  *   moment the controller's `select ... for update` is issued — the window
  *   the guard exists for. The locked re-check must reject with 409 and
- *   store nothing. DB::listen + a hook counter prove the LOCK path ran
+ *   store nothing. DB::listen proves the LOCK path ran
  *   (the fast-path 409 and the lock-path 409 are byte-identical, red-team
  *   P1-A: without this the test could green while proving only the
  *   pre-lock guard).
@@ -50,9 +50,6 @@ class PrfUnlockConcurrencyTest extends TestCase
 
     /** Queries recorded by DB::listen during the request under test. */
     protected array $executedQueries = [];
-
-    /** Invocations of the beforeExecuting hook on a `for update` query. */
-    protected int $forUpdateQueries = 0;
 
     protected function setUp() : void
     {
@@ -96,8 +93,7 @@ class PrfUnlockConcurrencyTest extends TestCase
     protected function tearDown() : void
     {
         unset($this->secondPdo);
-        $this->executedQueries  = [];
-        $this->forUpdateQueries = 0;
+        $this->executedQueries = [];
 
         parent::tearDown();
     }
@@ -138,8 +134,6 @@ class PrfUnlockConcurrencyTest extends TestCase
 
         DB::beforeExecuting(function (string $query) use ($userId) : void {
             if (str_contains(strtolower($query), 'for update')) {
-                $this->forUpdateQueries++;
-
                 // Static literal + seeded int only (red-team F8 — no request
                 // data flows into this statement).
                 $this->secondPdo->exec(
@@ -169,10 +163,10 @@ class PrfUnlockConcurrencyTest extends TestCase
      */
     protected function assertLockPathExecuted() : void
     {
-        $usersLocks = array_values(array_filter(
+        $usersLocks = array_filter(
             $this->executedQueries,
             fn ($sql) => str_contains(strtolower($sql), 'for update') && str_contains($sql, '`users`')
-        ));
+        );
 
         $this->assertCount(
             1,

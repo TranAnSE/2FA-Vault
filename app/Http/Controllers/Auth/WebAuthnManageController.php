@@ -128,7 +128,7 @@ class WebAuthnManageController extends Controller
         // Ownership resolved BEFORE any write; results keep the REQUEST
         // order (DB order would be nondeterministic for the API consumer).
         $requested = collect($validated['ids'])->unique()->values();
-        $owned     = $user->passkeys()->whereIn('credential_id', $requested->all())->pluck('credential_id');
+        $owned     = $user->passkeys()->whereIn('credential_id', $requested)->pluck('credential_id');
         $deleted   = $requested->filter(fn ($id) => $owned->contains($id))->values();
         $unknown   = $requested->reject(fn ($id) => $owned->contains($id))->values();
 
