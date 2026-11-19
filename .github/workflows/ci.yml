@@ -51,6 +51,78 @@ jobs:
       - name: Run backend CI gate
         run: composer run ci:backend
 
+  backend-tests-mysql:
+    name: Backend Tests (MySQL)
+    runs-on: ubuntu-latest
+    # Required since v1.8.0 (plan 261119-1650 release phase; red-team D1/F3
+    # ownership): burn-in proved green on the branch run, so the job now
+    # gates merges — "green on master" is never satisfied by a non-blocking
+    # check. The matching branch-protection required check is set in repo
+    # settings (admin action).
+
+
+    services:
+      mysql:
+        image: mariadb:10.11
+        env:
+          MARIADB_ROOT_PASSWORD: root
+          MARIADB_DATABASE: 2fauth_test
+          MARIADB_USER: travis
+          MARIADB_PASSWORD: travis
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mariadb-admin ping -h 127.0.0.1 -proot"
+          --health-interval=5s
+          --health-timeout=5s
+          --health-retries=20
+
+    env:
+      DB_HOST: 127.0.0.1
+      DB_PORT: '3306'
+      DB_DATABASE: 2fauth_test
+      DB_USERNAME: travis
+      DB_PASSWORD: travis
+      MYSQL_CONCURRENCY_TEST: '1'
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v5
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.4'
+          # pdo_mysql appended to the backend-tests list: the MySQL suite
+          # (strict mode + real InnoDB locks) needs the native driver.
+          extensions: bcmath, ctype, dom, fileinfo, gd, json, mbstring, openssl, tokenizer, xml, pdo_sqlite, pdo_mysql
+          coverage: none
+
+      - name: Copy environment file
+        run: cp .env.testing .env
+
+      - name: Install Composer dependencies
+        run: composer install --no-interaction --prefer-dist
+
+      - name: Prepare Laravel bootstrap directories
+        run: mkdir -p bootstrap/cache storage/framework/{cache,sessions,views} storage/logs
+
+      - name: Generate application key
+        run: php artisan key:generate
+
+      # Same as the sqlite job: api-guard tests resolve Passport's signing
+      # keys at boot. Without storage/oauth-*.key a fresh runner errors 44
+      # tests with CryptKey "Invalid key supplied" — local rehearsal runs
+      # never saw it because dev keys already exist in storage/.
+      - name: Generate Passport keys
+        run: php artisan passport:keys --force
+
+      # The exported env above WINS over phpunit-mysql.xml's <env> defaults:
+      # PHPUnit fills unset variables only, so DB_* / MYSQL_CONCURRENCY_TEST
+      # must be exported at job level to reach the suite.
+      - name: Run backend CI gate (MySQL)
+        run: composer run test-mysql
+
   backend-coverage:
     name: Backend Coverage (report only)
     runs-on: ubuntu-latest
@@ -255,15 +327,22 @@ jobs:
         working-directory: ./2FA-Vault
         run: npm run ci:e2e
 
-      # PWA E2E gate is intentionally NOT in the CI merge path yet. The
-      # persistent-context fixture + offline-flow assertions need local
-      # headed verification first (they timed out at fixture setup on the
-      # first CI run). Re-enable by uncommenting the step below once the
-      # suite is green locally:
-      #
-      # - name: Run PWA E2E gate
-      #   working-directory: ./2FA-Vault
-      #   run: xvfb-run --auto-servernum --server-args="-screen 0 1280x1024x24" npm run ci:e2e:pwa
+      # PWA E2E gate (plan 261119-1650 phase 2: re-enabled, burn-in). The
+      # suite is green locally post fixture-regen; headed Chromium under
+      # xvfb has never run in CI, so this stays non-blocking until it
+      # proves itself — the flip to required is owned by the release phase
+      # (same governance as the MySQL job).
+      - name: Run PWA E2E gate
+        working-directory: ./2FA-Vault
+        continue-on-error: true
+        run: xvfb-run --auto-servernum --server-args="-screen 0 1280x1024x24" npm run ci:e2e:pwa
+
+      # WebExtension popup suite: NOT wired into CI (recorded decision,
+      # phase 2 task 6). The popup specs bootstrap a PAT user + load the
+      # extension build in headed Chromium; the xvfb+headed+extension
+      # pattern is unproven in CI. Defer until the PWA gate above has
+      # burned in; keep the suite green locally via
+      # `npm run test:e2e:webextension`.
 
       - name: Dump Laravel log on failure
         if: failure()

@@ -52,6 +52,13 @@ const E2E_ENV = {
   // against the whole suite once the file cache is shared across workers.
   THROTTLE_API: '1000,1',
   THROTTLE_LOGIN: '1000,1',
+  // LoginController throttles via config('auth.throttle.login') which reads
+  // LOGIN_THROTTLE (NOT THROTTLE_LOGIN): without it the controller limiter
+  // stays at its default 5/min and a parallel-suite run trips 429 lockouts.
+  LOGIN_THROTTLE: '1000',
+  // The PWA suite drives an unlock ceremony per test against one IP; the
+  // default 5/min master-password-verify limiter arms mid-run.
+  THROTTLE_ENCRYPTION_VERIFY: '1000',
   CONTENT_SECURITY_POLICY: 'false',
 };
 

@@ -92,7 +92,9 @@
             const apiClient = httpClientFactory('api')
             const response = await apiClient.get('/features')
             features.value = response.data
-        } catch {}
+        } catch {
+            // Feature flags are optional: the admin setup renders without them.
+        }
 
         systemService.getSystemInfos({returnError: true}).then(response => {
             infos.value = response.data.common

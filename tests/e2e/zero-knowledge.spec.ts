@@ -275,7 +275,7 @@ test.describe('Zero-Knowledge E2EE Proof', () => {
 
     const secretGetter = modelSource.match(/public function getSecretAttribute\(\$value\)[\s\S]*?public function setSecretAttribute/)?.[0] ?? '';
     const secretSetter = modelSource.match(/public function setSecretAttribute\(\$value\)[\s\S]*?public function setDigitsAttribute/)?.[0] ?? '';
-    const validateEncryptedPayload = encryptionServiceSource.match(/public function validateEncryptedPayload\(string \$payload\): bool[\s\S]*?public function bulkUpdateEncryptedSecrets/)?.[0] ?? '';
+    const validateEncryptedPayload = encryptionServiceSource.match(/public function validateEncryptedPayload\(string \$payload\)\s*:\s*bool[\s\S]*?public function bulkUpdateEncryptedSecrets/)?.[0] ?? '';
 
     expect(controllerSource).toContain('str_contains($twofaccount->secret ?? \'\', \'ciphertext\')');
     expect(controllerSource).not.toMatch(/decrypt(?:String)?\s*\(/);

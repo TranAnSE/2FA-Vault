@@ -34,12 +34,12 @@
 
         registerForm.post('/user').then(response => {
             user.$patch({
+                id: response.data.id,
                 name: response.data.name,
                 email: response.data.email,
                 preferences: response.data.preferences,
                 isAdmin: response.data.is_admin ?? false,
                 e2ee_required: response.data.e2ee_required ?? false,
-                // TODO : Having the created 'id' in the response could be interesting
             })
             user.applyTheme()
 

@@ -52,12 +52,19 @@ class RegisterControllerTest extends FeatureTestCase
         ])
             ->assertCreated()
             ->assertJsonStructure([
+                // The created id is part of the 201 payload: the SPA hydrates
+                // the user store from the registration response alone (the
+                // register-id debt item, plan 261119-1650 phase 3).
+                'id',
                 'message',
                 'name',
             ])
             ->assertJsonFragment([
                 'name' => self::USERNAME,
             ]);
+
+        $created = User::where('email', self::EMAIL)->firstOrFail();
+        $response->assertJsonFragment(['id' => $created->id]);
 
         $this->assertDatabaseHas('users', [
             'name'  => self::USERNAME,

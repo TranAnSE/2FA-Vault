@@ -37,7 +37,10 @@ test.describe('PWA installability prerequisites', () => {
     // The fetch handler is what makes the SW "control" offline navigations.
     // Lighthouse requires that the SW intercepts the navigation request for /.
     const handledBySw = await page.evaluate(async () => {
-      const cache = await caches.open('app-shell-v1');
+      const keys = await caches.keys();
+      const shellCache = keys.find((k) => k.startsWith('2fa-vault-shell-'));
+      if (!shellCache) return false;
+      const cache = await caches.open(shellCache);
       const resp = await cache.match('/');
       return Boolean(resp);
     });

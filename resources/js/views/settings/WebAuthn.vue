@@ -29,6 +29,70 @@
     const credentials = ref([])
     const isFetching = ref(false)
 
+    // Bulk revoke (plan 261119-1650 phase 5): row-level selection state in
+    // the stores/twofaccounts.js selection idiom (selectedIds + select all /
+    // none), wired to the web-family batch endpoint behind the same confirm
+    // dialog the per-row Revoke uses.
+    const selectedIds = ref([])
+    const isBulkBusy = ref(false)
+    const selectedCount = computed(() => selectedIds.value.length)
+    const allSelected = computed(() => credentials.value.length > 0 && selectedIds.value.length === credentials.value.length)
+
+    function toggleSelect(id) {
+        const index = selectedIds.value.indexOf(id)
+        if (index === -1) {
+            selectedIds.value.push(id)
+        }
+        else {
+            selectedIds.value.splice(index, 1)
+        }
+    }
+
+    function selectAll() {
+        selectedIds.value = credentials.value.map(credential => credential.id)
+    }
+
+    function selectNone() {
+        selectedIds.value = []
+    }
+
+    /**
+     * Revoke every selected device via the batch endpoint. Per-id results
+     * are diffed: revoked rows leave the list, unknown ids surface a
+     * partial-failure notice (family error style).
+     */
+    function revokeSelected() {
+        if (selectedIds.value.length === 0 || isBulkBusy.value) return
+
+        if (!confirm(t('confirmation.revoke_device'))) return
+
+        isBulkBusy.value = true
+
+        userService.bulkRevokeWebauthnDevices(selectedIds.value).then(response => {
+            const deleted = response.data.deleted ?? []
+            const unknown = response.data.unknown ?? []
+
+            credentials.value = credentials.value.filter(credential => !deleted.includes(credential.id))
+            selectedIds.value = selectedIds.value.filter(id => !deleted.includes(id))
+
+            if (unknown.length > 0) {
+                notify.warn({ text: t('notification.bulk_revoke_partial', { unknown: unknown.length }) })
+            }
+            else if (deleted.length > 0) {
+                notify.success({ text: t('notification.device_revoked') })
+            }
+
+            // Same client-side #110 compensation as the per-row revoke.
+            if (credentials.value.length == 0) {
+                user.preferences.useWebauthnOnly = false
+            }
+        })
+        .catch(error => errorHandler.show(error))
+        .finally(() => {
+            isBulkBusy.value = false
+        })
+    }
+
     // PRF unlock (plan 261114-2101, D8): per-row enroll action, fed by the
     // context endpoint. Empty when E2EE is off or SSO-only denies (403) —
     // the PRF UI stays hidden (settings page is still usable).
@@ -250,7 +314,36 @@
                 <!-- credentials list -->
                 <div v-if="credentials.length > 0" class="field">
                     <UseColorMode v-slot="{ mode }">
+                        <!-- bulk revoke toolbar -->
+                        <div class="level mb-2">
+                            <label class="level-left checkbox is-size-6">
+                                <input
+                                    type="checkbox"
+                                    :checked="allSelected"
+                                    :disabled="isDisabled"
+                                    @change="allSelected ? selectNone() : selectAll()"
+                                >
+                                <span class="ml-1">{{ $t('label.select_all_devices') }}</span>
+                            </label>
+                            <button
+                                type="button"
+                                class="button level-right"
+                                :class="[mode === 'dark' ? 'is-dark':'is-white', isBulkBusy ? 'is-loading' : '']"
+                                :disabled="isDisabled || isBulkBusy || selectedCount === 0"
+                                @click="revokeSelected"
+                                :title="$t('tooltip.revoke')"
+                            >
+                                {{ $t('label.revoke_selected', { count: selectedCount }) }}
+                            </button>
+                        </div>
                         <div v-for="credential in credentials" :key="credential.id" class="group-item is-size-5 is-size-6-mobile">
+                            <input
+                                type="checkbox"
+                                class="mr-2"
+                                :checked="selectedIds.includes(credential.id)"
+                                :disabled="isDisabled"
+                                @change="toggleSelect(credential.id)"
+                            >
                             {{ displayName(credential) }}
                             <!-- PRF enroll action / enrolled badge (D8). The badge is a
                                  non-interactive span (review fix) and Refresh re-runs the

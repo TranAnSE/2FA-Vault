@@ -87,14 +87,20 @@ class GroupAssignmentsMigrationTest extends TestCase
 
         $columns = collect(DB::select('SHOW COLUMNS FROM twofaccount_group_assignments'))->keyBy('Field');
 
+        // MariaDB keeps display widths in metadata (int(10)); MySQL >= 8.0.17
+        // drops them. Normalize before comparing — the invariant under test
+        // is the integer FAMILY (INT not BIGINT, errno-3780 guard), not the
+        // display width.
+        $normalizedType = fn (string $type) => preg_replace('/^((?:big)?int)\(\d+\)/', '$1', $type);
+
         foreach (['twofaccount_id', 'group_id'] as $field) {
             $this->assertSame(
                 'int unsigned',
-                $columns[$field]->Type,
+                $normalizedType($columns[$field]->Type),
                 "pivot $field must stay INT unsigned — BIGINT breaks the FK against the legacy INT tables (errno 3780)"
             );
         }
-        $this->assertSame('bigint unsigned', $columns['user_id']->Type);
+        $this->assertSame('bigint unsigned', $normalizedType($columns['user_id']->Type));
     }
 
     /**

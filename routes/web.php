@@ -97,6 +97,11 @@ Route::group(['middleware' => ['behind-auth', 'rejectIfReverseProxy']], function
     Route::get('webauthn/credentials', [WebAuthnManageController::class, 'index'])->name('webauthn.credentials.index');
     Route::patch('webauthn/credentials/{credential}/name', [WebAuthnManageController::class, 'rename'])->name('webauthn.credentials.rename');
     Route::delete('webauthn/credentials/{credential}', [WebAuthnManageController::class, 'delete'])->name('webauthn.credentials.delete');
+    // Bulk revoke (plan 261119-1650 phase 5) — deliberately in the WEB route
+    // family behind session + CSRF: an api.v1/PAT placement would hand
+    // write-scoped PATs a revoke-all-devices capability that does not exist
+    // today (red-team F1).
+    Route::post('webauthn/credentials/bulk-revoke', [WebAuthnManageController::class, 'bulkRevoke'])->name('webauthn.credentials.bulk-revoke');
 });
 
 /**

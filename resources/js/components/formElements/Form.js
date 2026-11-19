@@ -275,7 +275,7 @@ class Form {
     route (name, parameters = {}) {
         let url = name
 
-        if (Form.routes.hasOwnProperty(name)) {
+        if (Object.hasOwn(Form.routes, name)) {
             url = decodeURI(Form.routes[name])
         }
 

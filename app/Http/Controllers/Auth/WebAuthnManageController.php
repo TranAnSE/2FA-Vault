@@ -6,8 +6,10 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\WebauthnRenameRequest;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Log;
+use Laravel\Passkeys\Passkey;
 use Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException;
 
 class WebAuthnManageController extends Controller
@@ -82,9 +84,12 @@ class WebAuthnManageController extends Controller
 
         // Webauthn user options need to be reset to prevent impossible login when
         // no more registered device exists.
-        // See #110
+        // See #110. The `preferences->` json-path assignment persists (the
+        // preferences attribute is accessor-only — a plain key write on the
+        // merged collection never reached save(); exposed by the phase-5
+        // bulk-revoke tests, plan 261119-1650).
         if ($user->passkeys()->doesntExist()) {
-            $user->preferences['useWebauthnOnly'] = false;
+            $user['preferences->useWebauthnOnly'] = false;
             $user->save();
             Log::notice(sprintf('No more Webauthn credential for user ID #%s, useWebauthnOnly user preference reset to false', $user->id));
         }
@@ -95,9 +100,64 @@ class WebAuthnManageController extends Controller
     }
 
     /**
+     * Bulk-revoke security devices (plan 261119-1650 phase 5).
+     *
+     * Web-family (session + CSRF) batch of delete(): ownership is resolved
+     * BEFORE any write so foreign/unknown ids surface in the response as
+     * `unknown` — never a silent no-op (red-team F2) — and the whole batch
+     * commits in one transaction. The #110 side effect is preserved: when
+     * the batch empties the device list, useWebauthnOnly resets to false
+     * (red-team P1-D — dropping it would lock the user out).
+     */
+    public function bulkRevoke(Request $request) : JsonResponse
+    {
+        Log::info('Bulk revocation of security devices requested');
+
+        if (Gate::denies('manage-webauthn-credentials')) {
+            throw new AccessDeniedHttpException(__('error.unsupported_with_sso_only'));
+        }
+
+        /** @var array{ids: list<string>} $validated */
+        $validated = $request->validate([
+            'ids'   => ['required', 'array', 'min:1'],
+            'ids.*' => ['required', 'string', 'max:255'],
+        ]);
+
+        $user = $request->user();
+
+        // Ownership resolved BEFORE any write; results keep the REQUEST
+        // order (DB order would be nondeterministic for the API consumer).
+        $requested = collect($validated['ids'])->unique()->values();
+        $owned     = $user->passkeys()->whereIn('credential_id', $requested)->pluck('credential_id');
+        $deleted   = $requested->filter(fn ($id) => $owned->contains($id))->values();
+        $unknown   = $requested->reject(fn ($id) => $owned->contains($id))->values();
+
+        DB::transaction(function () use ($user, $deleted) {
+            foreach ($deleted as $credentialId) {
+                $user->flushCredential($credentialId);
+            }
+
+            // Same #110 reset as the per-device delete: an emptied device
+            // list must not leave useWebauthnOnly enabled behind.
+            if ($user->passkeys()->doesntExist()) {
+                $user['preferences->useWebauthnOnly'] = false;
+                $user->save();
+                Log::notice(sprintf('No more Webauthn credential for user ID #%s, useWebauthnOnly user preference reset to false', $user->id));
+            }
+        });
+
+        Log::info(sprintf('User ID #%s bulk-revoked %d security device(s)', $user->id, $deleted->count()));
+
+        return response()->json([
+            'deleted' => $deleted->all(),
+            'unknown' => $unknown->all(),
+        ], 200);
+    }
+
+    /**
      * The SPA-compatible credential representation (C7 mapping).
      */
-    protected function present($passkey) : array
+    protected function present(Passkey $passkey) : array
     {
         return [
             'id'           => $passkey->credential_id,

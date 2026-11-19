@@ -17,7 +17,7 @@
      * @param {string} str 
      */
     function isUrl(str) {
-        var strRegex = /^(?:http(s)?:\/\/)?[\w.-]+(?:\.[\w\.-]+)+[\w\-\._~:/?#[\]@!\$&'\(\)\*\+,;=.]+$/
+        var strRegex = /^(?:http(s)?:\/\/)?[\w.-]+(?:\.[\w.-]+)+[\w\-._~:/?#[\]@!$&'()*+,;=.]+$/
         var re = new RegExp(strRegex)
 
         return re.test(str)
