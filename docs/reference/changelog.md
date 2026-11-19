@@ -5,6 +5,28 @@ All notable changes to 2FA-Vault will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.8.0] - 2026-11-20
+
+### Added
+
+**🗑️ Bulk Revoke for Security Devices**
+- Multi-select revocation in Settings → Security devices: per-row checkboxes, select-all, and a single confirmed "Revoke selected" action (plan 261119-1650 phase 5)
+- New web-family batch endpoint `POST /webauthn/credentials/bulk-revoke` behind session + CSRF (deliberately NOT api.v1/PAT-reachable: a bulk delete there would grant write-PATs a revoke-all-devices capability that does not exist today)
+- Per-id result semantics: foreign/unknown ids surface as `unknown` instead of silent no-ops; partial failures show which devices were skipped; all-or-nothing transaction
+- Revoking the LAST device resets the _WebAuthn only_ preference on both the bulk and per-device paths (the per-device reset previously never persisted — see Fixed); translated into all 22 locales; user docs updated
+
+### Security
+
+- `isPublicRemoteUrl` (SSRF guard): IP-like hosts that are not valid public decimal IPv4 (octal/hex/padded shorthand such as `0177.0.0.01`) are now rejected deterministically instead of falling through to a resolver-dependent DNS lookup — browsers resolve such hosts as loopback, an SSRF confusion class (this also un-reds master CI, which had been failing on this since v1.7.0 on runners whose resolver answered those names)
+
+### Fixed
+
+- **WebAuthn-only lockout guard never persisted (#110)**: the per-device revoke's `useWebauthnOnly = false` reset wrote the merged preferences collection (accessor-only attribute), so `save()` persisted nothing — a webauthn-only user who revoked their last device stayed locked out. Both the per-device and the new bulk path now persist via the `preferences->` JSON-path assignment, with a revoke-all test pinning it
+- **Register response carries the created user `id`**: the 201 payload now includes `id` and the SPA store hydrates it (the store id stayed undefined on registration-fresh sessions); feature test extended
+- **e2e E2EE fixture pair regenerated**: the pinned envelopes were never valid (no password ever matched — 272-combination Argon2 matrix); a committed generator (`tests/e2e/helpers/regen-e2ee-vault.mjs`, fixed-IV byte-identical determinism) now produces them, and the PWA offline + extension popup suites run green on the regenerated fixtures
+- **PRF stale-writer guards proven under real row locks**: a MySQL-only concurrency suite drives the enroll/rewrap ceremonies with a second connection rotating the salt at the users-row lock; the full backend suite now also runs on MySQL in CI (non-blocking burn-in job)
+- eslint debt cleared (13 errors → 0); e2e harness throttle bugs fixed (`LOGIN_THROTTLE` var name, tunable master-password-verify limiter); changelog backlog honestly relabeled (recovery codes / health scoring / breach monitoring moved under 1.6.0, CLI block labeled 2FA-Vault-CLI v0.3.0)
+
 ## [1.7.0] - 2026-11-17
 
 ### Added
