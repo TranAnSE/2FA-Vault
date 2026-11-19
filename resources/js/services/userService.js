@@ -38,12 +38,22 @@ export default {
     /**
      * Revoke a webauthn device
      * 
-     * @param {string} name 
+     * @param {string} credentialId 
      * @param {any} value 
      * @returns promise
      */
     revokeWebauthnDevice(credentialId, config = {}) {
         return webClient.delete('/webauthn/credentials/' + credentialId, { ...config })
+    },
+
+    /**
+     * Bulk-revoke webauthn devices (plan 261119-1650 phase 5).
+     * 
+     * @param {string[]} ids credential ids to revoke
+     * @returns promise
+     */
+    bulkRevokeWebauthnDevices(ids, config = {}) {
+        return webClient.post('/webauthn/credentials/bulk-revoke', { ids }, { ...config })
     },
 
     /**
