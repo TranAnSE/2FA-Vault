@@ -51,6 +51,69 @@ jobs:
       - name: Run backend CI gate
         run: composer run ci:backend
 
+  backend-tests-mysql:
+    name: Backend Tests (MySQL)
+    runs-on: ubuntu-latest
+    # Burn-in mode (D1): non-blocking until the suite proves itself on the
+    # branch. The flip to a REQUIRED check is owned by the release wrap-up
+    # phase — "green on master" is never satisfied by a non-blocking check.
+    continue-on-error: true
+
+    services:
+      mysql:
+        image: mariadb:10.11
+        env:
+          MARIADB_ROOT_PASSWORD: root
+          MARIADB_DATABASE: 2fauth_test
+          MARIADB_USER: travis
+          MARIADB_PASSWORD: travis
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mariadb-admin ping -h 127.0.0.1 -proot"
+          --health-interval=5s
+          --health-timeout=5s
+          --health-retries=20
+
+    env:
+      DB_HOST: 127.0.0.1
+      DB_PORT: '3306'
+      DB_DATABASE: 2fauth_test
+      DB_USERNAME: travis
+      DB_PASSWORD: travis
+      MYSQL_CONCURRENCY_TEST: '1'
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v5
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.4'
+          # pdo_mysql appended to the backend-tests list: the MySQL suite
+          # (strict mode + real InnoDB locks) needs the native driver.
+          extensions: bcmath, ctype, dom, fileinfo, gd, json, mbstring, openssl, tokenizer, xml, pdo_sqlite, pdo_mysql
+          coverage: none
+
+      - name: Copy environment file
+        run: cp .env.testing .env
+
+      - name: Install Composer dependencies
+        run: composer install --no-interaction --prefer-dist
+
+      - name: Prepare Laravel bootstrap directories
+        run: mkdir -p bootstrap/cache storage/framework/{cache,sessions,views} storage/logs
+
+      - name: Generate application key
+        run: php artisan key:generate
+
+      # The exported env above WINS over phpunit-mysql.xml's <env> defaults:
+      # PHPUnit fills unset variables only, so DB_* / MYSQL_CONCURRENCY_TEST
+      # must be exported at job level to reach the suite.
+      - name: Run backend CI gate (MySQL)
+        run: composer run test-mysql
+
   backend-coverage:
     name: Backend Coverage (report only)
     runs-on: ubuntu-latest

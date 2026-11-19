@@ -21,23 +21,25 @@ class TeamActivityLoggerTest extends TestCase
     use RefreshDatabase;
 
     private TeamActivityLogger $logger;
+
     private Team $team;
+
     private User $actor;
 
-    protected function setUp(): void
+    protected function setUp() : void
     {
         parent::setUp();
 
-        $this->logger = new TeamActivityLogger();
-        $this->actor = User::factory()->create();
-        $this->team = Team::factory()->create(['owner_id' => $this->actor->id]);
+        $this->logger = new TeamActivityLogger;
+        $this->actor  = User::factory()->create();
+        $this->team   = Team::factory()->create(['owner_id' => $this->actor->id]);
         $this->team->users()->attach($this->actor->id, ['role' => 'owner', 'joined_at' => now()]);
     }
 
     /**
      * Test log creates entry with correct action.
      */
-    public function test_log_creates_entry_with_correct_action(): void
+    public function test_log_creates_entry_with_correct_action() : void
     {
         $this->logger->log($this->team, $this->actor, TeamAction::TEAM_CREATED);
 
@@ -51,7 +53,7 @@ class TeamActivityLoggerTest extends TestCase
     /**
      * Test log stores metadata as JSON.
      */
-    public function test_log_stores_metadata_json(): void
+    public function test_log_stores_metadata_json() : void
     {
         $metadata = ['old_name' => 'Alpha', 'new_name' => 'Beta'];
 
@@ -65,7 +67,7 @@ class TeamActivityLoggerTest extends TestCase
     /**
      * Test log records correct user and team IDs.
      */
-    public function test_log_records_user_and_team_id(): void
+    public function test_log_records_user_and_team_id() : void
     {
         $this->logger->log($this->team, $this->actor, TeamAction::MEMBER_LEFT);
 
@@ -77,9 +79,9 @@ class TeamActivityLoggerTest extends TestCase
     /**
      * Test log stores target user and target account.
      */
-    public function test_log_stores_target_user_and_account(): void
+    public function test_log_stores_target_user_and_account() : void
     {
-        $targetUser = User::factory()->create();
+        $targetUser    = User::factory()->create();
         $targetAccount = TwoFAccount::factory()->create(['user_id' => $this->actor->id]);
 
         $this->logger->log(
@@ -99,7 +101,7 @@ class TeamActivityLoggerTest extends TestCase
     /**
      * Test all TeamAction enum cases produce valid entries.
      */
-    public function test_all_team_action_enum_cases_produce_valid_entries(): void
+    public function test_all_team_action_enum_cases_produce_valid_entries() : void
     {
         foreach (TeamAction::cases() as $action) {
             $this->logger->log($this->team, $this->actor, $action);
@@ -116,11 +118,11 @@ class TeamActivityLoggerTest extends TestCase
     /**
      * Test log failure does not throw exception (fire-and-forget).
      */
-    public function test_log_failure_does_not_throw(): void
+    public function test_log_failure_does_not_throw() : void
     {
         // Create a team with a non-existent ID to force a constraint violation
-        $phantomTeam = new Team();
-        $phantomTeam->id = 999999;
+        $phantomTeam         = new Team;
+        $phantomTeam->id     = 999999;
         $phantomTeam->exists = false;
 
         // Should NOT throw — logger swallows failures silently
@@ -133,27 +135,32 @@ class TeamActivityLoggerTest extends TestCase
     /**
      * Test activity logs are sorted by created_at descending via relationship.
      */
-    public function test_activity_logs_sorted_by_created_at_desc(): void
+    public function test_activity_logs_sorted_by_created_at_desc() : void
     {
-        // Create entries with explicit created_at to control ordering
-        TeamActivityLog::create([
-            'team_id'    => $this->team->id,
-            'user_id'    => $this->actor->id,
-            'action'     => 'team.created',
-            'created_at' => now()->subDays(2),
+        // Control created_at ordering via the query builder: the column is
+        // deliberately NOT fillable (useCurrent default owns it), so
+        // ::create() would silently drop it — the three rows would tie on
+        // CURRENT_TIMESTAMP and the DESC tie-break is engine-defined
+        // (exposed by the MySQL suite, plan 261119-1650 phase 1).
+        $first = TeamActivityLog::create([
+            'team_id' => $this->team->id,
+            'user_id' => $this->actor->id,
+            'action'  => 'team.created',
         ]);
-        TeamActivityLog::create([
-            'team_id'    => $this->team->id,
-            'user_id'    => $this->actor->id,
-            'action'     => 'member.joined',
-            'created_at' => now()->subDay(),
+        $second = TeamActivityLog::create([
+            'team_id' => $this->team->id,
+            'user_id' => $this->actor->id,
+            'action'  => 'member.joined',
         ]);
-        TeamActivityLog::create([
-            'team_id'    => $this->team->id,
-            'user_id'    => $this->actor->id,
-            'action'     => 'account.shared',
-            'created_at' => now(),
+        $third = TeamActivityLog::create([
+            'team_id' => $this->team->id,
+            'user_id' => $this->actor->id,
+            'action'  => 'account.shared',
         ]);
+
+        TeamActivityLog::whereKey($first->id)->update(['created_at' => now()->subDays(2)]);
+        TeamActivityLog::whereKey($second->id)->update(['created_at' => now()->subDay()]);
+        TeamActivityLog::whereKey($third->id)->update(['created_at' => now()]);
 
         $logs = $this->team->activityLogs()->orderBy('created_at', 'desc')->get();
 
@@ -165,10 +172,10 @@ class TeamActivityLoggerTest extends TestCase
     /**
      * Test get activity logs returns entries for the team only.
      */
-    public function test_get_activity_logs_returns_team_entries_only(): void
+    public function test_get_activity_logs_returns_team_entries_only() : void
     {
         $otherOwner = User::factory()->create();
-        $otherTeam = Team::factory()->create(['owner_id' => $otherOwner->id]);
+        $otherTeam  = Team::factory()->create(['owner_id' => $otherOwner->id]);
         $otherTeam->users()->attach($otherOwner->id, ['role' => 'owner', 'joined_at' => now()]);
 
         // Log for both teams
