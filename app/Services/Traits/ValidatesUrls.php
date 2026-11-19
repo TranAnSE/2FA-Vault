@@ -28,13 +28,20 @@ trait ValidatesUrls
             return $this->isPublicIp($normalizedHost);
         }
 
-        // IP-LIKE but not a valid public decimal IPv4 (octal/hex/padded
-        // shorthand such as 0177.0.0.01): browsers resolve these as loopback
+        // IP-LIKE but not a valid IP literal: hosts whose every label is a
+        // decimal or hex number (octal/padded dotted-quad such as
+        // 0177.0.0.01 — note the 4-digit octet defeats \d{1,3} — single
+        // integer encodings such as 2130706433, and hex shorthands such as
+        // 0x7f.0x0.0x0.0x1). Browsers parse all of these as IPv4 addresses
         // while the DNS lookup below resolves them per the resolver's own
-        // parsing — an SSRF confusion class, and the reason the unit test
-        // only passed on resolvers that NXDOMAIN such names. Reject outright;
-        // never fall through to DNS for IP-like hosts.
-        if (preg_match('/^\d{1,3}(\.\d{1,3}){3}$/', $normalizedHost)) {
+        // parsing — an SSRF confusion class, and the reason these unit tests
+        // only passed on resolvers that NXDOMAIN such names (observed as a
+        // flake when a runner's search-domain wildcard resolved one to a
+        // public IP). Reject outright; never fall through to DNS for
+        // number-only hosts. No legitimate public hostname qualifies: real
+        // TLDs always contain letters, and labels carrying any letter other
+        // than the hex x fail this pattern (punycode's xn-- included).
+        if (preg_match('/^(?:\d+|0[xX][0-9a-fA-F]+)(?:\.(?:\d+|0[xX][0-9a-fA-F]+))*$/', $normalizedHost)) {
             return false;
         }
 
