@@ -339,7 +339,11 @@ class GroupControllerTest extends FeatureTestCase
     #[Test]
     public function test_update_with_unchanged_name_returns_updated_group_resource()
     {
-        $group = Group::factory()->for($this->user)->create();
+        // Fixed name: this unchanged-name regression must not depend on the
+        // factory's random faker word (this test flaked rarely in CI with
+        // random names — docker once, coverage once — while plain runs were
+        // always green; the only per-run variable was the name value).
+        $group = Group::factory()->for($this->user)->create(['name' => 'Banking']);
 
         Passport::actingAs($this->user, ['legacy_full_access'], 'api-guard');
         $this
