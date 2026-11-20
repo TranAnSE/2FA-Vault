@@ -5,6 +5,17 @@ All notable changes to 2FA-Vault will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.8.1] - 2026-11-20
+
+### Security
+
+- **Dependency patches (Security-audit job green for the first time since v1.7.0)**: `laravel/framework` v13.35.0 → v13.43.0 (CVE-2026-128083 / GHSA-63hm-g96r-2m2q, low — task-output injection via the Concurrency process; patched in 13.40.0) and `phpseclib` 3.0.57 → 3.0.58 (GHSA-w3p9-g4p2-h3rr — unbounded PBKDF iteration count in encrypted key/PFX/CMS parsing, CPU-exhaustion DoS). Surgical lock diff, no transitive drift; full suite green on the bumped framework
+- **SSRF rule closed for bare-`0x` labels**: the hex alternative in the number-only-host rejection required at least one hex digit, so hosts like `0x.1` fell through to the resolver-dependent DNS path; now zero-or-more, with a pinned test case (`0x.1` rejected deterministically)
+
+### Fixed
+
+- The v1.8.0 release notes described the MySQL CI job as a "non-blocking burn-in job"; it shipped merge-blocking (the v1.8.0 release flip). Reworded; `Backend Tests (MySQL)` is now also a formal required status check on `master` branch protection alongside the other five CI jobs
+
 ## [1.8.0] - 2026-11-20
 
 ### Added
